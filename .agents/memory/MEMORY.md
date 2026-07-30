@@ -1,0 +1,1 @@
+- [AXON architecture](axon-architecture.md) — full-stack setup: Vite+React (5000) + Express API (3001) run via concurrently; Supabase for auth/DB; demo mode fallback when env vars absent
