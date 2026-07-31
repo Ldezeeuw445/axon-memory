@@ -226,7 +226,7 @@ export default function DataSources() {
         </p>
       </header>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+      <div className="source-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
         {DATA_SOURCES.map(source => {
           const conn = connected[source.id];
           const isConnected = conn?.status === 'connected';

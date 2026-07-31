@@ -248,7 +248,7 @@ export default function AIAdapters() {
         </p>
       </header>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
+      <div className="adapter-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>
         {AI_PROVIDERS.map(provider => (
           <ProviderCard
             key={provider.id}

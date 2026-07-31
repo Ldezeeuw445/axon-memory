@@ -105,7 +105,7 @@ export default function Subscription() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', maxWidth: '760px' }}>
+      <div className="pricing-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px', maxWidth: '760px' }}>
         {/* Free Plan */}
         <div className="glass-card" style={{ position: 'relative' }}>
           {currentPlan === 'free' && (

@@ -20,7 +20,7 @@ const DEMO_STATS = {
 
 function StatCard({ title, value, icon, gradient, desc }) {
   return (
-    <div className="glass-card" style={{ flex: '1 1 200px', minWidth: '180px' }}>
+    <div className="glass-card" style={{ flex: '1 1 160px', minWidth: '0' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
         <span style={{ color: 'var(--color-text-secondary)', fontSize: '13px', fontWeight: 600 }}>{title}</span>
         <span style={{ color: 'var(--color-neon-cyan)', opacity: 0.7 }}>{icon}</span>
@@ -107,13 +107,13 @@ export default function Dashboard() {
       )}
 
       {loading ? (
-        <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginBottom: '32px' }}>
+        <div className="stat-grid" style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '24px' }}>
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="glass-card" style={{ flex: '1 1 200px', minWidth: '180px', height: '110px', animation: 'pulse 1.5s infinite' }} />
+            <div key={i} className="glass-card" style={{ flex: '1 1 160px', minWidth: '140px', height: '100px', animation: 'pulse 1.5s infinite' }} />
           ))}
         </div>
       ) : (
-        <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginBottom: '32px' }}>
+        <div className="stat-grid" style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '24px' }}>
           <StatCard title="Memory Nodes" value={stats.memoryNodes.toLocaleString()} icon={<Network size={18} />} desc="Stored context entries" />
           <StatCard title="Active Adapters" value={stats.activeAdapters} icon={<Plug size={18} />} desc="Connected AI tools" />
           <StatCard title="Tokens Saved" value={stats.tokensSaved} icon={<Cpu size={18} />} gradient desc={`Optimized context — ~${stats.tokenValue} saved`} />
