@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import stripeRouter from './routes/stripe.js';
 import adaptersRouter from './routes/adapters.js';
+import sourcesRouter from './routes/sources.js';
 
 const app = express();
 const PORT = parseInt(process.env.SERVER_PORT || '3001', 10);
@@ -15,6 +16,7 @@ app.use(express.json({ limit: '10mb' }));
 app.get('/api/health', (_req, res) => res.json({ ok: true, ts: Date.now() }));
 app.use('/api/stripe', stripeRouter);
 app.use('/api/adapters', adaptersRouter);
+app.use('/api/sources', sourcesRouter);
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🧠 AXON API server running on port ${PORT}`);

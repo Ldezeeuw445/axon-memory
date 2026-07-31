@@ -1,288 +1,271 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, XCircle, AlertCircle, Plug, Loader, Trash2, Eye, EyeOff } from 'lucide-react';
+import { CheckCircle, XCircle, Loader, Trash2, Eye, EyeOff, ExternalLink, ChevronRight, Zap } from 'lucide-react';
 import Modal from '../components/Modal';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { AI_PROVIDERS } from '../lib/logos';
 
-const PROVIDERS = [
-  {
-    id: 'openai',
-    name: 'OpenAI',
-    description: 'GPT-4o, o1, DALL·E and all OpenAI models',
-    placeholder: 'sk-proj-...',
-    docsUrl: 'https://platform.openai.com/api-keys',
-    color: '#10a37f',
-    logo: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
-        <path d="M22.28 9.82a5.98 5.98 0 0 0-.52-4.91 6.05 6.05 0 0 0-6.51-2.9A6.07 6.07 0 0 0 4.98 4.18a5.98 5.98 0 0 0-3.99 2.9 6.05 6.05 0 0 0 .74 7.1 5.98 5.98 0 0 0 .51 4.91 6.05 6.05 0 0 0 6.51 2.9A5.98 5.98 0 0 0 13.26 24a6.06 6.06 0 0 0 5.77-4.21 5.99 5.99 0 0 0 3.99-2.9 6.06 6.06 0 0 0-.74-7.07zm-9.02 12.61a4.48 4.48 0 0 1-2.88-1.04l.14-.08 4.78-2.76a.79.79 0 0 0 .39-.68V11.4l2.02 1.17a.07.07 0 0 1 .04.05v5.58a4.5 4.5 0 0 1-4.49 4.23zm-9.66-4.12a4.47 4.47 0 0 1-.53-3.01l.14.08 4.78 2.76a.78.78 0 0 0 .78 0l5.84-3.37v2.33a.08.08 0 0 1-.03.06L9.74 19.9a4.5 4.5 0 0 1-6.14-1.59zM2.34 7.9A4.48 4.48 0 0 1 4.7 5.93v5.7a.77.77 0 0 0 .39.68l5.81 3.35-2.02 1.17a.08.08 0 0 1-.07 0L3.61 14.1A4.5 4.5 0 0 1 2.34 7.9zm16.1 3.86L12.6 8.38V6.05a.07.07 0 0 1 .03-.06l4.83-2.79a4.5 4.5 0 0 1 6.68 4.66 4.48 4.48 0 0 1-.54 1.97l-4.79-2.75a.77.77 0 0 0-.77 0zm2.01-3.01l-.14-.09-4.78-2.76a.77.77 0 0 0-.78 0L9.11 9.28V6.95a.08.08 0 0 1 .03-.06L14 4.1a4.5 4.5 0 0 1 6.14 1.58 4.47 4.47 0 0 1 .3 3.07zM8.3 12.86l-2.02-1.17a.07.07 0 0 1-.04-.05V6.08a4.5 4.5 0 0 1 7.37-3.45l-.14.08-4.78 2.76a.79.79 0 0 0-.39.68v6.71zm1.1-2.36l2.6-1.5 2.6 1.5v2.99l-2.6 1.5-2.6-1.5V10.5z"/>
-      </svg>
-    ),
-  },
-  {
-    id: 'anthropic',
-    name: 'Claude (Anthropic)',
-    description: 'Claude 3.5 Sonnet, Haiku and Opus',
-    placeholder: 'sk-ant-api03-...',
-    docsUrl: 'https://console.anthropic.com/settings/keys',
-    color: '#d97706',
-    logo: <span style={{ fontSize: '20px', fontWeight: 800, color: 'white' }}>Cl</span>,
-  },
-  {
-    id: 'gemini',
-    name: 'Google Gemini',
-    description: 'Gemini 1.5 Pro, Flash and Nano',
-    placeholder: 'AIzaSy...',
-    docsUrl: 'https://aistudio.google.com/app/apikey',
-    color: '#4285F4',
-    logo: (
-      <svg width="24" height="24" viewBox="0 0 192 192" fill="none">
-        <path d="M96 14.4C51.1 14.4 14.4 51.1 14.4 96s36.7 81.6 81.6 81.6 81.6-36.7 81.6-81.6S140.9 14.4 96 14.4zm0 151.2C55.7 165.6 26.4 136.3 26.4 96S55.7 26.4 96 26.4s69.6 29.3 69.6 69.6-29.3 69.6-69.6 69.6z" fill="white" opacity=".3"/>
-        <path d="M96 48L48 96l48 48 48-48-48-48z" fill="white"/>
-      </svg>
-    ),
-  },
-  {
-    id: 'perplexity',
-    name: 'Perplexity',
-    description: 'Sonar models with real-time web search',
-    placeholder: 'pplx-...',
-    docsUrl: 'https://www.perplexity.ai/settings/api',
-    color: '#20b2aa',
-    logo: <span style={{ fontSize: '20px', fontWeight: 800, color: 'white' }}>Px</span>,
-  },
-  {
-    id: 'cursor',
-    name: 'Cursor',
-    description: 'Inject AXON memory into Cursor IDE context',
-    placeholder: 'sk-...',
-    docsUrl: 'https://cursor.sh',
-    color: '#6366f1',
-    logo: <span style={{ fontSize: '20px', fontWeight: 800, color: 'white' }}>↑</span>,
-  },
-];
+const STORAGE_KEY = 'axon_adapters_demo';
 
-const STATUS_ICON = {
-  connected: <CheckCircle size={16} color="#25c2a0" />,
-  error: <XCircle size={16} color="#ff6b6b" />,
-  testing: <Loader size={16} color="var(--color-neon-cyan)" style={{ animation: 'spin 1s linear infinite' }} />,
-  disconnected: null,
-};
-
-const STATUS_LABEL = {
-  connected: 'Connected',
-  error: 'Error',
-  testing: 'Testing...',
-  disconnected: 'Not connected',
-};
-
-function useAdapterStorage(user, isDemo) {
-  const STORAGE_KEY = 'axon_adapters_demo';
-
-  const save = async (providerId, encryptedKey, status) => {
+function useStorage(user, isDemo) {
+  const save = async (id, key, status, meta = {}) => {
     if (!isSupabaseConfigured || isDemo) {
-      const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-      existing[providerId] = { status, hasKey: true };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
+      const s = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      s[id] = { status, hasKey: true, ...meta };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
       return;
     }
-    await supabase.from('ai_adapter_connections').upsert({
-      user_id: user.id,
-      provider: providerId,
-      encrypted_api_key: encryptedKey,
-      status,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id,provider' });
+    await supabase.from('ai_adapter_connections').upsert(
+      { user_id: user.id, provider: id, encrypted_api_key: key, status, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id,provider' }
+    );
   };
-
-  const remove = async (providerId) => {
+  const remove = async (id) => {
     if (!isSupabaseConfigured || isDemo) {
-      const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-      delete existing[providerId];
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
+      const s = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      delete s[id]; localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
       return;
     }
-    await supabase.from('ai_adapter_connections').delete().eq('user_id', user.id).eq('provider', providerId);
+    await supabase.from('ai_adapter_connections').delete().eq('user_id', user.id).eq('provider', id);
   };
-
   const load = async () => {
-    if (!isSupabaseConfigured || isDemo) {
-      return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-    }
+    if (!isSupabaseConfigured || isDemo) return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
     const { data } = await supabase.from('ai_adapter_connections').select('provider, status').eq('user_id', user.id);
     return Object.fromEntries((data || []).map(r => [r.provider, { status: r.status, hasKey: true }]));
   };
-
   return { save, remove, load };
 }
 
-export default function AIAdapters() {
-  const { user, isDemo } = useAuth();
-  const storage = useAdapterStorage(user, isDemo);
-  const [statuses, setStatuses] = useState({});
-  const [modalOpen, setModalOpen] = useState(false);
-  const [activeProvider, setActiveProvider] = useState(null);
+function ProviderCard({ provider, status, onConnect, onDisconnect }) {
+  const { Logo, name, tagline, bg, color } = provider;
+  const isConnected = status === 'connected';
+  const isError = status === 'error';
+
+  return (
+    <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: 0, padding: 0, overflow: 'hidden' }}>
+      {/* Header */}
+      <div style={{ background: bg, padding: '20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
+        <div style={{ width: 48, height: 48, background: 'rgba(255,255,255,0.15)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Logo size={28} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>{name}</div>
+          <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 2 }}>{tagline}</div>
+        </div>
+        {/* Status badge */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px',
+          borderRadius: 20, fontSize: 11, fontWeight: 700,
+          background: isConnected ? 'rgba(37,194,160,0.25)' : isError ? 'rgba(255,80,80,0.25)' : 'rgba(0,0,0,0.3)',
+          color: isConnected ? '#25c2a0' : isError ? '#ff6b6b' : 'rgba(255,255,255,0.6)',
+        }}>
+          {isConnected ? <><CheckCircle size={11} /> Connected</> : isError ? <><XCircle size={11} /> Error</> : <span style={{ opacity: 0.7 }}>Not connected</span>}
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div style={{ padding: '14px 16px', display: 'flex', gap: 8 }}>
+        {isConnected ? (
+          <>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#25c2a0' }}>
+              <Zap size={14} /> Memory context active
+            </div>
+            <button onClick={() => onDisconnect(provider.id)}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 8, border: '1px solid rgba(255,80,80,0.25)', background: 'rgba(255,80,80,0.07)', color: '#ff6b6b', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+              <Trash2 size={13} /> Disconnect
+            </button>
+          </>
+        ) : (
+          <button onClick={() => onConnect(provider)}
+            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '10px', borderRadius: 8, border: `1px solid ${color}40`, background: `${color}15`, color, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
+            {isError ? 'Reconnect' : 'Connect'} <ChevronRight size={15} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ConnectModal({ provider, isOpen, onClose, onSuccess }) {
   const [apiKey, setApiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
-  const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState(null);
+  const [step, setStep] = useState('guide'); // 'guide' | 'input' | 'testing' | 'success' | 'error'
+  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
-    storage.load().then(setStatuses);
-  }, []);
+    if (isOpen) { setApiKey(''); setStep('guide'); setErrorMsg(''); setShowKey(false); }
+  }, [isOpen]);
 
-  const openConnect = (provider) => {
-    setActiveProvider(provider);
-    setApiKey('');
-    setTestResult(null);
-    setShowKey(false);
-    setModalOpen(true);
-  };
+  if (!provider) return null;
+  const { Logo, name, bg, color, guide, docsUrl, docsLabel, tokenPlaceholder, placeholder } = provider;
+  const ph = placeholder || tokenPlaceholder || 'Enter your API key...';
 
-  const handleConnect = async () => {
+  const handleTest = async () => {
     if (!apiKey.trim()) return;
-    setTesting(true);
-    setTestResult(null);
-
+    setStep('testing');
     try {
       const res = await fetch('/api/adapters/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider: activeProvider.id, apiKey: apiKey.trim() }),
+        body: JSON.stringify({ provider: provider.id, apiKey: apiKey.trim() }),
       });
       const data = await res.json();
-
       if (data.valid) {
-        await storage.save(activeProvider.id, apiKey.trim(), 'connected');
-        setStatuses(prev => ({ ...prev, [activeProvider.id]: { status: 'connected', hasKey: true } }));
-        setTestResult({ ok: true, message: 'Connected successfully!' });
-        setTimeout(() => setModalOpen(false), 1200);
+        setStep('success');
+        setTimeout(() => { onSuccess(provider.id, apiKey.trim(), 'connected'); onClose(); }, 1400);
       } else {
-        setTestResult({ ok: false, message: data.message || 'Connection failed' });
-        await storage.save(activeProvider.id, '', 'error');
-        setStatuses(prev => ({ ...prev, [activeProvider.id]: { status: 'error', hasKey: false } }));
+        setErrorMsg(data.message || 'Connection failed');
+        setStep('error');
       }
-    } catch (err) {
-      // Backend might not be running
-      setTestResult({ ok: false, message: `Cannot reach AXON server: ${err.message}. Make sure the backend is running.` });
-    } finally {
-      setTesting(false);
+    } catch {
+      setErrorMsg('Cannot reach AXON server — make sure the backend is running.');
+      setStep('error');
     }
   };
 
-  const handleDisconnect = async (providerId) => {
-    await storage.remove(providerId);
-    setStatuses(prev => { const n = { ...prev }; delete n[providerId]; return n; });
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="" width="520px">
+      {/* Branded header */}
+      <div style={{ background: bg, borderRadius: 10, padding: '20px', display: 'flex', alignItems: 'center', gap: 14, margin: '-20px -20px 20px', borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }}>
+        <div style={{ width: 44, height: 44, background: 'rgba(255,255,255,0.15)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Logo size={26} />
+        </div>
+        <div>
+          <div style={{ color: '#fff', fontWeight: 800, fontSize: 18 }}>Connect {name}</div>
+          <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>Secure API key connection</div>
+        </div>
+      </div>
+
+      {step === 'guide' && (
+        <>
+          <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 16, lineHeight: 1.6 }}>
+            Follow these steps to get your API key:
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+            {guide.map((step, i) => (
+              <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <div style={{ width: 22, height: 22, borderRadius: '50%', background: `${color}25`, color, fontWeight: 700, fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>{i+1}</div>
+                <span style={{ fontSize: 13, color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>{step}</span>
+              </div>
+            ))}
+          </div>
+          <a href={docsUrl} target="_blank" rel="noreferrer"
+            style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color, marginBottom: 20, textDecoration: 'none' }}>
+            <ExternalLink size={12} /> {docsLabel}
+          </a>
+          <button onClick={() => setStep('input')} className="btn-primary" style={{ width: '100%' }}>
+            I have my key → Enter it
+          </button>
+        </>
+      )}
+
+      {(step === 'input' || step === 'error') && (
+        <>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)', display: 'block', marginBottom: 6 }}>
+              API KEY
+            </label>
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showKey ? 'text' : 'password'}
+                value={apiKey}
+                onChange={e => setApiKey(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && apiKey.trim() && handleTest()}
+                placeholder={ph}
+                autoFocus
+                style={{ width: '100%', padding: '11px 40px 11px 12px', background: 'rgba(255,255,255,0.05)', border: `1px solid ${step === 'error' ? '#ff6b6b50' : 'var(--color-border)'}`, borderRadius: 9, color: 'var(--color-text-primary)', fontSize: 13, fontFamily: 'monospace', outline: 'none', boxSizing: 'border-box' }} />
+              <button onClick={() => setShowKey(!showKey)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-secondary)' }}>
+                {showKey ? <EyeOff size={14}/> : <Eye size={14}/>}
+              </button>
+            </div>
+          </div>
+          {step === 'error' && (
+            <div style={{ display: 'flex', gap: 8, padding: '10px 12px', borderRadius: 8, background: 'rgba(255,80,80,0.1)', border: '1px solid rgba(255,80,80,0.25)', marginBottom: 14, fontSize: 13, color: '#ff6b6b' }}>
+              <XCircle size={15} style={{ flexShrink: 0, marginTop: 1 }} /> {errorMsg}
+            </div>
+          )}
+          <p style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginBottom: 16, lineHeight: 1.5 }}>
+            🔒 Your key is sent to AXON's server for verification only, then stored encrypted. Never shared.
+          </p>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => setStep('guide')} className="btn-secondary" style={{ flex: 1 }}>← Guide</button>
+            <button onClick={handleTest} disabled={!apiKey.trim()} className="btn-primary" style={{ flex: 2 }}>
+              Test & Connect
+            </button>
+          </div>
+        </>
+      )}
+
+      {step === 'testing' && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '24px 0' }}>
+          <Loader size={36} color={color} style={{ animation: 'spin 1s linear infinite' }} />
+          <p style={{ fontWeight: 600 }}>Verifying your API key…</p>
+          <p style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>Making a test call to {name}</p>
+        </div>
+      )}
+
+      {step === 'success' && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: '24px 0' }}>
+          <CheckCircle size={48} color="#25c2a0" />
+          <p style={{ fontWeight: 700, fontSize: 18 }}>Connected!</p>
+          <p style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>AXON will now inject memory into your {name} conversations.</p>
+        </div>
+      )}
+
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+    </Modal>
+  );
+}
+
+export default function AIAdapters() {
+  const { user, isDemo } = useAuth();
+  const storage = useStorage(user, isDemo);
+  const [statuses, setStatuses] = useState({});
+  const [modal, setModal] = useState(null); // provider object
+
+  useEffect(() => { storage.load().then(setStatuses); }, []);
+
+  const handleDisconnect = async (id) => {
+    await storage.remove(id);
+    setStatuses(p => { const n = { ...p }; delete n[id]; return n; });
   };
+
+  const handleSuccess = async (id, key, status) => {
+    await storage.save(id, key, status);
+    setStatuses(p => ({ ...p, [id]: { status, hasKey: true } }));
+  };
+
+  const connectedCount = Object.values(statuses).filter(s => s.status === 'connected').length;
 
   return (
     <div className="page-container">
       <header className="page-header">
         <h1 className="page-title">AI Adapters</h1>
-        <p className="page-subtitle">Connect your AI tools so AXON can inject memory context into every conversation.</p>
+        <p className="page-subtitle">
+          {connectedCount > 0
+            ? `${connectedCount} adapter${connectedCount > 1 ? 's' : ''} active — AXON memory is being injected.`
+            : 'Connect your AI tools so AXON injects memory context into every conversation.'}
+        </p>
       </header>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
-        {PROVIDERS.map(provider => {
-          const st = statuses[provider.id];
-          const status = st?.status || 'disconnected';
-
-          return (
-            <div key={provider.id} className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                <div style={{
-                  width: '44px', height: '44px', borderRadius: '12px', background: provider.color,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                }}>
-                  {provider.logo}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: '15px' }}>{provider.name}</div>
-                  <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>{provider.description}</div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: status === 'connected' ? '#25c2a0' : status === 'error' ? '#ff6b6b' : 'var(--color-text-secondary)' }}>
-                  {STATUS_ICON[status]}
-                  <span style={{ whiteSpace: 'nowrap' }}>{STATUS_LABEL[status]}</span>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '8px' }}>
-                {status === 'connected' ? (
-                  <button
-                    onClick={() => handleDisconnect(provider.id)}
-                    style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px', background: 'rgba(255,80,80,0.08)', border: '1px solid rgba(255,80,80,0.2)', borderRadius: '8px', cursor: 'pointer', color: '#ff6b6b', fontSize: '13px', fontWeight: 600 }}
-                  >
-                    <Trash2 size={14} /> Disconnect
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => openConnect(provider)}
-                    style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px', background: 'rgba(0,243,255,0.08)', border: '1px solid rgba(0,243,255,0.2)', borderRadius: '8px', cursor: 'pointer', color: 'var(--color-neon-cyan)', fontSize: '13px', fontWeight: 600 }}
-                  >
-                    <Plug size={14} /> {status === 'error' ? 'Reconnect' : 'Connect'}
-                  </button>
-                )}
-              </div>
-            </div>
-          );
-        })}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
+        {AI_PROVIDERS.map(provider => (
+          <ProviderCard
+            key={provider.id}
+            provider={provider}
+            status={statuses[provider.id]?.status}
+            onConnect={setModal}
+            onDisconnect={handleDisconnect}
+          />
+        ))}
       </div>
 
-      {/* Connect Modal */}
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={`Connect ${activeProvider?.name}`}>
-        {activeProvider && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', lineHeight: 1.6 }}>
-              Your API key is sent to AXON's server for a one-time connection test, then stored encrypted in your database. It is never shared or used without your permission.
-            </p>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
-                API Key{' '}
-                <a href={activeProvider.docsUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--color-neon-cyan)', fontWeight: 400 }}>
-                  Get yours →
-                </a>
-              </label>
-              <div style={{ position: 'relative' }}>
-                <input
-                  type={showKey ? 'text' : 'password'}
-                  value={apiKey}
-                  onChange={e => setApiKey(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && !testing && handleConnect()}
-                  placeholder={activeProvider.placeholder}
-                  style={{
-                    width: '100%', padding: '10px 40px 10px 12px', background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid var(--color-border)', borderRadius: '8px', color: 'var(--color-text-primary)',
-                    fontSize: '13px', outline: 'none', boxSizing: 'border-box', fontFamily: 'monospace',
-                  }}
-                />
-                <button onClick={() => setShowKey(!showKey)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-secondary)' }}>
-                  {showKey ? <EyeOff size={15} /> : <Eye size={15} />}
-                </button>
-              </div>
-            </div>
-
-            {testResult && (
-              <div style={{
-                display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '10px 12px', borderRadius: '8px',
-                background: testResult.ok ? 'rgba(37,194,160,0.1)' : 'rgba(255,80,80,0.1)',
-                border: `1px solid ${testResult.ok ? 'rgba(37,194,160,0.3)' : 'rgba(255,80,80,0.3)'}`,
-              }}>
-                {testResult.ok ? <CheckCircle size={15} color="#25c2a0" style={{ flexShrink: 0, marginTop: '1px' }} /> : <AlertCircle size={15} color="#ff6b6b" style={{ flexShrink: 0, marginTop: '1px' }} />}
-                <span style={{ fontSize: '13px', color: testResult.ok ? '#25c2a0' : '#ff6b6b' }}>{testResult.message}</span>
-              </div>
-            )}
-
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={() => setModalOpen(false)} className="btn-secondary" style={{ flex: 1 }}>Cancel</button>
-              <button onClick={handleConnect} className="btn-primary" disabled={!apiKey.trim() || testing} style={{ flex: 2 }}>
-                {testing ? <><Loader size={14} style={{ animation: 'spin 1s linear infinite', marginRight: '6px' }} /> Testing...</> : 'Test & Connect'}
-              </button>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      <ConnectModal
+        provider={modal}
+        isOpen={!!modal}
+        onClose={() => setModal(null)}
+        onSuccess={handleSuccess}
+      />
     </div>
   );
 }
