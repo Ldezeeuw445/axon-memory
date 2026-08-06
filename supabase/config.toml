@@ -1,0 +1,81 @@
+project_id = "ktaditgtbubonrahyiig"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+site_url = "https://app.axon-memory.com"
+additional_redirect_urls = [
+  "https://app.axon-memory.com/**",
+  "https://www.axon-memory.com",
+  "http://localhost:5173/**",
+]
+jwt_expiry = 3600
+enable_signup = true
+
+[functions.oauth-callback]
+verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+# --- MCP / OAuth connector layer ---
+# These accept EITHER no auth (public discovery/registration) or a custom
+# Axon Bearer token (manually-created OR OAuth-issued) instead of a Supabase
+# JWT, so platform-level JWT verification must be off; each function does
+# its own auth via _shared/mcp-auth.ts or _shared/auth.ts internally.
+[functions.oauth-metadata]
+verify_jwt = false
+
+[functions.mcp-oauth-register]
+verify_jwt = false
+
+[functions.mcp-oauth-authorize]
+verify_jwt = false
+
+[functions.mcp-oauth-token]
+verify_jwt = false
+
+[functions.mcp-server]
+verify_jwt = false
+
+[functions.remember]
+verify_jwt = false
+
+[functions.context-pack]
+verify_jwt = false
+
+[functions.openapi-actions]
+verify_jwt = false
+
+# mcp-oauth-consent is intentionally NOT listed here — it's called by the
+# logged-in SPA with the user's real Supabase JWT, so default verify_jwt
+# (true) is correct.
+
+# Server-to-server only (pg_cron -> pg_net -> this function). Auth is a
+# shared CRON_SECRET header, not a Supabase JWT, since there's no logged-in
+# user in a cron context.
+[functions.cron-sync-sources]
+verify_jwt = false
+
+# Same server-to-server pattern as cron-sync-sources — pg_cron calls this on
+# a schedule with a shared CRON_SECRET header, no Supabase JWT involved.
+[functions.check-alerts]
+verify_jwt = false
+
+# list-alerts DOES use a real Supabase JWT (a logged-in user's session) —
+# platform-level verification stays on (default) and the function itself
+# additionally checks the caller's email against OWNER_EMAIL.

@@ -1,116 +1,242 @@
-import React from 'react';
-import { Terminal } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Copy, Check, Trash2, Sparkles, ExternalLink, ChevronDown, ChevronUp, Plug } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
+import { callFunction } from '../lib/functions';
+import { useAuth } from '../context/AuthContext';
+import { usePlan } from '../hooks/usePlan';
+import { IconClaude, IconOpenAI, IconGemini, IconHttp } from '../components/BrandIcons';
+import { MCP_GATEWAY_URL, CHATGPT_ACTION_CLIENT } from '../lib/platformClients';
 
-const LogoOpenAI = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.073zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.8956zm16.0993 3.8558L12.5973 8.3829v-2.3324a.0757.0757 0 0 1 .0332-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66 4.4802 4.4802 0 0 1-.5393 1.968l-4.7878-2.7534a.7712.7712 0 0 0-.7806 0zm3.221-4.673a4.485 4.485 0 0 1-.5346 3.0137l-.142-.0852-4.783-2.7582a.7712.7712 0 0 0-.7806 0l-5.8428 3.3685v-2.3324a.0804.0804 0 0 1 .0332-.0615L14.26 4.0498a4.4992 4.4992 0 0 1 6.1408 1.6464zM11.2599 1.5835a4.4755 4.4755 0 0 1 2.8764 1.0408l-.1419.0804-4.7783 2.7582a.7948.7948 0 0 0-.3927.6813v6.7369l-2.02-1.1686a.071.071 0 0 1-.038-.052V6.078a4.504 4.504 0 0 1 4.4945-4.4944zM10.6543 9.4293l1.345-.7766 1.345.7766v1.5532l-1.345.7766-1.345-.7766z" />
-  </svg>
-);
+function CopyField({ value, mask }) {
+  const [copied, setCopied] = useState(false);
+  const display = mask ? value.replace(/./g, (c, i) => (i < 8 ? c : '•')) : value;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(0,0,0,0.35)', border: '1px solid var(--color-border)', borderRadius: 8, padding: '8px 12px', fontFamily: 'monospace', fontSize: 12.5 }}>
+      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{display}</span>
+      <button
+        onClick={() => { navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 1400); }}
+        style={{ background: 'none', border: 'none', color: 'var(--color-neon-cyan)', cursor: 'pointer', flexShrink: 0 }}
+      >
+        {copied ? <Check size={14} /> : <Copy size={14} />}
+      </button>
+    </div>
+  );
+}
 
-const LogoAnthropic = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M17.5 2L13.5 12h-3l-4-10H3l5.5 14h3l5.5-14z" />
-  </svg>
-);
+function ConnectedRow({ conn, onRevoke, revoking }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 0', borderBottom: '1px solid var(--color-border)' }}>
+      <div style={{ flex: 1 }}>
+        <p style={{ fontWeight: 600, fontSize: 14 }}>{conn.name}</p>
+        <p style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+          Connected {new Date(conn.created_at).toLocaleDateString()}
+          {conn.last_used_at ? ` · last used ${new Date(conn.last_used_at).toLocaleDateString()}` : ' · not used yet'}
+        </p>
+      </div>
+      <button onClick={() => onRevoke(conn.id)} disabled={revoking === conn.id} className="glow-btn" style={{ background: 'transparent', border: '1px solid var(--color-border)', padding: '6px 12px' }}>
+        <Trash2 size={14} />
+      </button>
+    </div>
+  );
+}
 
-const LogoGemini = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12 0C12 6.62742 6.62742 12 0 12C6.62742 12 12 17.3726 12 24C12 17.3726 17.3726 12 24 12C17.3726 12 12 6.62742 12 0Z" />
-  </svg>
-);
-
-const LogoCopilot = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.379.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.577.688.48C19.138 20.161 22 16.418 22 12c0-5.523-4.477-10-10-10z" />
-  </svg>
-);
-
-const LogoGrok = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12 2L2 22h4l2-4h8l2 4h4L12 2zm-4 14l4-8 4 8H8z" />
-  </svg>
-);
-
-const LogoPerplexity = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-  </svg>
-);
-
-const LogoMeta = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M20.5 5.5A7.5 7.5 0 0 0 12 11.8a7.5 7.5 0 1 0 1.2 14 7.5 7.5 0 0 0 7.3-10z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-  </svg>
-);
-
-const LogoApple = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M16 4a4.5 4.5 0 0 0-4.5 4.5C11.5 14 8 16 8 16s-3-2-3-4.5A4.5 4.5 0 0 1 9.5 7h.2A4.5 4.5 0 0 1 14 4h2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-  </svg>
-);
+function AdapterCard({ icon, name, children }) {
+  return (
+    <div className="glass-card" style={{ padding: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+        <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          {icon}
+        </div>
+        <h3 style={{ fontSize: 16, fontWeight: 600 }}>{name}</h3>
+      </div>
+      {children}
+    </div>
+  );
+}
 
 export default function AIAdapters() {
-  const adapters = [
-    { name: 'ChatGPT', status: 'Connected', icon: <LogoOpenAI />, color: '#10a37f' },
-    { name: 'Claude', status: 'Connected', icon: <LogoAnthropic />, color: '#d97757' },
-    { name: 'Gemini', status: 'Disconnected', icon: <LogoGemini />, color: '#4285f4' },
-    { name: 'Meta AI', status: 'Disconnected', icon: <LogoMeta />, color: '#0668E1' },
-    { name: 'Apple Intelligence', status: 'Disconnected', icon: <LogoApple />, color: '#ffffff' },
-    { name: 'Perplexity', status: 'Disconnected', icon: <LogoPerplexity />, color: '#25c2a0' },
-    { name: 'Copilot', status: 'Connected', icon: <LogoCopilot />, color: '#ffffff' },
-    { name: 'Grok', status: 'Disconnected', icon: <LogoGrok />, color: '#ffffff' },
-    { name: 'Cursor', status: 'Connected', icon: <Terminal size={24}/>, color: '#ffffff' },
-    { name: 'Windsurf', status: 'Disconnected', icon: <Terminal size={24}/>, color: '#00f3ff' },
-    { name: 'VS Code AI', status: 'Connected', icon: <LogoCopilot />, color: '#007acc' },
-    { name: 'Ollama (Local)', status: 'Active', icon: <Terminal size={24}/>, color: '#bc13fe' },
-    { name: 'LM Studio', status: 'Disconnected', icon: <Terminal size={24}/>, color: '#bc13fe' },
-  ];
+  const { user } = useAuth();
+  const plan = usePlan();
+  const [connections, setConnections] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [revoking, setRevoking] = useState(null);
+  const [showChatGptSteps, setShowChatGptSteps] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [manualKeys, setManualKeys] = useState([]);
+  const [creatingKey, setCreatingKey] = useState(false);
+  const [newKey, setNewKey] = useState(null);
+
+  const load = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('api_keys')
+      .select('*')
+      .eq('user_id', user.id)
+      .is('revoked_at', null)
+      .order('created_at', { ascending: false });
+    const all = data || [];
+    setConnections(all.filter((k) => k.oauth_client_id));
+    setManualKeys(all.filter((k) => !k.oauth_client_id));
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, [user]);
+
+  const revoke = async (id) => {
+    setRevoking(id);
+    await supabase.from('api_keys').update({ revoked_at: new Date().toISOString() }).eq('id', id);
+    await load();
+    setRevoking(null);
+  };
+
+  const createManualKey = async () => {
+    setCreatingKey(true);
+    try {
+      const res = await callFunction('api-keys-create', { body: { name: `Key ${manualKeys.length + 1}` } });
+      setNewKey(res.key);
+      await load();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setCreatingKey(false);
+    }
+  };
+
+  if (!plan.loading && !plan.has('axon_ai')) {
+    return (
+      <div className="page-container">
+        <header className="page-header">
+          <h1 className="page-title">AI Adapters</h1>
+          <p className="page-subtitle">Connect Claude, ChatGPT, and other assistants to your shared memory.</p>
+        </header>
+        <div className="glass-card" style={{ maxWidth: 520, margin: '0 auto', textAlign: 'center', padding: 36 }}>
+          <Sparkles size={28} color="#ffc107" style={{ marginBottom: 10 }} />
+          <h3 style={{ marginBottom: 8 }}>Connecting AI assistants is a Pro feature</h3>
+          <p style={{ color: 'var(--color-text-secondary)', fontSize: 14, marginBottom: 20 }}>
+            Upgrade to Pro or higher to connect Claude, ChatGPT, and any future assistant — all sharing one memory.
+          </p>
+          <a href="/subscription" className="glow-btn" style={{ display: 'inline-block' }}>View plans</a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page-container">
       <header className="page-header">
         <h1 className="page-title">AI Adapters</h1>
-        <p className="page-subtitle">Inject your memory seamlessly into any LLM or IDE.</p>
+        <p className="page-subtitle">
+          Connect an assistant once — every fact it learns is instantly available to every other assistant you connect.
+        </p>
       </header>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '24px' }}>
-        {adapters.map((adapter, i) => (
-          <div key={i} className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '16px', transition: 'all 0.3s ease' }}>
-            <div style={{ 
-              width: '48px', height: '48px', borderRadius: '12px', 
-              background: `rgba(${adapter.color === '#ffffff' || adapter.color === '#fff' ? '255,255,255' : adapter.color.match(/\w\w/g).map(c=>parseInt(c,16)).join(',')}, 0.1)`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: adapter.color,
-              boxShadow: adapter.status === 'Connected' || adapter.status === 'Active' ? `0 0 10px ${adapter.color}40` : 'none'
-            }}>
-              {adapter.icon}
+      <div className="glass-card" style={{ marginBottom: 32, padding: 24 }}>
+        <h3 style={{ fontSize: 16, marginBottom: 14 }}>Connected assistants</h3>
+        {loading ? (
+          <p style={{ color: 'var(--color-text-secondary)', fontSize: 14 }}>Loading…</p>
+        ) : connections.length === 0 ? (
+          <p style={{ color: 'var(--color-text-secondary)', fontSize: 14 }}>Nothing connected yet — pick an assistant below.</p>
+        ) : (
+          connections.map((c) => <ConnectedRow key={c.id} conn={c} onRevoke={revoke} revoking={revoking} />)
+        )}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20, marginBottom: 28 }}>
+        <AdapterCard icon={<IconClaude size={22} />} name="Claude">
+          <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 14 }}>
+            In Claude, go to <strong>Settings → Connectors → Add custom connector</strong>, paste this URL, then click Connect. You'll be asked to log in and approve — no key to copy.
+          </p>
+          <CopyField value={MCP_GATEWAY_URL} />
+        </AdapterCard>
+
+        <AdapterCard icon={<IconOpenAI size={20} />} name="ChatGPT">
+          <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 14 }}>
+            Create a Custom GPT, add this Action, and set Authentication to OAuth using the details below.
+          </p>
+          <button
+            onClick={() => setShowChatGptSteps((s) => !s)}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: 'var(--color-neon-cyan)', cursor: 'pointer', fontSize: 13, marginBottom: showChatGptSteps ? 14 : 0 }}
+          >
+            {showChatGptSteps ? <ChevronUp size={14} /> : <ChevronDown size={14} />} {showChatGptSteps ? 'Hide' : 'Show'} connection details
+          </button>
+          {showChatGptSteps && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <label style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Schema URL (import this first)</label>
+              <CopyField value={CHATGPT_ACTION_CLIENT.openApiUrl} />
+              <label style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 4 }}>Client ID</label>
+              <CopyField value={CHATGPT_ACTION_CLIENT.clientId} />
+              <label style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 4 }}>Client Secret</label>
+              <CopyField value={CHATGPT_ACTION_CLIENT.clientSecret} mask />
+              <label style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 4 }}>Authorization URL</label>
+              <CopyField value={CHATGPT_ACTION_CLIENT.authorizationUrl} />
+              <label style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 4 }}>Token URL</label>
+              <CopyField value={CHATGPT_ACTION_CLIENT.tokenUrl} />
+              <label style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 4 }}>Scope</label>
+              <CopyField value={CHATGPT_ACTION_CLIENT.scope} />
             </div>
-            <div style={{ flex: 1 }}>
-              <h3 style={{ fontSize: '18px', fontWeight: '600' }}>{adapter.name}</h3>
-              <p style={{ 
-                fontSize: '14px', 
-                color: adapter.status === 'Disconnected' ? 'var(--color-text-secondary)' : 'var(--color-neon-cyan)',
-                display: 'flex', alignItems: 'center', gap: '6px'
-              }}>
-                {(adapter.status === 'Connected' || adapter.status === 'Active') && (
-                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--color-neon-cyan)', display: 'inline-block' }} />
-                )}
-                {adapter.status}
+          )}
+        </AdapterCard>
+
+        <AdapterCard icon={<IconGemini size={20} />} name="Gemini">
+          <p style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
+            Coming soon — Google hasn't yet published an open connector mechanism for Gemini Extensions the way Claude
+            and ChatGPT have. We'll turn this on the moment they do.
+          </p>
+        </AdapterCard>
+
+        <AdapterCard icon={<IconHttp size={20} />} name="Any tool with HTTP">
+          <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 14 }}>
+            Cursor, Windsurf, custom scripts, or anything that can make an authenticated HTTP call — use the MCP endpoint directly or a personal API key below.
+          </p>
+          <CopyField value={`${MCP_GATEWAY_URL}`} />
+        </AdapterCard>
+      </div>
+
+      <div className="glass-card" style={{ padding: 20 }}>
+        <button
+          onClick={() => setShowAdvanced((s) => !s)}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer', fontSize: 13, width: '100%' }}
+        >
+          {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />} Advanced: personal API keys (for scripts & tools without OAuth support)
+        </button>
+        {showAdvanced && (
+          <div style={{ marginTop: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <p style={{ fontSize: 12.5, color: 'var(--color-text-secondary)' }}>
+                Only use this if a tool truly can't do OAuth. Anything above is safer and easier for the same result.
               </p>
+              <button onClick={createManualKey} disabled={creatingKey} className="glow-btn" style={{ fontSize: 12.5, whiteSpace: 'nowrap', marginLeft: 12 }}>
+                <Plug size={13} style={{ marginRight: 6, verticalAlign: -2 }} />
+                {creatingKey ? 'Creating…' : 'New key'}
+              </button>
             </div>
-            <button className="glow-btn" style={{
-              background: adapter.status === 'Disconnected' ? 'transparent' : 'rgba(255,255,255,0.05)',
-              border: adapter.status === 'Disconnected' ? '1px solid var(--color-border)' : '1px solid transparent',
-              color: 'var(--color-text-primary)',
-              padding: '6px 16px',
-              borderRadius: '8px',
-              fontSize: '14px',
-              fontWeight: '500'
-            }}>
-              {adapter.status === 'Disconnected' ? 'Connect' : 'Settings'}
-            </button>
+            {newKey && (
+              <div style={{ marginBottom: 14 }}>
+                <p style={{ fontSize: 12, marginBottom: 6 }}>Copy this now — it won't be shown again.</p>
+                <CopyField value={newKey} />
+              </div>
+            )}
+            {manualKeys.length === 0 ? (
+              <p style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>No manual keys.</p>
+            ) : (
+              manualKeys.map((k) => (
+                <div key={k.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: '1px solid var(--color-border)', fontSize: 13 }}>
+                  <span style={{ flex: 1, fontFamily: 'monospace' }}>{k.key_prefix}••••••••</span>
+                  <button onClick={() => revoke(k.id)} style={{ background: 'none', border: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer' }}>
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))
+            )}
+            <a
+              href={`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/context-pack`}
+              target="_blank" rel="noreferrer"
+              style={{ fontSize: 12, color: 'var(--color-neon-cyan)', display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 12 }}
+            >
+              View the raw context-pack endpoint <ExternalLink size={12} />
+            </a>
           </div>
-        ))}
+        )}
       </div>
     </div>
   );

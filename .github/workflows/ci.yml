@@ -1,0 +1,62 @@
+name: CI
+
+# Starts running the moment this repo is pushed to GitHub — nothing further
+# to configure for the lint/build/unit-test jobs. The smoke-test job hits
+# the real production Supabase project and needs three repo secrets before
+# it can run (Settings -> Secrets and variables -> Actions):
+#   SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
+# Until those are added, that job is skipped (not failed) — everything else
+# still runs on every push and pull request.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-build:
+    name: Lint + build frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run lint
+      - run: npm run build
+
+  unit-tests:
+    name: Edge function unit tests (Deno)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno test supabase/functions/_shared/*.test.ts
+
+  smoke-test:
+    name: Live smoke test (real Supabase project)
+    runs-on: ubuntu-latest
+    # Only runs once the secrets below exist. This is a deliberate opt-in —
+    # a smoke test that creates and deletes a real (disposable) user against
+    # production shouldn't run on every fork's PR by default.
+    if: ${{ github.repository_owner == github.event.pull_request.head.repo.owner.login || github.event_name == 'push' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run smoke test
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ]; then
+            echo "SUPABASE_URL secret not set — skipping smoke test. See workflow comments to enable."
+            exit 0
+          fi
+          node scripts/smoke-test.mjs

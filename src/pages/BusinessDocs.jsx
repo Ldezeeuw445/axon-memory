@@ -4,7 +4,7 @@ const docs = {
   'Vision': `AXON’s vision is to become the universal, permanent AI brain for every individual and organization—a single, secure layer of structured memory that perfectly contextualizes every AI interaction, forever eliminating the friction of starting from scratch.`,
   'Mission': `To provide every AI (ChatGPT, Claude, Gemini, Copilot, etc.) with instant access to perfectly structured, token-efficient user memory, dramatically improving AI responses and empowering users to visually manage their digital mind.`,
   'Roadmap': `Year 1: Core engine, iOS + Web dashboards, top 5 integrations.\nYear 2: Open Developer API, decentralized memory options.\nYear 3: OS-level integrations, edge-computed memory compression.`,
-  'API Docs': `GET /v1/context?query=x&limit=1000_tokens\nPOST /v1/memory\nGET /v1/graph/relationships\nSDKs available in Node.js, Python, Go, and Rust.`,
+  'API Docs': `GET /functions/v1/context-pack?query=...&limit_tokens=1500\n  Auth: Bearer <user JWT> or Bearer axon_live_... (personal API key)\n  Returns a token-budgeted memory pack grouped by content type, plus\n  connected sources and extracted entities.\n\nPOST /functions/v1/api-keys-create   { name? }\nGET  /functions/v1/oauth-start?provider=gmail|github|notion|slack\nPOST /functions/v1/sync-source       { source_connection_id }\nPOST /functions/v1/disconnect-source { source_connection_id }\n\nAll functions are Supabase Edge Functions (Deno) backed by Postgres\nwith row-level security — every query is scoped to the caller automatically.`,
   'Go-to-Market': `1. Developer Adoption via API free tiers.\n2. Prosumer Viral Loop (Notion/Obsidian users).\n3. 'Powered by AXON' badge driving viral loops.`
 };
 

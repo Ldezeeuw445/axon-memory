@@ -1,0 +1,8 @@
+name = "axon-mcp-gateway"
+main = "worker.js"
+compatibility_date = "2024-09-23"
+account_id = "78d47158ae5cedb2a11512396cd46c1e"
+
+routes = [
+  { pattern = "mcp.axon-memory.com/*", zone_name = "axon-memory.com" }
+]

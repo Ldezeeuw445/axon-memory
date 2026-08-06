@@ -1,7 +1,11 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Network, Plug, Zap, FileText, Settings, Key, User, Database } from 'lucide-react';
-import Splash from './pages/Splash';
+import { BrowserRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
+import { LayoutDashboard, Network, Plug, Zap, FileText, Settings as SettingsIcon, User, Database, LogOut } from 'lucide-react';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
+
+import Landing from './pages/Landing';
+import Login from './pages/Login';
 import Onboarding from './pages/Onboarding';
 import Dashboard from './pages/Dashboard';
 import MemoryGraph from './pages/MemoryGraph';
@@ -9,13 +13,20 @@ import AIAdapters from './pages/AIAdapters';
 import DataSources from './pages/DataSources';
 import Subscription from './pages/Subscription';
 import BusinessDocs from './pages/BusinessDocs';
+import SettingsPage from './pages/Settings';
+import AdminAlerts from './pages/AdminAlerts';
+import ConnectAuthorize from './pages/ConnectAuthorize';
+import ConnectError from './pages/ConnectError';
+import NotFound from './pages/NotFound';
 import './App.css';
+
+const PUBLIC_ROUTES = ['/', '/login'];
 
 function Sidebar() {
   const location = useLocation();
-  const hideSidebar = ['/', '/onboarding'].includes(location.pathname);
+  const { profile, signOut } = useAuth();
 
-  if (hideSidebar) return null;
+  if (PUBLIC_ROUTES.includes(location.pathname) || location.pathname === '/onboarding' || location.pathname.startsWith('/connect/')) return null;
 
   const links = [
     { to: '/dashboard', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
@@ -24,18 +35,24 @@ function Sidebar() {
     { to: '/adapters', icon: <Plug size={20} />, label: 'AI Adapters' },
     { to: '/subscription', icon: <Zap size={20} />, label: 'Subscription' },
     { to: '/docs', icon: <FileText size={20} />, label: 'Business Docs' },
+    { to: '/settings', icon: <SettingsIcon size={20} />, label: 'Settings' },
   ];
+
+  const tierLabels = { starter: 'Starter', pro: 'Pro', ultra: 'Ultra', lifetime_founder: 'Lifetime' };
+  const planLabel = `${tierLabels[profile?.plan_tier] || 'Starter'} Plan`;
 
   return (
     <div className="sidebar glass-card">
       <div className="sidebar-logo">
-        <h2 className="gradient-text">AXON</h2>
+        <Link to="/dashboard" style={{ textDecoration: 'none' }}>
+          <h2 className="gradient-text">AXON</h2>
+        </Link>
       </div>
       <nav className="sidebar-nav">
         {links.map((link) => (
-           <Link 
-            key={link.to} 
-            to={link.to} 
+          <Link
+            key={link.to}
+            to={link.to}
             className={`nav-link ${location.pathname === link.to ? 'active' : ''}`}
           >
             {link.icon}
@@ -45,36 +62,130 @@ function Sidebar() {
       </nav>
       <div className="sidebar-footer">
         <div className="user-profile">
-          <div className="avatar"><User size={16}/></div>
+          <div className="avatar"><User size={16} /></div>
           <div className="user-info">
-            <span className="name">User</span>
-            <span className="plan gradient-text">Pro Plan</span>
+            <span className="name">{profile?.full_name || profile?.email || 'Loading…'}</span>
+            <span className="plan gradient-text">{planLabel}</span>
           </div>
+          <button
+            onClick={signOut}
+            title="Sign out"
+            style={{ background: 'none', border: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer', marginLeft: 'auto' }}
+          >
+            <LogOut size={16} />
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
-function App() {
+function AppShell() {
   return (
-    <BrowserRouter>
+    <>
       <div className="grid-bg"></div>
       <div className="app-container">
         <Sidebar />
         <main className="main-content">
           <Routes>
-            <Route path="/" element={<Splash />} />
-            <Route path="/onboarding" element={<Onboarding />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/graph" element={<MemoryGraph />} />
-            <Route path="/sources" element={<DataSources />} />
-            <Route path="/adapters" element={<AIAdapters />} />
-            <Route path="/subscription" element={<Subscription />} />
-            <Route path="/docs" element={<BusinessDocs />} />
+            <Route path="/" element={<Landing />} />
+            <Route path="/login" element={<Login />} />
+            <Route
+              path="/onboarding"
+              element={
+                <ProtectedRoute>
+                  <Onboarding />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/graph"
+              element={
+                <ProtectedRoute>
+                  <MemoryGraph />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/sources"
+              element={
+                <ProtectedRoute>
+                  <DataSources />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/adapters"
+              element={
+                <ProtectedRoute>
+                  <AIAdapters />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/subscription"
+              element={
+                <ProtectedRoute>
+                  <Subscription />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/docs"
+              element={
+                <ProtectedRoute>
+                  <BusinessDocs />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <SettingsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/connect/authorize"
+              element={
+                <ProtectedRoute>
+                  <ConnectAuthorize />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/alerts"
+              element={
+                <ProtectedRoute>
+                  <AdminAlerts />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/connect/error" element={<ConnectError />} />
+            <Route path="/onboarding-redirect" element={<Navigate to="/onboarding" replace />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </main>
       </div>
+    </>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <AppShell />
+      </AuthProvider>
     </BrowserRouter>
   );
 }
