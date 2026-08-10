@@ -49,7 +49,8 @@ function makeEtchTexture(label) {
 
 /* ── shot 04 — fragments seating into the plate ───────────────── */
 
-export function Fragments({ progress = 0 }) {
+export function Fragments({ progressRef }) {
+  const group = useRef(null);
   const geo = useMemo(() => buildPlateBody(), []);
   const seats = useMemo(
     () => [
@@ -62,32 +63,37 @@ export function Fragments({ progress = 0 }) {
     [],
   );
 
+  useFrame(() => {
+    const g = group.current;
+    if (!g) return;
+    const progress = progressRef.current;
+    g.visible = progress > 0.001 && progress < 0.999;
+    if (!g.visible) return;
+    seats.forEach((s, i) => {
+      const m = g.children[i];
+      if (!m) return;
+      // Staggered so five pieces arrive one at a time and stay readable —
+      // never a swarm.
+      const local = THREE.MathUtils.clamp((progress - i * 0.13) / 0.55, 0, 1);
+      const e = 1 - Math.pow(1 - local, 3);
+      m.position.set(
+        THREE.MathUtils.lerp(s.from[0], 0, e),
+        THREE.MathUtils.lerp(s.from[1], 0, e),
+        THREE.MathUtils.lerp(s.from[2], 0, e),
+      );
+      m.rotation.set(s.rot[0] * (1 - e), s.rot[1] * (1 - e), s.rot[2] * (1 - e));
+      m.scale.setScalar(THREE.MathUtils.lerp(0.34, 0.06, e));
+      m.visible = local < 0.99;
+    });
+  });
+
   return (
-    <group>
-      {seats.map((s, i) => {
-        // Staggered so five pieces arrive one at a time and stay readable —
-        // never a swarm.
-        const local = THREE.MathUtils.clamp((progress - i * 0.13) / 0.55, 0, 1);
-        const e = 1 - Math.pow(1 - local, 3);
-        const p = [
-          THREE.MathUtils.lerp(s.from[0], 0, e),
-          THREE.MathUtils.lerp(s.from[1], 0, e),
-          THREE.MathUtils.lerp(s.from[2], 0, e),
-        ];
-        const scale = THREE.MathUtils.lerp(0.34, 0.06, e);
-        return (
-          <mesh
-            key={i}
-            geometry={geo}
-            position={p}
-            rotation={[s.rot[0] * (1 - e), s.rot[1] * (1 - e), s.rot[2] * (1 - e)]}
-            scale={scale}
-            visible={local < 0.99}
-          >
-            <meshStandardMaterial {...GRAPHITE} roughness={0.6} />
-          </mesh>
-        );
-      })}
+    <group ref={group}>
+      {seats.map((s, i) => (
+        <mesh key={i} geometry={geo}>
+          <meshStandardMaterial {...GRAPHITE} roughness={0.6} />
+        </mesh>
+      ))}
     </group>
   );
 }
@@ -159,9 +165,16 @@ export function Device({ screenTexture = null, screenBrightness = 1, visible = t
 
 const DOCK_LABELS = ['ChatGPT', 'Claude', 'Gemini'];
 
-function Dock({ index, label, seated }) {
+function Dock({ index, label, seatedRef }) {
   const etch = useMemo(() => makeEtchTexture(label), [label]);
+  const lightRef = useRef(null);
   const x = SET_C[0] + (index - 1) * 3.1;
+
+  useFrame((_, dt) => {
+    if (!lightRef.current) return;
+    const want = seatedRef?.current === index ? 2.2 : 0.55;
+    lightRef.current.intensity = THREE.MathUtils.lerp(lightRef.current.intensity, want, 1 - Math.pow(0.01, dt));
+  });
 
   return (
     <group position={[x, 0, SET_C[2]]}>
@@ -188,16 +201,16 @@ function Dock({ index, label, seated }) {
         />
       </mesh>
       {/* one practical per alcove, warm and low */}
-      <pointLight position={[0, 0.1, 0.9]} intensity={seated ? 1.6 : 0.5} distance={3.2} color="#ffb974" />
+      <pointLight ref={lightRef} position={[0, 0.1, 0.9]} intensity={0.55} distance={3.2} color="#ffb974" />
     </group>
   );
 }
 
-export function Docks({ visible = true, seatedIndex = -1 }) {
+export function Docks({ visible = true, seatedRef }) {
   return (
     <group visible={visible}>
       {DOCK_LABELS.map((l, i) => (
-        <Dock key={l} index={i} label={l} seated={seatedIndex === i} />
+        <Dock key={l} index={i} label={l} seatedRef={seatedRef} />
       ))}
     </group>
   );
@@ -210,7 +223,8 @@ export function Docks({ visible = true, seatedIndex = -1 }) {
  * amber slot — at this distance the channel network is not readable, and
  * pretending otherwise would just add noise.
  */
-export function Archive({ visible = true, gather = 0 }) {
+export function Archive({ visible = true, gatherRef }) {
+  const group = useRef(null);
   const geo = useMemo(() => buildPlateBody(), []);
   const items = useMemo(() => {
     const rand = (() => {
@@ -224,28 +238,35 @@ export function Archive({ visible = true, gather = 0 }) {
     }));
   }, []);
 
+  useFrame(() => {
+    const g = group.current;
+    if (!g || !visible) return;
+    const e = 1 - Math.pow(1 - THREE.MathUtils.clamp(gatherRef?.current ?? 0, 0, 1), 3);
+    const target = [SET_D[0], SET_D[1], SET_D[2] + 1.2];
+    items.forEach((it, i) => {
+      const c = g.children[i];
+      if (!c) return;
+      c.position.set(
+        THREE.MathUtils.lerp(it.from[0], target[0], e * 0.86),
+        THREE.MathUtils.lerp(it.from[1], target[1], e * 0.86),
+        THREE.MathUtils.lerp(it.from[2], target[2], e * 0.86),
+      );
+    });
+  });
+
   return (
-    <group visible={visible}>
-      {items.map((it, i) => {
-        const e = 1 - Math.pow(1 - THREE.MathUtils.clamp(gather, 0, 1), 3);
-        const target = [SET_D[0], SET_D[1], SET_D[2] + 1.2];
-        const p = [
-          THREE.MathUtils.lerp(it.from[0], target[0], e * 0.86),
-          THREE.MathUtils.lerp(it.from[1], target[1], e * 0.86),
-          THREE.MathUtils.lerp(it.from[2], target[2], e * 0.86),
-        ];
-        return (
-          <group key={i} position={p} rotation={it.rot} scale={it.scale}>
-            <mesh geometry={geo}>
-              <meshStandardMaterial {...GRAPHITE} roughness={0.6} />
-            </mesh>
-            <mesh position={[0, 0, PLATE_THICKNESS / 2 + 0.006]}>
-              <planeGeometry args={[0.03, 0.44]} />
-              <meshBasicMaterial color="#ffb02e" toneMapped={false} />
-            </mesh>
-          </group>
-        );
-      })}
+    <group ref={group} visible={visible}>
+      {items.map((it, i) => (
+        <group key={i} rotation={it.rot} scale={it.scale}>
+          <mesh geometry={geo}>
+            <meshStandardMaterial {...GRAPHITE} roughness={0.6} />
+          </mesh>
+          <mesh position={[0, 0, PLATE_THICKNESS / 2 + 0.006]}>
+            <planeGeometry args={[0.03, 0.44]} />
+            <meshBasicMaterial color="#ffb02e" toneMapped={false} />
+          </mesh>
+        </group>
+      ))}
     </group>
   );
 }

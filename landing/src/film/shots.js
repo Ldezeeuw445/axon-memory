@@ -45,7 +45,7 @@ export const SHOTS = [
     look: [0, 0, 0],
     // The pivot pose: centred, face square to camera. Every later join
     // returns to this attitude so the cut disappears.
-    plate: { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1, state: 'gathering', fill: 0.35 },
+    plate: { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1, state: 'gathering', fill: 0.62 },
   },
   {
     id: 4,

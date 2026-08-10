@@ -54,8 +54,18 @@ function Stage() {
 
 /* ── camera ───────────────────────────────────────────────────── */
 
+// The shots are composed for a landscape frame. On a portrait phone a fixed
+// vertical fov collapses the horizontal view, so the Core and the docks fall
+// out of frame. Holding horizontal coverage instead — by easing the camera
+// back as the frame narrows — keeps every shot composed as designed.
+const REF_ASPECT = 1.6;
+function framingPullback(aspect) {
+  if (!aspect || aspect >= REF_ASPECT) return 1;
+  return Math.min(REF_ASPECT / aspect, 2.4);
+}
+
 function CameraRig({ progressRef, reducedMotion }) {
-  const { camera } = useThree();
+  const { camera, size } = useThree();
   const pos = useRef(new THREE.Vector3(...SHOTS[0].cam));
   const tgt = useRef(new THREE.Vector3(...SHOTS[0].look));
   const wantP = useMemo(() => new THREE.Vector3(), []);
@@ -84,6 +94,13 @@ function CameraRig({ progressRef, reducedMotion }) {
     if (!reducedMotion) {
       wantP.x += pointer.x * 0.16;
       wantP.y += pointer.y * 0.1;
+    }
+
+    // Push the camera out along its own eye vector, so the framing widens
+    // without changing where the shot is looking or from what angle.
+    const pull = framingPullback(size.width / size.height);
+    if (pull !== 1) {
+      wantP.sub(wantT).multiplyScalar(pull).add(wantT);
     }
 
     pos.current.lerp(wantP, 0.075);
@@ -152,10 +169,14 @@ function TravellingPlate({ progressRef }) {
 /* ── set dressing, shown only near the shots that use it ──────── */
 
 function Sets({ progressRef, screenTexture }) {
+  // Visibility is the only thing that needs React. Everything continuous is
+  // driven through refs inside useFrame — an earlier version forced a
+  // re-render every frame, which rebuilt the whole set tree 60x a second and
+  // dropped the film to about 1 fps.
   const [vis, setVis] = useState({ core: false, device: false, docks: false, archive: false });
   const fragRef = useRef(0);
   const gatherRef = useRef(0);
-  const [, force] = useState(0);
+  const seatedRef = useRef(-1);
 
   useFrame(() => {
     const p = progressRef.current;
@@ -167,25 +188,25 @@ function Sets({ progressRef, screenTexture }) {
       archive: near(8, 1.6),
     };
     setVis((prev) =>
-      prev.core === next.core && prev.device === next.device && prev.docks === next.docks && prev.archive === next.archive
+      prev.core === next.core &&
+      prev.device === next.device &&
+      prev.docks === next.docks &&
+      prev.archive === next.archive
         ? prev
         : next,
     );
     fragRef.current = THREE.MathUtils.clamp((p - 2.4) / 1.1, 0, 1);
     gatherRef.current = THREE.MathUtils.clamp((p - 8.05) / 0.85, 0, 1);
-    force((n) => (n + 1) % 1000);
+    seatedRef.current = p > 6.7 && p < 7.9 ? Math.min(2, Math.floor((p - 6.9) * 3.2)) : -1;
   });
-
-  const p = progressRef.current;
-  const seated = p > 6.7 && p < 7.9 ? Math.min(2, Math.floor((p - 6.9) * 3.2)) : -1;
 
   return (
     <>
-      {fragRef.current > 0 && fragRef.current < 1 && <Fragments progress={fragRef.current} />}
+      <Fragments progressRef={fragRef} />
       <Core visible={vis.core} />
       <Device visible={vis.device} screenTexture={screenTexture} />
-      <Docks visible={vis.docks} seatedIndex={seated} />
-      <Archive visible={vis.archive} gather={gatherRef.current} />
+      <Docks visible={vis.docks} seatedRef={seatedRef} />
+      <Archive visible={vis.archive} gatherRef={gatherRef} />
     </>
   );
 }
@@ -264,7 +285,7 @@ export default function Film({ captions }) {
   const plateShot = shot <= 1 ? shot + 1 : null;
 
   return (
-    <div ref={trackRef} className="film-track" style={{ height: `${SHOT_COUNT * 88}vh` }}>
+    <div ref={trackRef} className="film-track" style={{ height: `${SHOT_COUNT * 34}vh` }}>
       <div className="film-stage">
         <Canvas
           shadows={false}
@@ -281,7 +302,7 @@ export default function Film({ captions }) {
             {/* Restrained on purpose: only the channel light is hot enough to
                 bloom, so it reads as light escaping a slot, not a filter. */}
             <Bloom intensity={0.7} luminanceThreshold={0.52} luminanceSmoothing={0.45} mipmapBlur radius={0.75} />
-            <Vignette eskil={false} offset={0.28} darkness={0.9} />
+            <Vignette eskil={false} offset={0.62} darkness={0.62} />
           </EffectComposer>
         </Canvas>
 

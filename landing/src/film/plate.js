@@ -76,8 +76,8 @@ export function buildPlateBody() {
  * rather than switching on all at once.
  */
 export function buildPlateChannels() {
-  const width = 0.026;
-  const z = PLATE_THICKNESS / 2 + 0.004;
+  const width = 0.038;
+  const z = PLATE_THICKNESS / 2 + 0.012;
 
   // Cumulative length gives each segment its place in the fill order.
   const lengths = SUMMIT.map(([a, b]) => Math.hypot(b[0] - a[0], b[1] - a[1]));
