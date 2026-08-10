@@ -42,6 +42,7 @@ export function hubsFromAxonSources(sources, totalItems) {
       memoryCount: s.count ?? 0,
       status: s.status,
       kind: s.type,
+      icon: s.icon,
     });
   });
   return hubs;
@@ -82,6 +83,7 @@ function configFromHubs(hubs) {
       position: [Math.cos(angle) * r, Math.sin(angle) * r * 0.82],
       height: 2.1 + 1.4 * t,
       radius: 3.8 + 1.8 * t,
+      icon: h.icon,
       source: h,
     });
   });

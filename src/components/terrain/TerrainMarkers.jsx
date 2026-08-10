@@ -46,6 +46,8 @@ function HubBeacon({ hub, engine, glowTex, hovered, selected, dimmed, onSelect, 
   const beamH = 1.5 + hub.height * 0.4;
   const spriteRef = useRef(null);
   const beamMat = useRef(null);
+  const Icon = hub.icon;
+  const active = hovered || selected;
 
   const beamUniforms = useMemo(
     () => ({ uColor: { value: new THREE.Color(hub.colorHex) }, uOpacity: { value: 0.7 } }),
@@ -119,7 +121,40 @@ function HubBeacon({ hub, engine, glowTex, hovered, selected, dimmed, onSelect, 
           zIndexRange={[40, 0]}
           style={{ pointerEvents: 'none', opacity: dimmed ? 0.25 : 1, transition: 'opacity 0.4s ease' }}
         >
-          <div style={{ textAlign: 'center', whiteSpace: 'nowrap', fontFamily: "'Inter', sans-serif" }}>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              whiteSpace: 'nowrap',
+              fontFamily: "'Inter', sans-serif",
+            }}
+          >
+            {Icon && (
+              // Matte-black app tile carrying the provider's real brand mark —
+              // the same treatment as the AXON icon itself, so a summit reads
+              // as "this app" at a glance.
+              <div
+                style={{
+                  width: 54,
+                  height: 54,
+                  marginBottom: 7,
+                  borderRadius: 14,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: 'linear-gradient(160deg, #17181a 0%, #0b0c0d 55%, #070708 100%)',
+                  border: '1px solid rgba(255,255,255,0.09)',
+                  boxShadow: active
+                    ? '0 6px 22px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,183,51,0.35), 0 0 26px rgba(255,183,51,0.28), inset 0 1px 0 rgba(255,255,255,0.07)'
+                    : '0 6px 20px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.06)',
+                  transition: 'box-shadow 0.35s ease, transform 0.35s ease',
+                  transform: active ? 'translateY(-2px)' : 'none',
+                }}
+              >
+                <Icon size={28} />
+              </div>
+            )}
             <div style={{ color: '#fff', fontSize: 15, fontWeight: 600, letterSpacing: 0.2, textShadow: '0 2px 14px rgba(0,0,0,0.9)' }}>
               {hub.name}
             </div>

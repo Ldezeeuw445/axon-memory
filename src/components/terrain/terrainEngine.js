@@ -102,6 +102,9 @@ export function buildTerrainEngine(config) {
       height: h.height ?? 2.5,
       radius: h.radius ?? 4.5,
       hideLabel: !!h.hideLabel,
+      // Real brand mark for the summit tile (a React component from
+      // src/lib/logos.jsx), so the terrain shows the actual app logos.
+      icon: h.icon ?? null,
       source: h.source,
     };
   });
