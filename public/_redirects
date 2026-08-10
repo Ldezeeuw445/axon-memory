@@ -1,0 +1,5 @@
+# Client-side routing: every unmatched path is handled by the React router,
+# so serve index.html rather than a 404. Cloudflare Pages happens to do this
+# by default today, but /dashboard and /graph breaking on refresh is not a
+# thing to leave to implicit behaviour.
+/*  /index.html  200
