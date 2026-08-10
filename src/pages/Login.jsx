@@ -23,7 +23,7 @@ export default function Login() {
       if (tab === 'signin') {
         const { error } = await signIn(email, password);
         if (error) throw error;
-        navigate('/dashboard');
+        navigate('/');
       } else {
         const { error } = await signUp(email, password, fullName);
         if (error) throw error;
@@ -56,7 +56,7 @@ export default function Login() {
         {!isSupabaseConfigured && (
           <div style={{ background: 'rgba(0,243,255,0.07)', border: '1px solid rgba(0,243,255,0.18)', borderRadius: 10, padding: '10px 12px', marginBottom: 18, fontSize: 12, color: 'var(--color-text-secondary)' }}>
             🔧 <strong style={{ color: 'var(--color-neon-cyan)' }}>Demo mode</strong> — Supabase not configured.{' '}
-            <Link to="/dashboard" style={{ color: 'var(--color-neon-cyan)' }}>Continue as demo →</Link>
+            <Link to="/" style={{ color: 'var(--color-neon-cyan)' }}>Continue as demo →</Link>
           </div>
         )}
 

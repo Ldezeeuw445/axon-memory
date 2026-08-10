@@ -1,12 +1,17 @@
 :root {
-  --color-bg-base: #030305;
-  --color-bg-card: rgba(15, 15, 20, 0.6);
-  --color-border: rgba(255, 255, 255, 0.1);
-  --color-neon-cyan: #00f3ff;
-  --color-neon-purple: #bc13fe;
+  /* AXON Materials */
+  --color-void: #05070A;
+  --color-glass: rgba(255, 255, 255, 0.05);
+  --color-glass-highlight: rgba(255, 255, 255, 0.15);
+  --color-glass-border: rgba(255, 255, 255, 0.08);
+  --color-titanium: #B0B5BA;
+  --color-stone: #1A1A1F;
+  --color-light-glow: rgba(255, 255, 255, 0.8);
+  
+  /* Text */
   --color-text-primary: #ffffff;
-  --color-text-secondary: #a0a0b0;
-  --color-accent-gradient: linear-gradient(135deg, var(--color-neon-cyan) 0%, var(--color-neon-purple) 100%);
+  --color-text-secondary: #8E9499; /* Titanium-esque */
+  --color-text-tertiary: #5A5D61;
   
   --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
@@ -18,17 +23,20 @@
 }
 
 body {
-  background-color: var(--color-bg-base);
+  background-color: var(--color-void);
   color: var(--color-text-primary);
   font-family: var(--font-family);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-image: 
-    radial-gradient(circle at 15% 50%, rgba(0, 243, 255, 0.08), transparent 25%),
-    radial-gradient(circle at 85% 30%, rgba(188, 19, 254, 0.08), transparent 25%);
-  background-attachment: fixed;
   min-height: 100vh;
   overflow-x: hidden;
+  /* 
+    The void is not perfectly flat. 
+    One single hard hazy shaft of light.
+  */
+  background-image: 
+    radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.03) 0%, transparent 60%);
+  background-attachment: fixed;
 }
 
 a {
@@ -36,58 +44,88 @@ a {
   text-decoration: none;
 }
 
-.glass-card {
-  background: var(--color-bg-card);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--color-border);
-  border-radius: 16px;
-  padding: 24px;
+/* Glass Material (Replaces previous 'glass-card') */
+.glass-surface {
+  background: var(--color-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--color-glass-border);
+  border-radius: 20px;
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 8px 32px rgba(0, 0, 0, 0.3);
+  transition: all 1.2s cubic-bezier(0.19, 1, 0.22, 1);
 }
 
-.gradient-text {
-  background: var(--color-accent-gradient);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+.glass-surface:hover {
+  background: var(--color-glass-highlight);
+  border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
-.glow-btn {
-  background: var(--color-accent-gradient);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 12px 24px;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
+/* Stone Material */
+.stone-base {
+  background: var(--color-stone);
+  border-radius: 12px;
+  box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.title-text {
+  color: var(--color-text-primary);
+  font-weight: 400;
+  letter-spacing: -0.04em;
+}
+
+/* The Continuous Line Mark */
+.axon-mark {
+  fill: none;
+  stroke: var(--color-text-primary);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Scrollbar reset - hide it for a cleaner cinematic experience where possible */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-glass-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-glass-highlight);
+}
+
+/* Hide everything until it's discovered / formed */
+.fade-in {
+  opacity: 0;
+  animation: fadeIn 2s cubic-bezier(0.19, 1, 0.22, 1) forwards;
+}
+
+@keyframes fadeIn {
+  to { opacity: 1; }
+}
+
+/* Generic layout utilities */
+.full-screen {
+  width: 100vw;
+  height: 100vh;
   position: relative;
   overflow: hidden;
 }
 
-.glow-btn::before {
-  content: '';
-  position: absolute;
-  top: 0; left: -100%; width: 100%; height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-  transition: all 0.5s ease;
-}
-
-.glow-btn:hover::before {
-  left: 100%;
-}
-
-.glow-btn:hover {
-  box-shadow: 0 0 15px rgba(0, 243, 255, 0.4), 0 0 15px rgba(188, 19, 254, 0.4);
-  transform: translateY(-2px);
-}
-
-.grid-bg {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px);
-  background-size: 32px 32px;
-  z-index: -1;
-  pointer-events: none;
+.center-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }

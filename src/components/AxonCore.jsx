@@ -1,0 +1,478 @@
+import React, { useRef, useMemo, useEffect } from 'react';
+import { useFrame } from '@react-three/fiber';
+import * as THREE from 'three';
+import { MeshTransmissionMaterial, Float } from '@react-three/drei';
+
+export default function AxonCore({ stage = 2, injectionPulseTime = 0 }) {
+  const groupRef = useRef();
+  const mountTime = useRef(null);
+  const innerCoreMaterialRef = useRef();
+  const innerSkinMaterialRef = useRef();
+  const wiresMaterialRef = useRef();
+  const lightRef = useRef();
+  const cavityWireMaterialRef = useRef();
+  const cavitySolidMaterialRef = useRef();
+  const goldLightMaterialRef = useRef();
+  const flashTime = useRef(0);
+  const extractionTime = useRef(0);
+  
+  // Track animation progress (0 = closed/far, 1 = open/near)
+  const currentProgress = useRef(0);
+  const currentZ = useRef(-40);
+
+  // Pre-calculate the perfectly closed state (base) and the open/fractured state (target)
+  const { 
+    outerGeometry, innerDataGeometry, wiresGeometry,
+    cavityGeometry, goldLightGeometry,
+    basePositions, targetPositions,
+    baseInnerPositions, targetInnerPositions,
+    wireLinks, hatchCentroids, count
+  } = useMemo(() => {
+    const baseGeo = new THREE.IcosahedronGeometry(2, 2);
+    const nonIndexedGeo = baseGeo.toNonIndexed();
+    
+    const positions = nonIndexedGeo.attributes.position.array;
+    const count = nonIndexedGeo.attributes.position.count;
+    
+    const basePositionsArr = new Float32Array(count * 3);
+    const targetPositionsArr = new Float32Array(count * 3);
+    
+    const baseInnerPositionsArr = new Float32Array(count * 3);
+    const targetInnerPositionsArr = new Float32Array(count * 3);
+    
+    const links = [];
+
+    for (let i = 0; i < count; i += 3) {
+      const v1 = new THREE.Vector3().fromArray(positions, i * 3);
+      const v2 = new THREE.Vector3().fromArray(positions, (i+1) * 3);
+      const v3 = new THREE.Vector3().fromArray(positions, (i+2) * 3);
+      
+      v1.toArray(basePositionsArr, i * 3);
+      v2.toArray(basePositionsArr, (i+1) * 3);
+      v3.toArray(basePositionsArr, (i+2) * 3);
+
+      const inset = 0.98;
+      v1.clone().multiplyScalar(inset).toArray(baseInnerPositionsArr, i * 3);
+      v2.clone().multiplyScalar(inset).toArray(baseInnerPositionsArr, (i+1) * 3);
+      v3.clone().multiplyScalar(inset).toArray(baseInnerPositionsArr, (i+2) * 3);
+
+      const centroid = new THREE.Vector3().add(v1).add(v2).add(v3).divideScalar(3);
+        
+      let factor = 1;
+      if (centroid.z < -1) factor = 0.85;
+      
+      const noise = 1 + (Math.random() - 0.5) * 0.25; 
+      const finalCentroid = centroid.clone().multiplyScalar(noise * factor);
+      const offset = finalCentroid.clone().sub(centroid);
+      
+      const shrinkFactor = 0.96; 
+      const t1 = v1.clone().lerp(centroid, 1 - shrinkFactor).add(offset);
+      const t2 = v2.clone().lerp(centroid, 1 - shrinkFactor).add(offset);
+      const t3 = v3.clone().lerp(centroid, 1 - shrinkFactor).add(offset);
+      
+      const tiltAxis = new THREE.Vector3(Math.random(), Math.random(), Math.random()).normalize();
+      const tiltAngle = (Math.random() - 0.5) * 0.08; 
+      
+      t1.sub(finalCentroid).applyAxisAngle(tiltAxis, tiltAngle).add(finalCentroid);
+      t2.sub(finalCentroid).applyAxisAngle(tiltAxis, tiltAngle).add(finalCentroid);
+      t3.sub(finalCentroid).applyAxisAngle(tiltAxis, tiltAngle).add(finalCentroid);
+
+      t1.toArray(targetPositionsArr, i * 3);
+      t2.toArray(targetPositionsArr, (i+1) * 3);
+      t3.toArray(targetPositionsArr, (i+2) * 3);
+      
+      t1.clone().multiplyScalar(inset).toArray(targetInnerPositionsArr, i * 3);
+      t2.clone().multiplyScalar(inset).toArray(targetInnerPositionsArr, (i+1) * 3);
+      t3.clone().multiplyScalar(inset).toArray(targetInnerPositionsArr, (i+2) * 3);
+
+      if (noise * factor > 1.06) {
+        const coreAttach1 = v1.clone().normalize().multiplyScalar(1.8);
+        const coreAttach2 = v2.clone().normalize().multiplyScalar(1.8);
+        const coreAttach3 = v3.clone().normalize().multiplyScalar(1.8);
+        
+        if (i === 0 || Math.random() > 0.2) links.push({ plateVertexIndex: i, corePoint: coreAttach1 });
+        if (i === 0 || Math.random() > 0.2) links.push({ plateVertexIndex: i+1, corePoint: coreAttach2 });
+        if (i === 0 || Math.random() > 0.2) links.push({ plateVertexIndex: i+2, corePoint: coreAttach3 });
+      }
+    }
+    
+    const outGeo = new THREE.BufferGeometry();
+    outGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(basePositionsArr), 3));
+    
+    const inGeo = new THREE.BufferGeometry();
+    inGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(baseInnerPositionsArr), 3));
+    
+    const wGeo = new THREE.BufferGeometry();
+    wGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(links.length * 6), 3));
+    
+    // Calculate centroids for plates 1, 2, 3 to shrink them later
+    const centroids = [];
+    for (let i = 0; i < 4; i++) centroids.push(new THREE.Vector3());
+    for (let p = 1; p < 4; p++) {
+      let idx = p * 9;
+      let cx = (basePositionsArr[idx] + basePositionsArr[idx+3] + basePositionsArr[idx+6]) / 3;
+      let cy = (basePositionsArr[idx+1] + basePositionsArr[idx+4] + basePositionsArr[idx+7]) / 3;
+      let cz = (basePositionsArr[idx+2] + basePositionsArr[idx+5] + basePositionsArr[idx+8]) / 3;
+      centroids[p].set(cx, cy, cz);
+    }
+    // 3D Cavity Geometry (walls for the holes of plates 1, 2, 3)
+    const cavityPosArr = [];
+    for (let p = 1; p < 4; p++) {
+      let idx = p * 9;
+      let v0 = new THREE.Vector3(basePositionsArr[idx], basePositionsArr[idx+1], basePositionsArr[idx+2]);
+      let v1 = new THREE.Vector3(basePositionsArr[idx+3], basePositionsArr[idx+4], basePositionsArr[idx+5]);
+      let v2 = new THREE.Vector3(basePositionsArr[idx+6], basePositionsArr[idx+7], basePositionsArr[idx+8]);
+      
+      let c = new THREE.Vector3()
+        .addVectors(v0, v1).add(v2).divideScalar(3);
+      
+      // Deep point of the cavity
+      let d = c.clone().multiplyScalar(0.75);
+      
+      // Wall 1: V0, V1, D
+      cavityPosArr.push(v0.x, v0.y, v0.z, v1.x, v1.y, v1.z, d.x, d.y, d.z);
+      // Wall 2: V1, V2, D
+      cavityPosArr.push(v1.x, v1.y, v1.z, v2.x, v2.y, v2.z, d.x, d.y, d.z);
+      // Wall 3: V2, V0, D
+      cavityPosArr.push(v2.x, v2.y, v2.z, v0.x, v0.y, v0.z, d.x, d.y, d.z);
+    }
+    const cavGeo = new THREE.BufferGeometry();
+    cavGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(cavityPosArr), 3));
+    cavGeo.computeVertexNormals();
+
+    // Gold light panel (only plate 1) at the bottom of its cavity
+    const lightPosArr = [];
+    {
+      let idx = 9; // Plate 1
+      let v0 = new THREE.Vector3(basePositionsArr[idx], basePositionsArr[idx+1], basePositionsArr[idx+2]);
+      let v1 = new THREE.Vector3(basePositionsArr[idx+3], basePositionsArr[idx+4], basePositionsArr[idx+5]);
+      let v2 = new THREE.Vector3(basePositionsArr[idx+6], basePositionsArr[idx+7], basePositionsArr[idx+8]);
+      let c = new THREE.Vector3().addVectors(v0, v1).add(v2).divideScalar(3);
+      
+      // A tiny triangle at the bottom of the cavity
+      let d = c.clone().multiplyScalar(0.74); // Slightly deeper than cavity floor
+      let shrinkV0 = d.clone().add(v0.clone().sub(d).multiplyScalar(0.2));
+      let shrinkV1 = d.clone().add(v1.clone().sub(d).multiplyScalar(0.2));
+      let shrinkV2 = d.clone().add(v2.clone().sub(d).multiplyScalar(0.2));
+      
+      lightPosArr.push(shrinkV0.x, shrinkV0.y, shrinkV0.z, shrinkV1.x, shrinkV1.y, shrinkV1.z, shrinkV2.x, shrinkV2.y, shrinkV2.z);
+    }
+    const lGeo = new THREE.BufferGeometry();
+    lGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(lightPosArr), 3));
+    lGeo.computeVertexNormals();
+    
+    return { 
+      outerGeometry: outGeo, 
+      innerDataGeometry: inGeo, 
+      wiresGeometry: wGeo,
+      cavityGeometry: cavGeo,
+      goldLightGeometry: lGeo,
+      basePositions: basePositionsArr, 
+      targetPositions: targetPositionsArr,
+      baseInnerPositions: baseInnerPositionsArr, 
+      targetInnerPositions: targetInnerPositionsArr,
+      wireLinks: links,
+      hatchCentroids: centroids,
+      count
+    };
+  }, []);
+
+  useFrame((state, delta) => {
+    if (mountTime.current === null) mountTime.current = state.clock.elapsedTime;
+    const elapsed = state.clock.elapsedTime - mountTime.current;
+    
+    // Wacht tot de tekst klaar is (rond 4.5 seconden) voordat de beweging start
+    const movementElapsed = Math.max(0, elapsed - 4.5);
+    
+    // De beweging vooruit duurt nu 8 seconden (volledig rustig)
+    const timeline = Math.min(movementElapsed / 8.0, 1.0);
+    
+    // 1. Z-positie: easeInOutCubic curve
+    // Dit zorgt ervoor dat hij begint met een snelheid van 0 (geen plotselinge schok), 
+    // versnelt in het midden, en weer zachtjes afremt tot 0 aan het einde.
+    const easeZ = timeline < 0.5 
+      ? 4 * timeline * timeline * timeline 
+      : 1 - Math.pow(-2 * timeline + 2, 3) / 2;
+      
+    groupRef.current.position.z = THREE.MathUtils.lerp(-30, 0, easeZ);
+    
+    // 2. Open Progress: Platen beginnen pas open te schuiven als hij al flink onderweg is
+    const openTimeline = Math.max(0, (timeline - 0.4) * (1 / 0.6)); 
+    const progress = 1 - Math.pow(1 - openTimeline, 3); // easeOutCubic
+
+    // Update Cavity Opacity based on progress
+    if (cavityWireMaterialRef.current) cavityWireMaterialRef.current.opacity = progress * 0.9;
+    if (cavitySolidMaterialRef.current) cavitySolidMaterialRef.current.opacity = progress * 0.95;
+    if (goldLightMaterialRef.current) goldLightMaterialRef.current.opacity = progress * 0.9;
+
+    if (groupRef.current) {
+      groupRef.current.rotation.y += 0.0008;
+      groupRef.current.rotation.x += 0.0004;
+      
+      if (timeline >= 1.0) {
+        const breath = 1 + Math.sin(state.clock.elapsedTime * 0.5) * 0.015;
+        groupRef.current.scale.set(breath, breath, breath);
+      }
+    }
+    
+    // Core Pulse on Connection
+    if (stage === 3 && innerCoreMaterialRef.current && lightRef.current) {
+      if (flashTime.current === 0) flashTime.current = state.clock.elapsedTime;
+      const flashElapsed = state.clock.elapsedTime - flashTime.current;
+      const flashProgress = Math.min(flashElapsed / 2.0, 1.0);
+      
+      innerCoreMaterialRef.current.emissiveIntensity = THREE.MathUtils.lerp(5.0, 0.5, Math.pow(flashProgress, 0.5));
+      lightRef.current.intensity = THREE.MathUtils.lerp(20.0, 3.0, Math.pow(flashProgress, 0.5));
+      
+      if (wiresMaterialRef.current) {
+        wiresMaterialRef.current.opacity = THREE.MathUtils.lerp(1.0, 0.4, Math.pow(flashProgress, 0.5));
+      }
+      if (innerSkinMaterialRef.current) {
+        innerSkinMaterialRef.current.opacity = THREE.MathUtils.lerp(0.8, 0.15, Math.pow(flashProgress, 0.5));
+      }
+    }
+
+    // Shockwave Pulse on Injection
+    if (injectionPulseTime > 0 && wiresMaterialRef.current && innerCoreMaterialRef.current && lightRef.current) {
+      const pElapsed = state.clock.elapsedTime - injectionPulseTime;
+      // It takes about 0.2s for the shockwave to hit the core from the UI
+      if (pElapsed > 0.2 && pElapsed < 1.5) {
+        const pProgress = (pElapsed - 0.2) / 1.3;
+        // Flash gold (opacity up to 1, then down to 0.4)
+        const peak = 1 - Math.pow(Math.abs((pProgress * 2) - 1), 3); 
+        wiresMaterialRef.current.opacity = 0.4 + (peak * 0.8);
+        wiresMaterialRef.current.color.setHex(0xC4D63C); // Gold/Yellow
+        innerCoreMaterialRef.current.emissive.setHex(0xC4D63C);
+        lightRef.current.color.setHex(0xC4D63C);
+        lightRef.current.intensity = 3 + (peak * 20);
+      } else {
+        wiresMaterialRef.current.opacity = 0.4;
+        wiresMaterialRef.current.color.setHex(0x0044ff);
+        innerCoreMaterialRef.current.emissive.setHex(0x0044ff);
+        if (lightRef.current) {
+          lightRef.current.color.setHex(0x00aaff);
+          lightRef.current.intensity = stage >= 2 ? 3 : 0;
+        }
+      }
+    }
+
+    // Extraction Shard Logic (Stage 4)
+    let shardEase = 0;
+    if (stage >= 4) {
+      if (extractionTime.current === 0) extractionTime.current = state.clock.elapsedTime;
+      const exElapsed = state.clock.elapsedTime - extractionTime.current;
+      const shardProgress = Math.min(exElapsed / 1.5, 1.0);
+      shardEase = 1 - Math.pow(1 - shardProgress, 3); // easeOutCubic
+    }
+
+    const outPos = outerGeometry.attributes.position.array;
+    const inPos = innerDataGeometry.attributes.position.array;
+    
+    // Calculate centroid of face 0 for the shard movement
+    const cX = (targetPositions[0] + targetPositions[3] + targetPositions[6]) / 3;
+    const cY = (targetPositions[1] + targetPositions[4] + targetPositions[7]) / 3;
+    const cZ = (targetPositions[2] + targetPositions[5] + targetPositions[8]) / 3;
+    
+    // Target position for the shard (towards right side of screen)
+    const destX = 3.5;
+    const destY = 0;
+    const destZ = 8.5; // very close to camera
+    
+    const moveX = (destX - cX) * shardEase;
+    const moveY = (destY - cY) * shardEase;
+    const moveZ = (destZ - cZ) * shardEase;
+    const scaleShard = 1 + (shardEase * 2.5); // Grow 3.5x as it approaches
+    
+    for (let i = 0; i < count * 3; i++) {
+      let bP = basePositions[i];
+      let tP = targetPositions[i];
+      let biP = baseInnerPositions[i];
+      let tiP = targetInnerPositions[i];
+      
+      let p = THREE.MathUtils.lerp(bP, tP, progress);
+      let pIn = THREE.MathUtils.lerp(biP, tiP, progress);
+      
+      let plateIdx = Math.floor(i / 9);
+
+      // Plates 1, 2, 3 slide open as 3D cavities during the landing animation (progress 0 -> 1)
+      if (plateIdx >= 1 && plateIdx <= 3) {
+        let isX = i % 3 === 0;
+        let isY = i % 3 === 1;
+        let isZ = i % 3 === 2;
+        let cVal = isX ? hatchCentroids[plateIdx].x : (isY ? hatchCentroids[plateIdx].y : hatchCentroids[plateIdx].z);
+        
+        // As progress goes 0 -> 1, the plates shrink and sink to form the 3D cavity
+        let shrink = 1.0 - (progress * 0.8); // 1.0 -> 0.2
+        let sinkFactor = 1.0 - (progress * 0.25); // 1.0 -> 0.75
+        let targetC = cVal * sinkFactor;
+        
+        p = targetC + (p - cVal) * shrink;
+        pIn = targetC + (pIn - cVal) * shrink;
+      }
+
+      // If this is the first face (indices 0..8), detach it!
+      if (i < 9 && stage >= 4) {
+        const isX = i % 3 === 0;
+        const isY = i % 3 === 1;
+        const isZ = i % 3 === 2;
+        
+        let c = isX ? cX : (isY ? cY : cZ);
+        let move = isX ? moveX : (isY ? moveY : moveZ);
+        
+        // Scale out from centroid, then move
+        p = c + (p - c) * scaleShard + move;
+        pIn = c + (pIn - c) * scaleShard + move;
+        
+        // Flatten Z to face the camera to look like a 2D glass card
+        if (isZ) {
+          p = THREE.MathUtils.lerp(p, destZ, shardEase);
+          pIn = THREE.MathUtils.lerp(pIn, destZ, shardEase);
+        }
+      }
+      
+      outPos[i] = p;
+      inPos[i] = pIn;
+    }
+    outerGeometry.attributes.position.needsUpdate = true;
+    outerGeometry.computeVertexNormals();
+    
+    innerDataGeometry.attributes.position.needsUpdate = true;
+    innerDataGeometry.computeVertexNormals();
+
+    const wPos = wiresGeometry.attributes.position.array;
+    let wIdx = 0;
+    for (let i = 0; i < wireLinks.length; i++) {
+      const link = wireLinks[i];
+      // Hide wires for the extracted shard (first plate)
+      if (stage >= 4 && link.plateVertexIndex < 3) {
+        wPos[wIdx++] = link.corePoint.x;
+        wPos[wIdx++] = link.corePoint.y;
+        wPos[wIdx++] = link.corePoint.z;
+        wPos[wIdx++] = link.corePoint.x;
+        wPos[wIdx++] = link.corePoint.y;
+        wPos[wIdx++] = link.corePoint.z;
+      } else {
+        wPos[wIdx++] = outPos[link.plateVertexIndex * 3];
+        wPos[wIdx++] = outPos[link.plateVertexIndex * 3 + 1];
+        wPos[wIdx++] = outPos[link.plateVertexIndex * 3 + 2];
+        wPos[wIdx++] = link.corePoint.x;
+        wPos[wIdx++] = link.corePoint.y;
+        wPos[wIdx++] = link.corePoint.z;
+      }
+    }
+    wiresGeometry.attributes.position.needsUpdate = true;
+  });
+
+  return (
+    <Float speed={0.5} rotationIntensity={0.1} floatIntensity={0.2}>
+      <group ref={groupRef}>
+        
+        {/* INNER CORE */}
+        <mesh>
+          <icosahedronGeometry args={[1.8, 2]} />
+          <meshStandardMaterial 
+            ref={innerCoreMaterialRef}
+            color="#010205" 
+            emissive="#0044ff" 
+            emissiveIntensity={0.5}
+            wireframe={true}
+            transparent
+            opacity={0.8}
+          />
+        </mesh>
+        
+        <mesh>
+          <sphereGeometry args={[1.75, 32, 32]} />
+          <meshBasicMaterial color="#000000" />
+        </mesh>
+
+        {/* DATA WIRES (Tethers for lifted plates) */}
+        {/* Scaled down slightly to prevent clipping through the outer shell */}
+        <lineSegments geometry={wiresGeometry} scale={0.97}>
+          <lineBasicMaterial ref={wiresMaterialRef} color="#0044ff" transparent opacity={0.4} />
+        </lineSegments>
+
+        {/* INNER PLATE SKIN (Living data on the underside of plates) */}
+        <mesh geometry={innerDataGeometry} scale={0.98}>
+          <meshBasicMaterial 
+            ref={innerSkinMaterialRef}
+            color="#0044ff" 
+            wireframe={true} 
+            transparent 
+            opacity={0.15} 
+            side={THREE.DoubleSide} 
+          />
+        </mesh>
+
+        {/* 3D Cavity Walls (Plates 1, 2, 3) */}
+        <mesh geometry={cavityGeometry}>
+          <meshPhysicalMaterial 
+            ref={cavityWireMaterialRef}
+            color="#001a4d" 
+            emissive="#002266"
+            emissiveIntensity={0.2}
+            roughness={0.8}
+            metalness={0.5}
+            transparent
+            opacity={0}
+            side={THREE.DoubleSide}
+            wireframe={true}
+          />
+        </mesh>
+        <mesh geometry={cavityGeometry}>
+          <meshPhysicalMaterial 
+            ref={cavitySolidMaterialRef}
+            color="#000a1a" 
+            roughness={0.9}
+            metalness={0.1}
+            transparent
+            opacity={0}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+
+        {/* GOLD INJECTION FORESHADOWING LIGHT (Only in 1 hole) */}
+        <mesh geometry={goldLightGeometry}>
+          <meshStandardMaterial 
+            ref={goldLightMaterialRef}
+            color="#C4D63C" 
+            emissive="#C4D63C"
+            emissiveIntensity={2}
+            transparent
+            opacity={0}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+
+        {/* OUTER SHELL */}
+        <mesh geometry={outerGeometry}>
+          <MeshTransmissionMaterial 
+            backside
+            samples={16}
+            resolution={1024}
+            transmission={0.95}
+            roughness={0.25}
+            thickness={2} 
+            ior={1.6}
+            chromaticAberration={0.04}
+            anisotropy={0.3}
+            distortion={0.1}
+            distortionScale={0.2}
+            temporalDistortion={0.05}
+            color="#b0b8c4"
+            attenuationDistance={2}
+            attenuationColor="#ffffff"
+          />
+        </mesh>
+        
+        <pointLight 
+          ref={lightRef}
+          position={[0, 0, 0]} 
+          intensity={stage >= 2 ? 3 : 0} 
+          distance={6} 
+          color="#00aaff" 
+        />
+      </group>
+    </Float>
+  );
+}

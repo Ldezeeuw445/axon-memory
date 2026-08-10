@@ -51,7 +51,7 @@ const NODE_TYPE_COLORS = {
   default: 'var(--color-text-secondary)',
 };
 
-export default function Dashboard() {
+export default function Dashboard({ asFacet }) {
   const { user, isDemo } = useAuth();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -92,11 +92,13 @@ export default function Dashboard() {
   const displayName = user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'there';
 
   return (
-    <div className="page-container">
-      <header className="page-header">
-        <h1 className="page-title">Welcome back, {displayName} 👋</h1>
-        <p className="page-subtitle">Your AXON memory health and AI usage at a glance.</p>
-      </header>
+    <div className={asFacet ? "" : "page-container"}>
+      {!asFacet && (
+        <header className="page-header">
+          <h1 className="page-title">Welcome back, {displayName} 👋</h1>
+          <p className="page-subtitle">Your AXON memory health and AI usage at a glance.</p>
+        </header>
+      )}
 
       {isDemo && (
         <SetupBanner

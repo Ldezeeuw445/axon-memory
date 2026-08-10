@@ -4,6 +4,7 @@ import Modal from '../components/Modal';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { AI_PROVIDERS } from '../lib/logos';
+import { ingestSimulatedData } from '../lib/ingestion';
 
 const STORAGE_KEY = 'axon_adapters_demo';
 
@@ -100,6 +101,13 @@ function ConnectModal({ provider, isOpen, onClose, onSuccess }) {
   const { Logo, name, bg, color, guide, docsUrl, docsLabel, tokenPlaceholder, placeholder } = provider;
   const ph = placeholder || tokenPlaceholder || 'Enter your API key...';
 
+  const handleSimulate = async () => {
+    setStep('testing');
+    await new Promise(r => setTimeout(r, 1200));
+    setStep('success');
+    setTimeout(() => { onSuccess(provider.id, 'simulated-key', 'connected', true); onClose(); }, 1400);
+  };
+
   const handleTest = async () => {
     if (!apiKey.trim()) return;
     setStep('testing');
@@ -153,9 +161,14 @@ function ConnectModal({ provider, isOpen, onClose, onSuccess }) {
             style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color, marginBottom: 20, textDecoration: 'none' }}>
             <ExternalLink size={12} /> {docsLabel}
           </a>
-          <button onClick={() => setStep('input')} className="btn-primary" style={{ width: '100%' }}>
-            I have my key → Enter it
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <button onClick={handleSimulate} className="btn-primary" style={{ width: '100%' }}>
+              Quick Connect (Simulate)
+            </button>
+            <button onClick={() => setStep('input')} className="btn-secondary" style={{ width: '100%', border: '1px solid var(--color-border)', background: 'rgba(255,255,255,0.05)' }}>
+              Developer Token (Real)
+            </button>
+          </div>
         </>
       )}
 
@@ -217,7 +230,7 @@ function ConnectModal({ provider, isOpen, onClose, onSuccess }) {
   );
 }
 
-export default function AIAdapters() {
+export default function AIAdapters({ asFacet }) {
   const { user, isDemo } = useAuth();
   const storage = useStorage(user, isDemo);
   const [statuses, setStatuses] = useState({});
@@ -230,7 +243,10 @@ export default function AIAdapters() {
     setStatuses(p => { const n = { ...p }; delete n[id]; return n; });
   };
 
-  const handleSuccess = async (id, key, status) => {
+  const handleSuccess = async (id, key, status, simulated = false) => {
+    if (simulated) {
+      await ingestSimulatedData(user, id, isDemo);
+    }
     await storage.save(id, key, status);
     setStatuses(p => ({ ...p, [id]: { status, hasKey: true } }));
   };
@@ -238,15 +254,17 @@ export default function AIAdapters() {
   const connectedCount = Object.values(statuses).filter(s => s.status === 'connected').length;
 
   return (
-    <div className="page-container">
-      <header className="page-header">
-        <h1 className="page-title">AI Adapters</h1>
-        <p className="page-subtitle">
-          {connectedCount > 0
-            ? `${connectedCount} adapter${connectedCount > 1 ? 's' : ''} active — AXON memory is being injected.`
-            : 'Connect your AI tools so AXON injects memory context into every conversation.'}
-        </p>
-      </header>
+    <div className={asFacet ? "" : "page-container"}>
+      {!asFacet && (
+        <header className="page-header">
+          <h1 className="page-title">AI Adapters</h1>
+          <p className="page-subtitle">
+            {connectedCount > 0
+              ? `${connectedCount} adapter${connectedCount > 1 ? 's' : ''} active — AXON memory is being injected.`
+              : 'Connect your AI tools so AXON injects memory context into every conversation.'}
+          </p>
+        </header>
+      )}
 
       <div className="adapter-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>
         {AI_PROVIDERS.map(provider => (

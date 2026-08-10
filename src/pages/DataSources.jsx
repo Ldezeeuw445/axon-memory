@@ -4,6 +4,7 @@ import Modal from '../components/Modal';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { DATA_SOURCES } from '../lib/logos';
+import { ingestSimulatedData } from '../lib/ingestion';
 
 const DEMO_KEY = 'axon_sources_demo';
 
@@ -58,9 +59,34 @@ function ConnectModal({ source, isOpen, onClose, onSuccess }) {
 
   if (!source) return null;
 
+  const [authProgress, setAuthProgress] = useState('');
+
+  const handleSimulate = async () => {
+    setStep('testing');
+    setAuthProgress('Requesting permissions...');
+    await new Promise(r => setTimeout(r, 800));
+    
+    setAuthProgress('Exchanging tokens...');
+    await new Promise(r => setTimeout(r, 900));
+    
+    setAuthProgress('Verifying connection...');
+    await new Promise(r => setTimeout(r, 700));
+    
+    setAuthProgress('Indexing data...');
+    await new Promise(r => setTimeout(r, 800));
+
+    setAccountInfo({ accountName: 'Demo User', extra: 'Simulated connection' });
+    setStep('success');
+    setTimeout(() => {
+      onSuccess(source.id, 'simulated-token', { account_name: 'Demo User', node_count: 0, simulated: true });
+      onClose();
+    }, 1600);
+  };
+
   const handleTest = async () => {
     if (!token.trim()) return;
     setStep('testing');
+    setAuthProgress('Verifying developer token...');
     try {
       const res = await fetch('/api/sources/test', {
         method: 'POST',
@@ -121,9 +147,14 @@ function ConnectModal({ source, isOpen, onClose, onSuccess }) {
               <ExternalLink size={11} /> {docsLabel}
             </a>
           )}
-          <button onClick={() => setStep('input')} className="btn-primary" style={{ width: '100%' }}>
-            I have my token → Connect
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <button onClick={() => handleSimulate()} className="btn-primary" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px' }}>
+              <RefreshCw size={16} /> 1-Click Connect (OAuth Simulation)
+            </button>
+            <button onClick={() => setStep('input')} style={{ width: '100%', background: 'none', border: 'none', color: 'var(--color-text-secondary)', fontSize: 12, cursor: 'pointer', marginTop: 4 }}>
+              Or use Developer Token (Manual API Key)
+            </button>
+          </div>
         </>
       )}
 
@@ -154,9 +185,9 @@ function ConnectModal({ source, isOpen, onClose, onSuccess }) {
             </div>
           )}
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => setStep('guide')} className="btn-secondary" style={{ flex: 1 }}>← Guide</button>
+            <button onClick={() => setStep('guide')} className="btn-secondary" style={{ flex: 1 }}>← Back</button>
             <button onClick={handleTest} disabled={!token.trim()} className="btn-primary" style={{ flex: 2 }}>
-              Verify & Connect
+              Verify Token
             </button>
           </div>
         </>
@@ -165,7 +196,7 @@ function ConnectModal({ source, isOpen, onClose, onSuccess }) {
       {step === 'testing' && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: '28px 0' }}>
           <Loader size={36} color="var(--color-neon-cyan)" style={{ animation: 'spin 1s linear infinite' }} />
-          <p style={{ fontWeight: 600 }}>Connecting to {name}…</p>
+          <p style={{ fontWeight: 600 }}>{authProgress || `Connecting to ${name}…`}</p>
         </div>
       )}
 
@@ -185,7 +216,7 @@ function ConnectModal({ source, isOpen, onClose, onSuccess }) {
   );
 }
 
-export default function DataSources() {
+export default function DataSources({ asFacet }) {
   const { user, isDemo } = useAuth();
   const storage = useSourceStorage(user, isDemo);
   const [connected, setConnected] = useState({});
@@ -195,8 +226,14 @@ export default function DataSources() {
   useEffect(() => { storage.load().then(setConnected); }, []);
 
   const handleSuccess = async (sourceId, token, meta) => {
-    await storage.save(sourceId, token, meta);
-    setConnected(p => ({ ...p, [sourceId]: { status: 'connected', ...meta } }));
+    let nodeCount = meta.node_count || 0;
+    if (meta.simulated) {
+      const ingested = await ingestSimulatedData(user, sourceId, isDemo);
+      nodeCount += ingested;
+    }
+    const finalMeta = { ...meta, node_count: nodeCount };
+    await storage.save(sourceId, token, finalMeta);
+    setConnected(p => ({ ...p, [sourceId]: { status: 'connected', ...finalMeta } }));
   };
 
   const handleSync = async (sourceId) => {
@@ -216,15 +253,17 @@ export default function DataSources() {
   const connectedCount = Object.values(connected).filter(s => s.status === 'connected').length;
 
   return (
-    <div className="page-container">
-      <header className="page-header">
-        <h1 className="page-title">Data Sources</h1>
-        <p className="page-subtitle">
-          {connectedCount > 0
-            ? `${connectedCount} source${connectedCount > 1 ? 's' : ''} connected — AXON is building your memory graph.`
-            : 'Connect your apps so AXON ingests and structures your knowledge automatically.'}
-        </p>
-      </header>
+    <div className={asFacet ? "" : "page-container"}>
+      {!asFacet && (
+        <header className="page-header">
+          <h1 className="page-title">Data Sources</h1>
+          <p className="page-subtitle">
+            {connectedCount > 0
+              ? `${connectedCount} source${connectedCount > 1 ? 's' : ''} connected — AXON is building your memory graph.`
+              : 'Connect your apps so AXON ingests and structures your knowledge automatically.'}
+          </p>
+        </header>
+      )}
 
       <div className="source-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
         {DATA_SOURCES.map(source => {

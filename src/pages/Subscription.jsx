@@ -105,7 +105,7 @@ export default function Subscription() {
         </div>
       )}
 
-      <div className="pricing-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px', maxWidth: '760px' }}>
+      <div className="pricing-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px', maxWidth: '1000px' }}>
         {/* Free Plan */}
         <div className="glass-card" style={{ position: 'relative' }}>
           {currentPlan === 'free' && (
@@ -139,7 +139,7 @@ export default function Subscription() {
               <h2 style={{ fontSize: '22px', fontWeight: 800 }} className="gradient-text">Pro</h2>
             </div>
             <div style={{ margin: '12px 0 4px' }}>
-              <span style={{ fontSize: '36px', fontWeight: 800 }} className="gradient-text">$5</span>
+              <span style={{ fontSize: '36px', fontWeight: 800 }} className="gradient-text">$15</span>
               <span style={{ color: 'var(--color-text-secondary)', fontSize: '14px' }}>/month</span>
             </div>
             <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px', marginBottom: '24px' }}>Everything you need to maximize AI memory</p>
@@ -164,14 +164,50 @@ export default function Subscription() {
                 style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '16px', padding: '14px', opacity: stripeAvailable === false ? 0.5 : 1 }}
               >
                 <Zap size={18} />
-                {loading ? 'Redirecting...' : 'Subscribe — $5/month'}
+                {loading ? 'Redirecting...' : 'Subscribe — $15/month'}
               </button>
             )}
-
+            
             <p style={{ fontSize: '11px', color: 'var(--color-text-secondary)', textAlign: 'center', marginTop: '10px' }}>
-              Cancel anytime. Also available via{' '}
-              <span style={{ color: 'var(--color-neon-cyan)' }}>Apple App Store</span> and{' '}
-              <span style={{ color: 'var(--color-neon-cyan)' }}>Google Play</span> in-app purchase.
+              Cancel anytime. Also available via <span style={{ color: 'var(--color-neon-cyan)' }}>Apple</span> / <span style={{ color: 'var(--color-neon-cyan)' }}>Google</span> in-app purchase.
+            </p>
+          </div>
+        </div>
+
+        {/* Lifetime Founder Plan */}
+        <div className="glass-card" style={{ position: 'relative', border: '1px solid rgba(255, 170, 0, 0.4)', boxShadow: '0 0 40px rgba(255, 170, 0, 0.1)', background: 'rgba(255, 170, 0, 0.03)' }}>
+          <div style={{ position: 'absolute', top: '-1px', left: '20px', background: 'linear-gradient(90deg, #ffaa00, #ffdd55)', padding: '3px 10px', borderRadius: '0 0 8px 8px', fontSize: '11px', fontWeight: 800, color: '#000' }}>
+            EARLY ADOPTER
+          </div>
+          <div style={{ marginTop: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Crown size={22} color="#ffaa00" />
+              <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#ffaa00' }}>Founder</h2>
+            </div>
+            <div style={{ margin: '12px 0 4px', display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+              <span style={{ fontSize: '36px', fontWeight: 800, color: '#ffaa00' }}>$299</span>
+              <span style={{ color: 'var(--color-text-secondary)', fontSize: '14px', textDecoration: 'line-through' }}>$499</span>
+            </div>
+            <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px', marginBottom: '24px' }}>Pay once. Lifetime access to Pro.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '24px' }}>
+              {PRO_FEATURES.map((f, i) => (
+                <div key={f} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}>
+                  <CheckCircle size={15} color="#ffaa00" style={{ flexShrink: 0 }} />
+                  {i === PRO_FEATURES.length - 1 ? 'Early access to beta features' : f}
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={handleSubscribe}
+              disabled={loading || stripeAvailable === false}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '16px', padding: '14px', borderRadius: '8px', background: 'linear-gradient(90deg, #ffaa00, #ff8800)', color: '#000', fontWeight: 'bold', border: 'none', cursor: 'pointer', opacity: stripeAvailable === false ? 0.5 : 1 }}
+            >
+              <Zap size={18} />
+              {loading ? 'Redirecting...' : 'Get Lifetime Access'}
+            </button>
+            <p style={{ fontSize: '11px', color: 'var(--color-text-secondary)', textAlign: 'center', marginTop: '10px' }}>
+              Secure payment via Stripe.
             </p>
           </div>
         </div>
