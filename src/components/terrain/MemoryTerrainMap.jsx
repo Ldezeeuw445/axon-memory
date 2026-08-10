@@ -30,7 +30,7 @@ export function hubsFromAxonSources(sources, totalItems) {
   const hubs = [
     {
       id: 'axon-core',
-      label: 'AXON',
+      label: 'AXON MEMORY',
       memoryCount: totalItems,
       isCore: true,
     },
@@ -65,7 +65,9 @@ function configFromHubs(hubs) {
       position: [0, -2],
       height: 5.8,
       radius: 8,
-      hideLabel: true, // the center-title overlay already announces AXON
+      // AXE CORE hides this label because that app draws its own centre
+      // title over the canvas; AXON has no such overlay, so the summit names
+      // itself. No tile — the peak is AXON, it does not need its own badge.
       source: core,
     });
   }
