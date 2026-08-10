@@ -76,7 +76,7 @@ export function buildPlateBody() {
  * rather than switching on all at once.
  */
 export function buildPlateChannels() {
-  const width = 0.016;
+  const width = 0.026;
   const z = PLATE_THICKNESS / 2 + 0.004;
 
   // Cumulative length gives each segment its place in the fill order.
@@ -151,9 +151,9 @@ export const channelFragment = /* glsl */ `
 
 /** The five states from the production bible, as colour + intensity. */
 export const PLATE_STATES = {
-  dormant: { color: new THREE.Color('#2a1c07'), intensity: 0.4 },
-  gathering: { color: new THREE.Color('#c07b12'), intensity: 1.5 },
-  complete: { color: new THREE.Color('#ffb02e'), intensity: 2.2 },
-  transit: { color: new THREE.Color('#5b93e6'), intensity: 2.6 },
-  recalled: { color: new THREE.Color('#fff2d6'), intensity: 4.2 },
+  dormant: { color: new THREE.Color('#5a3c0d'), intensity: 0.9 },
+  gathering: { color: new THREE.Color('#ffa01c'), intensity: 3.4 },
+  complete: { color: new THREE.Color('#ffb02e'), intensity: 5.2 },
+  transit: { color: new THREE.Color('#6aa6ff'), intensity: 6.0 },
+  recalled: { color: new THREE.Color('#fff2d6'), intensity: 9.0 },
 };

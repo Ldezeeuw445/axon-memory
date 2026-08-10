@@ -11,10 +11,10 @@ import { SET_B, SET_C, SET_D } from './shots';
 /* ── shared materials ─────────────────────────────────────────── */
 
 const GRAPHITE = {
-  color: '#17181b',
-  metalness: 0.94,
-  roughness: 0.52,
-  envMapIntensity: 1.1,
+  color: '#2b2d33',
+  metalness: 0.78,
+  roughness: 0.36,
+  envMapIntensity: 2.1,
 };
 
 /**
@@ -141,7 +141,7 @@ export function Device({ screenTexture = null, screenBrightness = 1, visible = t
   return (
     <group position={SET_B} visible={visible}>
       <mesh geometry={bodyGeo} castShadow receiveShadow>
-        <meshStandardMaterial color="#141518" metalness={0.98} roughness={0.34} envMapIntensity={1.3} />
+        <meshStandardMaterial color="#26282d" metalness={0.8} roughness={0.26} envMapIntensity={2.3} />
       </mesh>
       <mesh position={[0, 0, 0.051]}>
         <planeGeometry args={[0.94, 1.98]} />
@@ -173,15 +173,16 @@ function Dock({ index, label, seated }) {
       {/* the recess itself, darker and rougher than the face */}
       <mesh position={[0, 0.12, 0.215]}>
         <boxGeometry args={[0.92, 0.86, 0.06]} />
-        <meshStandardMaterial color="#0b0c0e" metalness={0.9} roughness={0.75} />
+        <meshStandardMaterial color="#141519" metalness={0.75} roughness={0.62} envMapIntensity={1.4} />
       </mesh>
       {/* etched identifier, flush in the face below the recess */}
       <mesh position={[0, -0.5, 0.212]}>
         <planeGeometry args={[1.15, 0.29]} />
         <meshStandardMaterial
-          color="#3c3e44"
-          metalness={0.85}
-          roughness={0.85}
+          color="#8f949e"
+          metalness={0.6}
+          roughness={0.72}
+          envMapIntensity={2.4}
           alphaMap={etch}
           transparent
         />

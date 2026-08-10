@@ -53,11 +53,15 @@ const MemoryPlate = forwardRef(function MemoryPlate(
   return (
     <group ref={ref} scale={scale} {...rest}>
       <mesh geometry={bodyGeo} castShadow receiveShadow>
+        {/* Pulled back off full metalness: at 0.96 the face returned only the
+            environment and went black. Anodising is a dielectric layer over
+            metal, so a little diffuse is physically right and it also gives
+            the blasted face something to hold. */}
         <meshStandardMaterial
-          color="#1b1c1f"
-          metalness={0.96}
-          roughness={0.46}
-          envMapIntensity={1.15}
+          color="#2b2d33"
+          metalness={0.78}
+          roughness={0.33}
+          envMapIntensity={2.1}
         />
       </mesh>
       <mesh geometry={channelGeo}>

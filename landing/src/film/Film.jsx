@@ -29,13 +29,24 @@ import { SHOTS, SHOT_COUNT, SHOT_TO_ACT } from './shots';
 function Stage() {
   return (
     <>
-      <ambientLight intensity={0.08} />
-      <directionalLight position={[-4.5, 3.2, -5]} intensity={2.6} color="#dce6ff" castShadow={false} />
-      <directionalLight position={[3, 1.4, 4]} intensity={0.32} color="#8fa2c4" />
-      <Environment resolution={128}>
-        <Lightformer form="rect" intensity={2.4} position={[-3, 2, -4]} scale={[6, 4, 1]} color="#cfe0ff" />
-        <Lightformer form="rect" intensity={0.7} position={[4, 0.5, 3]} scale={[4, 3, 1]} color="#7d8aa6" />
-        <Lightformer form="circle" intensity={1.1} position={[0, -3, 1]} scale={[3, 3, 1]} color="#ffb974" />
+      <ambientLight intensity={0.16} />
+      <directionalLight position={[-4.5, 3.2, -5]} intensity={2.2} color="#dce6ff" />
+      <directionalLight position={[3, 1.4, 4]} intensity={0.5} color="#8fa2c4" />
+      {/*
+        Anodised titanium is almost entirely reflective, so what it looks like
+        is decided here, not by the lights above. A sparse environment gives it
+        nothing to return and the metal reads as flat black — which is exactly
+        what happened on the first pass. These are the softboxes of the studio:
+        a big key overhead, a long rim behind, and a warm bounce from below.
+      */}
+      <Environment resolution={256}>
+        <Lightformer form="rect" intensity={7} position={[0, 6, 1]} rotation={[Math.PI / 2, 0, 0]} scale={[12, 8, 1]} color="#e8f0ff" />
+        <Lightformer form="rect" intensity={5} position={[-6, 2, -5]} scale={[10, 7, 1]} color="#cfe0ff" />
+        <Lightformer form="rect" intensity={2.6} position={[6.5, 1, 3.5]} scale={[7, 5, 1]} color="#93a4c4" />
+        <Lightformer form="rect" intensity={2.2} position={[0, -4, 2]} rotation={[-Math.PI / 2, 0, 0]} scale={[8, 6, 1]} color="#ffb974" />
+        {/* narrow strips read as specular lines travelling along the chamfers */}
+        <Lightformer form="rect" intensity={9} position={[-2.5, 3.5, 2.5]} scale={[0.4, 5, 1]} color="#ffffff" />
+        <Lightformer form="rect" intensity={5} position={[3, -1.5, 2]} scale={[0.3, 4, 1]} color="#ffd9a8" />
       </Environment>
     </>
   );
@@ -269,7 +280,7 @@ export default function Film({ captions }) {
           <EffectComposer multisampling={0}>
             {/* Restrained on purpose: only the channel light is hot enough to
                 bloom, so it reads as light escaping a slot, not a filter. */}
-            <Bloom intensity={0.5} luminanceThreshold={0.75} luminanceSmoothing={0.4} mipmapBlur radius={0.7} />
+            <Bloom intensity={0.7} luminanceThreshold={0.52} luminanceSmoothing={0.45} mipmapBlur radius={0.75} />
             <Vignette eskil={false} offset={0.28} darkness={0.9} />
           </EffectComposer>
         </Canvas>
