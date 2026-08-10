@@ -12,6 +12,17 @@
   --color-text-primary: #ffffff;
   --color-text-secondary: #8E9499; /* Titanium-esque */
   --color-text-tertiary: #5A5D61;
+
+  /* Surfaces and accent used by App.css. These were referenced but never
+     defined, so every rule that touched them silently collapsed — the
+     primary button lost its background entirely and fell back to the
+     browser's default grey. The accent is the AXON gold: the same colour as
+     the mark and the terrain summits, replacing the cyan/purple of the
+     retired logo. */
+  --color-border: var(--color-glass-border);
+  --color-bg-card: var(--color-glass);
+  --color-accent: #FFB733;
+  --color-accent-strong: #FFD98A;
   
   --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }

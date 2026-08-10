@@ -82,7 +82,7 @@
 .nav-link.active {
   background: rgba(0, 243, 255, 0.1);
   color: var(--color-text-primary);
-  box-shadow: inset 2px 0 0 var(--color-neon-cyan);
+  box-shadow: inset 2px 0 0 var(--color-accent);
 }
 
 .sidebar-footer {
@@ -165,7 +165,7 @@
   font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.8px;
-  color: var(--color-neon-cyan);
+  color: var(--color-accent);
   background: rgba(0,243,255,0.12);
   border: 1px solid rgba(0,243,255,0.25);
   padding: 2px 6px;
@@ -225,7 +225,7 @@
 }
 
 .tab-item.active {
-  color: var(--color-neon-cyan);
+  color: var(--color-accent);
 }
 
 .tab-item.active::before {
@@ -236,7 +236,7 @@
   transform: translateX(-50%);
   width: 32px;
   height: 2px;
-  background: var(--color-neon-cyan);
+  background: var(--color-accent);
   border-radius: 0 0 2px 2px;
 }
 
@@ -381,7 +381,7 @@
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--color-neon-cyan), var(--color-neon-purple));
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-strong));
   color: #000;
   border: none;
   padding: 12px 20px;
