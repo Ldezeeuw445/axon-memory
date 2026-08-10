@@ -10,7 +10,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
-import MorphPoints from './MorphPoints';
+import MorphPoints, { Atmosphere } from './MorphPoints';
 
 export const ACT_COUNT = 6;
 
@@ -111,17 +111,21 @@ export default function Film({ captions }) {
           camera={{ position: CAM[0], fov: 45, near: 0.1, far: 200 }}
           gl={{ antialias: !isMobile, alpha: false, powerPreference: 'default' }}
         >
-          <color attach="background" args={['#04050a']} />
-          <fog attach="fog" args={['#04050a', 14, 34]} />
+          {/* Near-true void. Depth is carried by the shader's own falloff and
+              by the haze layer, not by a lifted background colour. */}
+          <color attach="background" args={['#010103']} />
+          <Atmosphere count={isMobile ? 700 : 1500} reducedMotion={reducedMotion} />
           <MorphPoints
             progressRef={progressRef}
-            count={isMobile ? 4200 : 9000}
+            count={isMobile ? 7000 : 16000}
             reducedMotion={reducedMotion}
           />
           <CameraRig progressRef={progressRef} reducedMotion={reducedMotion} />
           <EffectComposer multisampling={0}>
-            <Bloom intensity={0.9} luminanceThreshold={0.22} luminanceSmoothing={0.3} mipmapBlur radius={0.75} />
-            <Vignette eskil={false} offset={0.22} darkness={0.85} />
+            {/* High threshold, low intensity: only the hottest cores bloom, so
+                it reads as light in air rather than a glow filter. */}
+            <Bloom intensity={0.42} luminanceThreshold={0.62} luminanceSmoothing={0.5} mipmapBlur radius={0.9} />
+            <Vignette eskil={false} offset={0.3} darkness={0.92} />
           </EffectComposer>
         </Canvas>
 
