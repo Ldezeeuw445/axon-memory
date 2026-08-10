@@ -263,12 +263,14 @@ export default function Film({ captions }) {
     };
   }, []);
 
-  // Real product screenshot for shots 07 and 10. Absent until supplied — the
-  // device screen stays dark rather than showing a fabricated interface.
+  // Shot 07 is the real AXON memory graph, captured from the running product
+  // with the "API Architecture Decision" memory present as an actual node.
+  // AXON has no memory-detail page and no chat surface, so inventing either
+  // would mean shipping a product screen that does not exist.
   const [screenTexture, setScreenTexture] = useState(null);
   useEffect(() => {
     const img = new Image();
-    img.src = '/shots/memory-screen.png';
+    img.src = '/shots/07-terrain.png';
     img.onload = () => {
       const t = new THREE.Texture(img);
       t.colorSpace = THREE.SRGBColorSpace;

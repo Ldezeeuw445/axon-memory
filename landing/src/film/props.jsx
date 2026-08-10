@@ -141,8 +141,31 @@ export function Core({ visible = true }) {
  * screenshot is supplied it goes here. Until then the screen stays a plain
  * dark surface — this deliberately does NOT fake an interface.
  */
+const SCREEN_W = 0.94;
+const SCREEN_H = 1.98;
+
 export function Device({ screenTexture = null, screenBrightness = 1, visible = true }) {
   const bodyGeo = useMemo(() => new THREE.BoxGeometry(1.02, 2.06, 0.1), []);
+
+  // The capture is a browser viewport, not a phone frame. Cover-fit it —
+  // crop the sides, keep the centre — so the terrain is never stretched.
+  useMemo(() => {
+    const img = screenTexture?.image;
+    if (!img?.width) return;
+    const screen = SCREEN_W / SCREEN_H;
+    const src = img.width / img.height;
+    screenTexture.wrapS = screenTexture.wrapT = THREE.ClampToEdgeWrapping;
+    if (src > screen) {
+      const r = screen / src;
+      screenTexture.repeat.set(r, 1);
+      screenTexture.offset.set((1 - r) / 2, 0);
+    } else {
+      const r = src / screen;
+      screenTexture.repeat.set(1, r);
+      screenTexture.offset.set(0, (1 - r) / 2);
+    }
+    screenTexture.needsUpdate = true;
+  }, [screenTexture]);
 
   return (
     <group position={SET_B} visible={visible}>
@@ -150,7 +173,7 @@ export function Device({ screenTexture = null, screenBrightness = 1, visible = t
         <meshStandardMaterial color="#26282d" metalness={0.8} roughness={0.26} envMapIntensity={2.3} />
       </mesh>
       <mesh position={[0, 0, 0.051]}>
-        <planeGeometry args={[0.94, 1.98]} />
+        <planeGeometry args={[SCREEN_W, SCREEN_H]} />
         {screenTexture ? (
           <meshBasicMaterial map={screenTexture} toneMapped={false} opacity={screenBrightness} transparent />
         ) : (

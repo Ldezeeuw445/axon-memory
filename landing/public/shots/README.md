@@ -9,7 +9,7 @@ Follow the keyframe-first workflow. Generate the still, judge it against the
 shot spec, and only extend an approved still to video. A weak keyframe is
 regenerated, never rescued with motion.
 
-## Generated plates
+## Generated plates — still needed
 
 | File | Shot | Notes |
 |---|---|---|
@@ -24,16 +24,30 @@ the film reaches them, but they still sit in front of the story.
 Mobile drops the `src` and shows the poster, so the two stills must stand on
 their own as compositions.
 
-## Real product UI
+## Real product — shot 07 (present)
 
-| File | Shots | Notes |
-|---|---|---|
-| `memory-screen.png` | 07, 10 | A real screenshot of the AXON memory detail view showing **API Architecture Decision**. |
+`07-terrain.png` — the real AXON memory graph, captured from the running
+product at app.axon-memory.com with the **API Architecture Decision** memory
+present as an actual node. The centre summit reads "AXON MEMORY · 1 memories".
 
-Portrait, roughly 1170×2470, dark theme, no browser chrome, no status bar
-overlay. Shots 07 and 10 must show the *same* memory — that is what keeps the
-film internally consistent and the product positioned as a general memory
-layer.
+The capture is a browser viewport, not a phone frame, so the device screen
+cover-fits it: cropped at the sides, never stretched.
 
-This one cannot be faked. The brief forbids generated app UI, and the device
-screen is deliberately left dark until this file exists.
+To re-capture after the data changes: open `/graph`, frame the terrain so the
+centre summit and the surrounding provider peaks all read, then grab the
+canvas directly rather than screenshotting the window — a window screenshot
+picks up browser chrome and the cursor.
+
+## Real product — shot 10 (still needed)
+
+`10-claude.png` — a real Claude conversation with AXON connected through the
+MCP gateway at `mcp.axon-memory.com`, showing Claude answering a question
+about the API architecture decision using the memory it retrieved from AXON.
+
+This is the payoff of the whole film, and it has to be genuine. AXON is the
+memory layer, not a chat product — so the conversation belongs in Claude, not
+in an AXON screen. There is deliberately no AXON chat interface to capture,
+and none should be invented for the film.
+
+Steps: connect AXON as a connector in Claude, ask what was decided about the
+API architecture, and capture the reply that uses the recovered context.
