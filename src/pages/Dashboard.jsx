@@ -65,18 +65,28 @@ export default function Dashboard({ asFacet }) {
 
     async function loadStats() {
       try {
-        const [nodesRes, adaptersRes, recentRes] = await Promise.all([
-          supabase.from('memory_nodes').select('id', { count: 'exact' }).eq('user_id', user.id),
-          supabase.from('ai_adapter_connections').select('id', { count: 'exact' }).eq('user_id', user.id).eq('status', 'connected'),
-          supabase.from('memory_nodes').select('id, title, type, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
+        const [itemsRes, sourcesRes, adaptersRes, tokenRes, recentRes] = await Promise.all([
+          supabase.from('memory_items').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+          supabase.from('source_connections').select('id', { count: 'exact', head: true }).eq('user_id', user.id).in('status', ['connected', 'syncing']),
+          supabase.from('api_keys').select('id', { count: 'exact', head: true }).eq('user_id', user.id).is('revoked_at', null),
+          supabase.from('context_pack_logs').select('approx_tokens_saved').eq('user_id', user.id),
+          supabase.from('memory_items').select('id, title, content_type, source_type, occurred_at').eq('user_id', user.id).order('occurred_at', { ascending: false }).limit(5),
         ]);
 
+        const itemsCount = itemsRes.count ?? 0;
+        const tokensSaved = (tokenRes.data || []).reduce((sum, r) => sum + (r.approx_tokens_saved || 0), 0);
+
         setStats({
-          memoryNodes: nodesRes.count ?? 0,
-          activeAdapters: adaptersRes.count ?? 0,
-          tokensSaved: nodesRes.count ? `${Math.round(nodesRes.count * 4.8 / 1000)}K` : '0',
-          tokenValue: `$${(nodesRes.count * 0.06).toFixed(2)}`,
-          recentNodes: recentRes.data ?? [],
+          memoryNodes: itemsCount,
+          activeAdapters: (sourcesRes.count ?? 0) + (adaptersRes.count ?? 0),
+          tokensSaved: tokensSaved ? `${Math.round(tokensSaved / 1000)}K` : '0',
+          tokenValue: `$${(tokensSaved * 0.00001).toFixed(2)}`,
+          recentNodes: (recentRes.data ?? []).map((it) => ({
+            id: it.id,
+            title: it.title,
+            type: it.content_type || it.source_type || 'default',
+            created_at: it.occurred_at,
+          })),
         });
       } catch (err) {
         console.error('Dashboard load error:', err);

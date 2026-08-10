@@ -1,0 +1,113 @@
+// GET /functions/v1/oauth-callback?provider=...&code=...&state=...
+// Public (no user JWT — the provider hits this directly). Verified via signed `state`.
+// Exchanges the code for tokens, encrypts + upserts source_connections, then
+// redirects the browser back into the app.
+import { handlePreflight } from "../_shared/cors.ts";
+import { supabaseAdmin } from "../_shared/supabase-admin.ts";
+import { PROVIDERS, Provider, redirectUri } from "../_shared/providers.ts";
+import { encryptToken, parseState } from "../_shared/crypto.ts";
+
+const APP_URL = Deno.env.get("APP_URL") ?? "http://localhost:5173";
+
+function redirectToApp(pathAndQuery: string) {
+  return new Response(null, {
+    status: 302,
+    headers: { Location: `${APP_URL}${pathAndQuery}` },
+  });
+}
+
+async function exchangeCode(provider: Provider, code: string) {
+  const cfg = PROVIDERS[provider];
+  const body = new URLSearchParams({
+    client_id: cfg.clientId,
+    client_secret: cfg.clientSecret,
+    code,
+    redirect_uri: redirectUri(provider),
+    grant_type: "authorization_code",
+  });
+
+  const res = await fetch(cfg.tokenUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
+    },
+    body,
+  });
+  if (!res.ok) throw new Error(`Token exchange failed (${res.status}): ${await res.text()}`);
+  return res.json();
+}
+
+Deno.serve(async (req: Request) => {
+  const preflight = handlePreflight(req);
+  if (preflight) return preflight;
+
+  const url = new URL(req.url);
+  const provider = url.searchParams.get("provider") as Provider | null;
+  const code = url.searchParams.get("code");
+  const stateRaw = url.searchParams.get("state");
+  const errorParam = url.searchParams.get("error");
+
+  if (errorParam) return redirectToApp(`/sources?error=${encodeURIComponent(errorParam)}`);
+  if (!provider || !code || !stateRaw) return redirectToApp("/sources?error=missing_params");
+
+  let userId: string;
+  try {
+    const state = await parseState(stateRaw);
+    if (state.provider !== provider) throw new Error("state/provider mismatch");
+    if (Date.now() - state.ts > 10 * 60 * 1000) throw new Error("state expired");
+    userId = state.userId;
+  } catch {
+    return redirectToApp("/sources?error=invalid_state");
+  }
+
+  try {
+    const tokens = await exchangeCode(provider, code);
+    const accessToken = tokens.access_token as string;
+    const refreshToken = (tokens.refresh_token as string) ?? null;
+    const expiresIn = (tokens.expires_in as number) ?? null;
+
+    const admin = supabaseAdmin();
+    let label: string | null = null;
+
+    // Best-effort: fetch a human-readable label for the connected account
+    try {
+      if (provider === "gmail") {
+        const r = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (r.ok) label = (await r.json()).email ?? null;
+      } else if (provider === "github") {
+        const r = await fetch("https://api.github.com/user", {
+          headers: { Authorization: `Bearer ${accessToken}`, "User-Agent": "axon-memory" },
+        });
+        if (r.ok) label = (await r.json()).login ?? null;
+      } else if (provider === "slack") {
+        label = tokens.team?.name ?? null;
+      } else if (provider === "notion") {
+        label = tokens.workspace_name ?? null;
+      }
+    } catch {
+      // non-fatal
+    }
+
+    await admin.from("source_connections").upsert(
+      {
+        user_id: userId,
+        provider,
+        status: "connected",
+        external_account_label: label,
+        access_token_encrypted: await encryptToken(accessToken),
+        refresh_token_encrypted: refreshToken ? await encryptToken(refreshToken) : null,
+        token_expires_at: expiresIn ? new Date(Date.now() + expiresIn * 1000).toISOString() : null,
+        last_error: null,
+      },
+      { onConflict: "user_id,provider" },
+    );
+
+    return redirectToApp(`/sources?connected=${provider}`);
+  } catch (err) {
+    console.error("oauth-callback error", err);
+    return redirectToApp(`/sources?error=token_exchange_failed`);
+  }
+});

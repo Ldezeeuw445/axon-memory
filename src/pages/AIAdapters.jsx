@@ -1,289 +1,254 @@
-import React, { useState, useEffect } from 'react';
-import { CheckCircle, XCircle, Loader, Trash2, Eye, EyeOff, ExternalLink, ChevronRight, Zap } from 'lucide-react';
-import Modal from '../components/Modal';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import React, { useEffect, useState } from 'react';
+import { Copy, Check, Trash2, Sparkles, ExternalLink, ChevronDown, ChevronUp, Plug } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { callFunction } from '../lib/functions';
 import { useAuth } from '../contexts/AuthContext';
-import { AI_PROVIDERS } from '../lib/logos';
-import { ingestSimulatedData } from '../lib/ingestion';
+import { usePlan } from '../hooks/usePlan';
+import { AnthropicLogo, OpenAILogo, GeminiLogo } from '../lib/logos';
+import { MCP_GATEWAY_URL, CHATGPT_ACTION_CLIENT } from '../lib/platformClients';
 
-const STORAGE_KEY = 'axon_adapters_demo';
+// Real MCP-based AI Adapters — connecting an AI assistant to AXON's shared
+// memory (Recall direction). This intentionally replaced the earlier
+// "paste your own OpenAI/Anthropic key and test it" concept, which tested
+// unrelated third-party keys and never persisted anything. Per product
+// decision: full replace, not a second tab alongside the old flow.
 
-function useStorage(user, isDemo) {
-  const save = async (id, key, status, meta = {}) => {
-    if (!isSupabaseConfigured || isDemo) {
-      const s = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-      s[id] = { status, hasKey: true, ...meta };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
-      return;
-    }
-    await supabase.from('ai_adapter_connections').upsert(
-      { user_id: user.id, provider: id, encrypted_api_key: key, status, updated_at: new Date().toISOString() },
-      { onConflict: 'user_id,provider' }
-    );
-  };
-  const remove = async (id) => {
-    if (!isSupabaseConfigured || isDemo) {
-      const s = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-      delete s[id]; localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
-      return;
-    }
-    await supabase.from('ai_adapter_connections').delete().eq('user_id', user.id).eq('provider', id);
-  };
-  const load = async () => {
-    if (!isSupabaseConfigured || isDemo) return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-    const { data } = await supabase.from('ai_adapter_connections').select('provider, status').eq('user_id', user.id);
-    return Object.fromEntries((data || []).map(r => [r.provider, { status: r.status, hasKey: true }]));
-  };
-  return { save, remove, load };
-}
-
-function ProviderCard({ provider, status, onConnect, onDisconnect }) {
-  const { Logo, name, tagline, bg, color } = provider;
-  const isConnected = status === 'connected';
-  const isError = status === 'error';
-
+function CopyField({ value, mask }) {
+  const [copied, setCopied] = useState(false);
+  const display = mask ? value.replace(/./g, (c, i) => (i < 8 ? c : '•')) : value;
   return (
-    <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: 0, padding: 0, overflow: 'hidden' }}>
-      {/* Header */}
-      <div style={{ background: bg, padding: '20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
-        <div style={{ width: 48, height: 48, background: 'rgba(255,255,255,0.15)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <Logo size={28} />
-        </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>{name}</div>
-          <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 2 }}>{tagline}</div>
-        </div>
-        {/* Status badge */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px',
-          borderRadius: 20, fontSize: 11, fontWeight: 700,
-          background: isConnected ? 'rgba(37,194,160,0.25)' : isError ? 'rgba(255,80,80,0.25)' : 'rgba(0,0,0,0.3)',
-          color: isConnected ? '#25c2a0' : isError ? '#ff6b6b' : 'rgba(255,255,255,0.6)',
-        }}>
-          {isConnected ? <><CheckCircle size={11} /> Connected</> : isError ? <><XCircle size={11} /> Error</> : <span style={{ opacity: 0.7 }}>Not connected</span>}
-        </div>
-      </div>
-
-      {/* Actions */}
-      <div style={{ padding: '14px 16px', display: 'flex', gap: 8 }}>
-        {isConnected ? (
-          <>
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#25c2a0' }}>
-              <Zap size={14} /> Memory context active
-            </div>
-            <button onClick={() => onDisconnect(provider.id)}
-              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 8, border: '1px solid rgba(255,80,80,0.25)', background: 'rgba(255,80,80,0.07)', color: '#ff6b6b', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
-              <Trash2 size={13} /> Disconnect
-            </button>
-          </>
-        ) : (
-          <button onClick={() => onConnect(provider)}
-            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '10px', borderRadius: 8, border: `1px solid ${color}40`, background: `${color}15`, color, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
-            {isError ? 'Reconnect' : 'Connect'} <ChevronRight size={15} />
-          </button>
-        )}
-      </div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(0,0,0,0.35)', border: '1px solid var(--color-border)', borderRadius: 8, padding: '8px 12px', fontFamily: 'monospace', fontSize: 12.5 }}>
+      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{display}</span>
+      <button
+        onClick={() => { navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 1400); }}
+        style={{ background: 'none', border: 'none', color: 'var(--color-neon-cyan)', cursor: 'pointer', flexShrink: 0 }}
+      >
+        {copied ? <Check size={14} /> : <Copy size={14} />}
+      </button>
     </div>
   );
 }
 
-function ConnectModal({ provider, isOpen, onClose, onSuccess }) {
-  const [apiKey, setApiKey] = useState('');
-  const [showKey, setShowKey] = useState(false);
-  const [step, setStep] = useState('guide'); // 'guide' | 'input' | 'testing' | 'success' | 'error'
-  const [errorMsg, setErrorMsg] = useState('');
-
-  useEffect(() => {
-    if (isOpen) { setApiKey(''); setStep('guide'); setErrorMsg(''); setShowKey(false); }
-  }, [isOpen]);
-
-  if (!provider) return null;
-  const { Logo, name, bg, color, guide, docsUrl, docsLabel, tokenPlaceholder, placeholder } = provider;
-  const ph = placeholder || tokenPlaceholder || 'Enter your API key...';
-
-  const handleSimulate = async () => {
-    setStep('testing');
-    await new Promise(r => setTimeout(r, 1200));
-    setStep('success');
-    setTimeout(() => { onSuccess(provider.id, 'simulated-key', 'connected', true); onClose(); }, 1400);
-  };
-
-  const handleTest = async () => {
-    if (!apiKey.trim()) return;
-    setStep('testing');
-    try {
-      const res = await fetch('/api/adapters/test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider: provider.id, apiKey: apiKey.trim() }),
-      });
-      const data = await res.json();
-      if (data.valid) {
-        setStep('success');
-        setTimeout(() => { onSuccess(provider.id, apiKey.trim(), 'connected'); onClose(); }, 1400);
-      } else {
-        setErrorMsg(data.message || 'Connection failed');
-        setStep('error');
-      }
-    } catch {
-      setErrorMsg('Cannot reach AXON server — make sure the backend is running.');
-      setStep('error');
-    }
-  };
-
+function ConnectedRow({ conn, onRevoke, revoking }) {
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="" width="520px">
-      {/* Branded header */}
-      <div style={{ background: bg, borderRadius: 10, padding: '20px', display: 'flex', alignItems: 'center', gap: 14, margin: '-20px -20px 20px', borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }}>
-        <div style={{ width: 44, height: 44, background: 'rgba(255,255,255,0.15)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Logo size={26} />
-        </div>
-        <div>
-          <div style={{ color: '#fff', fontWeight: 800, fontSize: 18 }}>Connect {name}</div>
-          <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>Secure API key connection</div>
-        </div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 0', borderBottom: '1px solid var(--color-border)' }}>
+      <div style={{ flex: 1 }}>
+        <p style={{ fontWeight: 600, fontSize: 14 }}>{conn.name}</p>
+        <p style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+          Connected {new Date(conn.created_at).toLocaleDateString()}
+          {conn.last_used_at ? ` · last used ${new Date(conn.last_used_at).toLocaleDateString()}` : ' · not used yet'}
+        </p>
       </div>
+      <button onClick={() => onRevoke(conn.id)} disabled={revoking === conn.id}
+        style={{ background: 'transparent', border: '1px solid var(--color-border)', borderRadius: 8, padding: '6px 12px', color: '#ff6b6b', cursor: 'pointer' }}>
+        <Trash2 size={14} />
+      </button>
+    </div>
+  );
+}
 
-      {step === 'guide' && (
-        <>
-          <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 16, lineHeight: 1.6 }}>
-            Follow these steps to get your API key:
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
-            {guide.map((step, i) => (
-              <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                <div style={{ width: 22, height: 22, borderRadius: '50%', background: `${color}25`, color, fontWeight: 700, fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>{i+1}</div>
-                <span style={{ fontSize: 13, color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>{step}</span>
-              </div>
-            ))}
-          </div>
-          <a href={docsUrl} target="_blank" rel="noreferrer"
-            style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color, marginBottom: 20, textDecoration: 'none' }}>
-            <ExternalLink size={12} /> {docsLabel}
-          </a>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <button onClick={handleSimulate} className="btn-primary" style={{ width: '100%' }}>
-              Quick Connect (Simulate)
-            </button>
-            <button onClick={() => setStep('input')} className="btn-secondary" style={{ width: '100%', border: '1px solid var(--color-border)', background: 'rgba(255,255,255,0.05)' }}>
-              Developer Token (Real)
-            </button>
-          </div>
-        </>
-      )}
-
-      {(step === 'input' || step === 'error') && (
-        <>
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)', display: 'block', marginBottom: 6 }}>
-              API KEY
-            </label>
-            <div style={{ position: 'relative' }}>
-              <input
-                type={showKey ? 'text' : 'password'}
-                value={apiKey}
-                onChange={e => setApiKey(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && apiKey.trim() && handleTest()}
-                placeholder={ph}
-                autoFocus
-                style={{ width: '100%', padding: '11px 40px 11px 12px', background: 'rgba(255,255,255,0.05)', border: `1px solid ${step === 'error' ? '#ff6b6b50' : 'var(--color-border)'}`, borderRadius: 9, color: 'var(--color-text-primary)', fontSize: 13, fontFamily: 'monospace', outline: 'none', boxSizing: 'border-box' }} />
-              <button onClick={() => setShowKey(!showKey)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-secondary)' }}>
-                {showKey ? <EyeOff size={14}/> : <Eye size={14}/>}
-              </button>
-            </div>
-          </div>
-          {step === 'error' && (
-            <div style={{ display: 'flex', gap: 8, padding: '10px 12px', borderRadius: 8, background: 'rgba(255,80,80,0.1)', border: '1px solid rgba(255,80,80,0.25)', marginBottom: 14, fontSize: 13, color: '#ff6b6b' }}>
-              <XCircle size={15} style={{ flexShrink: 0, marginTop: 1 }} /> {errorMsg}
-            </div>
-          )}
-          <p style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginBottom: 16, lineHeight: 1.5 }}>
-            🔒 Your key is sent to AXON's server for verification only, then stored encrypted. Never shared.
-          </p>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => setStep('guide')} className="btn-secondary" style={{ flex: 1 }}>← Guide</button>
-            <button onClick={handleTest} disabled={!apiKey.trim()} className="btn-primary" style={{ flex: 2 }}>
-              Test & Connect
-            </button>
-          </div>
-        </>
-      )}
-
-      {step === 'testing' && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '24px 0' }}>
-          <Loader size={36} color={color} style={{ animation: 'spin 1s linear infinite' }} />
-          <p style={{ fontWeight: 600 }}>Verifying your API key…</p>
-          <p style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>Making a test call to {name}</p>
+function AdapterCard({ icon, name, children }) {
+  return (
+    <div className="glass-card" style={{ padding: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+        <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          {icon}
         </div>
-      )}
-
-      {step === 'success' && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: '24px 0' }}>
-          <CheckCircle size={48} color="#25c2a0" />
-          <p style={{ fontWeight: 700, fontSize: 18 }}>Connected!</p>
-          <p style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>AXON will now inject memory into your {name} conversations.</p>
-        </div>
-      )}
-
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-    </Modal>
+        <h3 style={{ fontSize: 16, fontWeight: 600 }}>{name}</h3>
+      </div>
+      {children}
+    </div>
   );
 }
 
 export default function AIAdapters({ asFacet }) {
   const { user, isDemo } = useAuth();
-  const storage = useStorage(user, isDemo);
-  const [statuses, setStatuses] = useState({});
-  const [modal, setModal] = useState(null); // provider object
+  const plan = usePlan();
+  const [connections, setConnections] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [revoking, setRevoking] = useState(null);
+  const [showChatGptSteps, setShowChatGptSteps] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [manualKeys, setManualKeys] = useState([]);
+  const [creatingKey, setCreatingKey] = useState(false);
+  const [newKey, setNewKey] = useState(null);
 
-  useEffect(() => { storage.load().then(setStatuses); }, []);
-
-  const handleDisconnect = async (id) => {
-    await storage.remove(id);
-    setStatuses(p => { const n = { ...p }; delete n[id]; return n; });
+  const load = async () => {
+    if (!user || isDemo) { setLoading(false); return; }
+    const { data } = await supabase
+      .from('api_keys')
+      .select('*')
+      .eq('user_id', user.id)
+      .is('revoked_at', null)
+      .order('created_at', { ascending: false });
+    const all = data || [];
+    setConnections(all.filter((k) => k.oauth_client_id));
+    setManualKeys(all.filter((k) => !k.oauth_client_id));
+    setLoading(false);
   };
 
-  const handleSuccess = async (id, key, status, simulated = false) => {
-    if (simulated) {
-      await ingestSimulatedData(user, id, isDemo);
+  useEffect(() => { load(); }, [user, isDemo]);
+
+  const revoke = async (id) => {
+    setRevoking(id);
+    await supabase.from('api_keys').update({ revoked_at: new Date().toISOString() }).eq('id', id);
+    await load();
+    setRevoking(null);
+  };
+
+  const createManualKey = async () => {
+    setCreatingKey(true);
+    try {
+      const res = await callFunction('api-keys-create', { body: { name: `Key ${manualKeys.length + 1}` } });
+      setNewKey(res.key);
+      await load();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setCreatingKey(false);
     }
-    await storage.save(id, key, status);
-    setStatuses(p => ({ ...p, [id]: { status, hasKey: true } }));
   };
 
-  const connectedCount = Object.values(statuses).filter(s => s.status === 'connected').length;
+  if (!plan.loading && !plan.has('axon_ai')) {
+    return (
+      <div className={asFacet ? '' : 'page-container'}>
+        {!asFacet && (
+          <header className="page-header">
+            <h1 className="page-title">AI Adapters</h1>
+            <p className="page-subtitle">Connect Claude, ChatGPT, and other assistants to your shared memory.</p>
+          </header>
+        )}
+        <div className="glass-card" style={{ maxWidth: 520, margin: '0 auto', textAlign: 'center', padding: 36 }}>
+          <Sparkles size={28} color="#ffc107" style={{ marginBottom: 10 }} />
+          <h3 style={{ marginBottom: 8 }}>Connecting AI assistants is a Pro feature</h3>
+          <p style={{ color: 'var(--color-text-secondary)', fontSize: 14, marginBottom: 20 }}>
+            Upgrade to Pro or higher to connect Claude, ChatGPT, and any future assistant — all sharing one memory.
+          </p>
+          <a href="/subscription" className="btn-primary" style={{ display: 'inline-block' }}>View plans</a>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className={asFacet ? "" : "page-container"}>
+    <div className={asFacet ? '' : 'page-container'}>
       {!asFacet && (
         <header className="page-header">
           <h1 className="page-title">AI Adapters</h1>
           <p className="page-subtitle">
-            {connectedCount > 0
-              ? `${connectedCount} adapter${connectedCount > 1 ? 's' : ''} active — AXON memory is being injected.`
-              : 'Connect your AI tools so AXON injects memory context into every conversation.'}
+            Connect an assistant once — every fact it learns is instantly available to every other assistant you connect.
           </p>
         </header>
       )}
 
-      <div className="adapter-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>
-        {AI_PROVIDERS.map(provider => (
-          <ProviderCard
-            key={provider.id}
-            provider={provider}
-            status={statuses[provider.id]?.status}
-            onConnect={setModal}
-            onDisconnect={handleDisconnect}
-          />
-        ))}
+      <div className="glass-card" style={{ marginBottom: 32, padding: 24 }}>
+        <h3 style={{ fontSize: 16, marginBottom: 14 }}>Connected assistants</h3>
+        {loading ? (
+          <p style={{ color: 'var(--color-text-secondary)', fontSize: 14 }}>Loading…</p>
+        ) : connections.length === 0 ? (
+          <p style={{ color: 'var(--color-text-secondary)', fontSize: 14 }}>Nothing connected yet — pick an assistant below.</p>
+        ) : (
+          connections.map((c) => <ConnectedRow key={c.id} conn={c} onRevoke={revoke} revoking={revoking} />)
+        )}
       </div>
 
-      <ConnectModal
-        provider={modal}
-        isOpen={!!modal}
-        onClose={() => setModal(null)}
-        onSuccess={handleSuccess}
-      />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20, marginBottom: 28 }}>
+        <AdapterCard icon={<AnthropicLogo size={22} />} name="Claude">
+          <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 14 }}>
+            In Claude, go to <strong>Settings → Connectors → Add custom connector</strong>, paste this URL, then click Connect. You'll be asked to log in and approve — no key to copy.
+          </p>
+          <CopyField value={MCP_GATEWAY_URL} />
+        </AdapterCard>
+
+        <AdapterCard icon={<OpenAILogo size={20} />} name="ChatGPT">
+          <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 14 }}>
+            Create a Custom GPT, add this Action, and set Authentication to OAuth using the details below.
+          </p>
+          <button
+            onClick={() => setShowChatGptSteps((s) => !s)}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: 'var(--color-neon-cyan)', cursor: 'pointer', fontSize: 13, marginBottom: showChatGptSteps ? 14 : 0 }}
+          >
+            {showChatGptSteps ? <ChevronUp size={14} /> : <ChevronDown size={14} />} {showChatGptSteps ? 'Hide' : 'Show'} connection details
+          </button>
+          {showChatGptSteps && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <label style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Schema URL (import this first)</label>
+              <CopyField value={CHATGPT_ACTION_CLIENT.openApiUrl} />
+              <label style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 4 }}>Client ID</label>
+              <CopyField value={CHATGPT_ACTION_CLIENT.clientId} />
+              <label style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 4 }}>Client Secret</label>
+              <CopyField value={CHATGPT_ACTION_CLIENT.clientSecret} mask />
+              <label style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 4 }}>Authorization URL</label>
+              <CopyField value={CHATGPT_ACTION_CLIENT.authorizationUrl} />
+              <label style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 4 }}>Token URL</label>
+              <CopyField value={CHATGPT_ACTION_CLIENT.tokenUrl} />
+              <label style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 4 }}>Scope</label>
+              <CopyField value={CHATGPT_ACTION_CLIENT.scope} />
+            </div>
+          )}
+        </AdapterCard>
+
+        <AdapterCard icon={<GeminiLogo size={20} />} name="Gemini">
+          <p style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
+            Coming soon — Google hasn't yet published an open connector mechanism for Gemini Extensions the way Claude
+            and ChatGPT have. We'll turn this on the moment they do.
+          </p>
+        </AdapterCard>
+
+        <AdapterCard icon={<Plug size={20} color="var(--color-neon-cyan)" />} name="Any tool with HTTP">
+          <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 14 }}>
+            Cursor, Windsurf, custom scripts, or anything that can make an authenticated HTTP call — use the MCP endpoint directly or a personal API key below.
+          </p>
+          <CopyField value={MCP_GATEWAY_URL} />
+        </AdapterCard>
+      </div>
+
+      <div className="glass-card" style={{ padding: 20 }}>
+        <button
+          onClick={() => setShowAdvanced((s) => !s)}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer', fontSize: 13, width: '100%' }}
+        >
+          {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />} Advanced: personal API keys (for scripts & tools without OAuth support)
+        </button>
+        {showAdvanced && (
+          <div style={{ marginTop: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <p style={{ fontSize: 12.5, color: 'var(--color-text-secondary)' }}>
+                Only use this if a tool truly can't do OAuth. Anything above is safer and easier for the same result.
+              </p>
+              <button onClick={createManualKey} disabled={creatingKey} className="btn-primary" style={{ fontSize: 12.5, whiteSpace: 'nowrap', marginLeft: 12 }}>
+                <Plug size={13} style={{ marginRight: 6, verticalAlign: -2 }} />
+                {creatingKey ? 'Creating…' : 'New key'}
+              </button>
+            </div>
+            {newKey && (
+              <div style={{ marginBottom: 14 }}>
+                <p style={{ fontSize: 12, marginBottom: 6 }}>Copy this now — it won't be shown again.</p>
+                <CopyField value={newKey} />
+              </div>
+            )}
+            {manualKeys.length === 0 ? (
+              <p style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>No manual keys.</p>
+            ) : (
+              manualKeys.map((k) => (
+                <div key={k.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: '1px solid var(--color-border)', fontSize: 13 }}>
+                  <span style={{ flex: 1, fontFamily: 'monospace' }}>{k.key_prefix}••••••••</span>
+                  <button onClick={() => revoke(k.id)} style={{ background: 'none', border: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer' }}>
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))
+            )}
+            <a
+              href={`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/context-pack`}
+              target="_blank" rel="noreferrer"
+              style={{ fontSize: 12, color: 'var(--color-neon-cyan)', display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 12 }}
+            >
+              View the raw context-pack endpoint <ExternalLink size={12} />
+            </a>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

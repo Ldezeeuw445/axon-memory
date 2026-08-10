@@ -16,6 +16,7 @@ import Dashboard from './Dashboard';
 import MemoryGraph from './MemoryGraph';
 import ConnectionsFacet from './ConnectionsFacet';
 import { LayoutDashboard, Network, Link, CreditCard } from 'lucide-react';
+import { callFunction } from '../lib/functions';
 
 function GalaxyBackground() {
   return (
@@ -346,20 +347,15 @@ export default function Landing() {
                           className="btn-primary" 
                           onClick={async () => {
                             try {
-                              const res = await fetch('/api/stripe/create-checkout-session', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ email: user?.email, userId: user?.id })
-                              });
-                              const data = await res.json();
-                              if (data.url) window.location.href = data.url;
+                              const data = await callFunction('stripe-checkout', { method: 'POST', body: { tier: 'pro' } });
+                              if (data?.url) window.location.href = data.url;
                               else alert('Stripe is not fully configured yet!');
-                            } catch (err) {
-                              alert('Could not connect to billing server.');
+                            } catch {
+                              navigate('/subscription');
                             }
                           }}
                         >
-                          Upgrade for $5/mo
+                          Upgrade to Pro
                         </button>
                       </div>
                     )}

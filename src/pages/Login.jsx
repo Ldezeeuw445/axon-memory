@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { isSupabaseConfigured } from '../lib/supabase';
@@ -15,6 +15,8 @@ export default function Login() {
   const [success, setSuccess] = useState('');
   const { signIn, signUp, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from || '/dashboard';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -23,7 +25,7 @@ export default function Login() {
       if (tab === 'signin') {
         const { error } = await signIn(email, password);
         if (error) throw error;
-        navigate('/');
+        navigate(from, { replace: true });
       } else {
         const { error } = await signUp(email, password, fullName);
         if (error) throw error;
