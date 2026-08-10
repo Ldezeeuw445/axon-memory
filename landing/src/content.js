@@ -1,6 +1,6 @@
 /**
- * All page copy in one place. The film captions are timed to the six acts in
- * film/formations.js — caption i belongs to formation i.
+ * All page copy in one place. The film captions are the six approved acts;
+ * film/shots.js maps each of the twelve shots onto one of them.
  */
 
 export const CAPTIONS = [

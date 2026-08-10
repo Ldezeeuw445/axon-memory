@@ -120,6 +120,28 @@ a { color: inherit; text-decoration: none; }
 }
 .film-stage canvas { display: block; }
 
+/* Generated plates for shots 01–02, layered over the rendered film. They fade
+   out entirely once the plate becomes a physical object in shot 03. */
+.film-plates {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 1.1s ease;
+  pointer-events: none;
+  background: #010103;
+}
+.film-plates.is-live { opacity: 1; }
+.film-plates video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.9s ease;
+}
+.film-plates video.is-live { opacity: 1; }
+
 .film-captions {
   position: absolute;
   inset: auto 0 0 0;
