@@ -23,7 +23,7 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0 }) {
   // Pre-calculate the perfectly closed state (base) and the open/fractured state (target)
   const { 
     outerGeometry, innerDataGeometry, wiresGeometry,
-    cavityGeometry, goldLightGeometry,
+    cavityGeometry, goldLightGeometry, plateRimGeometry,
     basePositions, targetPositions,
     baseInnerPositions, targetInnerPositions,
     wireLinks, hatchCentroids, count
@@ -187,12 +187,23 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0 }) {
     const lGeo = new THREE.BufferGeometry();
     lGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(lightPosArr), 3));
     lGeo.computeVertexNormals();
+
+    // Side walls for the three sliding plates. A plate is a single face of the
+    // outer shell, so as it travels outward it shows its own zero thickness —
+    // a triangle cut from paper. These quads bridge each plate edge back to the
+    // opening it left behind, so the plate reads as a milled block being pushed
+    // out of the body rather than a decal sliding across it.
+    // Filled per frame in the morph loop; three plates, three edges, two
+    // triangles each.
+    const rimGeo = new THREE.BufferGeometry();
+    rimGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(3 * 3 * 2 * 3 * 3), 3));
     
     return { 
       outerGeometry: outGeo, 
       innerDataGeometry: inGeo, 
       wiresGeometry: wGeo,
       cavityGeometry: cavGeo,
+      plateRimGeometry: rimGeo,
       goldLightGeometry: lGeo,
       basePositions: basePositionsArr, 
       targetPositions: targetPositionsArr,
@@ -229,7 +240,7 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0 }) {
 
     // Update Cavity Opacity based on progress
     if (cavityWireMaterialRef.current) cavityWireMaterialRef.current.opacity = progress * 0.32;
-    if (cavitySolidMaterialRef.current) cavitySolidMaterialRef.current.opacity = progress * 0.95;
+    if (cavitySolidMaterialRef.current) cavitySolidMaterialRef.current.opacity = progress;
     if (goldLightMaterialRef.current) goldLightMaterialRef.current.opacity = progress * 0.9;
 
     if (groupRef.current) {
@@ -361,6 +372,38 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0 }) {
       inPos[i] = pIn;
     }
     outerGeometry.attributes.position.needsUpdate = true;
+
+    // Side walls for the sliding plates. Each plate edge is bridged back to the
+    // rim of the opening it came from, so the gap that appears as it travels is
+    // a machined flank rather than nothing. The walls are zero-width while the
+    // plate is seated and grow with it, which is exactly how a block being
+    // pushed out of a body behaves.
+    {
+      const rimPos = plateRimGeometry.attributes.position.array;
+      let w = 0;
+      for (let plate = 1; plate <= 3; plate++) {
+        const base = plate * 9;
+        for (let e = 0; e < 3; e++) {
+          const n = (e + 1) % 3;
+          // current (moved) plate corners
+          const ax = outPos[base + e * 3],     ay = outPos[base + e * 3 + 1],     az = outPos[base + e * 3 + 2];
+          const bx = outPos[base + n * 3],     by = outPos[base + n * 3 + 1],     bz = outPos[base + n * 3 + 2];
+          // where that edge started, on the shell
+          const cx = basePositions[base + e * 3], cy = basePositions[base + e * 3 + 1], cz = basePositions[base + e * 3 + 2];
+          const dx = basePositions[base + n * 3], dy = basePositions[base + n * 3 + 1], dz = basePositions[base + n * 3 + 2];
+
+          rimPos[w++] = ax; rimPos[w++] = ay; rimPos[w++] = az;
+          rimPos[w++] = bx; rimPos[w++] = by; rimPos[w++] = bz;
+          rimPos[w++] = cx; rimPos[w++] = cy; rimPos[w++] = cz;
+
+          rimPos[w++] = bx; rimPos[w++] = by; rimPos[w++] = bz;
+          rimPos[w++] = dx; rimPos[w++] = dy; rimPos[w++] = dz;
+          rimPos[w++] = cx; rimPos[w++] = cy; rimPos[w++] = cz;
+        }
+      }
+      plateRimGeometry.attributes.position.needsUpdate = true;
+      plateRimGeometry.computeVertexNormals();
+    }
     outerGeometry.computeVertexNormals();
     
     innerDataGeometry.attributes.position.needsUpdate = true;
@@ -431,8 +474,21 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0 }) {
           />
         </mesh>
 
+        {/* Flanks of the sliding plates — their thickness. */}
+        <mesh geometry={plateRimGeometry}>
+          <meshPhysicalMaterial
+            color="#0a1224"
+            roughness={0.22}
+            metalness={0.7}
+            clearcoat={0.7}
+            clearcoatRoughness={0.2}
+            envMapIntensity={2.0}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+
         {/* 3D Cavity Walls (Plates 1, 2, 3) */}
-        <mesh geometry={cavityGeometry}>
+        <mesh geometry={cavityGeometry} visible={false}>
           <meshPhysicalMaterial 
             ref={cavityWireMaterialRef}
             color="#123a7a" 
