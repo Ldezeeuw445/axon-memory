@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Canvas } from '@react-three/fiber';
-import { Environment, Stars, Sparkles } from '@react-three/drei';
+import { Environment, Lightformer, Stars, Sparkles } from '@react-three/drei';
 import * as THREE from 'three';
 import AxonCore from '../components/AxonCore';
 import MemoryParticle from '../components/MemoryParticle';
@@ -172,7 +172,26 @@ export default function Landing() {
             <Shockwave position={isMobile ? [0, 4, 8.5] : [3.5, 0, 8.5]} triggerTime={injectionTrigger} />
           </group>
 
-          <Environment preset="city" />
+          {/*
+            Was <Environment preset="city" />, which fetches an HDR from a CDN —
+            and that URL now 404s, so the Core was refracting an empty
+            environment. A transmission material with nothing around it reads
+            as dull grey plastic no matter how its own parameters are tuned.
+
+            Built here instead: no network dependency, and a studio shaped for
+            a dark premium product rather than a generic street. The narrow
+            strips matter most — they are what sweep across the facets as the
+            Core turns, and sharp moving highlights are what the eye reads as
+            polished mineral.
+          */}
+          <Environment resolution={256}>
+            <Lightformer form="rect" intensity={6} position={[0, 8, 2]} rotation={[Math.PI / 2, 0, 0]} scale={[14, 10, 1]} color="#dfe9ff" />
+            <Lightformer form="rect" intensity={3.5} position={[-8, 2, -6]} scale={[12, 9, 1]} color="#9fb6e0" />
+            <Lightformer form="rect" intensity={1.8} position={[8, -1, 5]} scale={[9, 7, 1]} color="#6d7f9e" />
+            <Lightformer form="rect" intensity={12} position={[-3.2, 4, 4]} scale={[0.35, 7, 1]} color="#ffffff" />
+            <Lightformer form="rect" intensity={8} position={[3.6, -2, 3.5]} scale={[0.3, 6, 1]} color="#cfe2ff" />
+            <Lightformer form="circle" intensity={2.2} position={[0, -6, 1]} scale={[7, 7, 1]} color="#2a3a5c" />
+          </Environment>
         </Canvas>
       </div>
 

@@ -446,22 +446,36 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0 }) {
 
         {/* OUTER SHELL */}
         <mesh geometry={outerGeometry}>
+          {/*
+            Now that there is a real environment to bend (see the studio in
+            Landing.jsx), these can be tuned like an actual mineral rather than
+            compensating for an empty surround.
+
+            Lower roughness so the facets stay polished and the highlight
+            strips read as sharp lines; higher ior and chromatic aberration for
+            visible dispersion at the edges; a clearcoat for the thin specular
+            skin every cut stone has. Distortion is dialled back — it was
+            hiding facet structure that is worth seeing.
+          */}
           <MeshTransmissionMaterial 
             backside
-            samples={16}
+            samples={20}
             resolution={1024}
-            transmission={0.95}
-            roughness={0.25}
-            thickness={2} 
-            ior={1.6}
-            chromaticAberration={0.04}
-            anisotropy={0.3}
-            distortion={0.1}
-            distortionScale={0.2}
-            temporalDistortion={0.05}
-            color="#b0b8c4"
-            attenuationDistance={2}
-            attenuationColor="#ffffff"
+            backsideResolution={512}
+            transmission={0.97}
+            roughness={0.12}
+            thickness={2.4} 
+            ior={1.74}
+            chromaticAberration={0.09}
+            anisotropy={0.22}
+            distortion={0.04}
+            distortionScale={0.15}
+            temporalDistortion={0.02}
+            clearcoat={1}
+            clearcoatRoughness={0.06}
+            color="#c3cbd8"
+            attenuationDistance={2.6}
+            attenuationColor="#e8f0ff"
           />
         </mesh>
         
