@@ -356,7 +356,12 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0 }) {
         let cVal = isX ? hatchCentroids[plateIdx].x : (isY ? hatchCentroids[plateIdx].y : hatchCentroids[plateIdx].z);
         
         // As progress goes 0 -> 1, the plates shrink and sink to form the 3D cavity
-        let shrink = 1.0 - (progress * 0.8); // 1.0 -> 0.2
+        // Fully, not partly. Stopping at 0.2 left a fifth of the plate hanging
+        // in its own opening, and because the cavity funnel behind it is built
+        // from the full original triangle, the leftover sliver only covered
+        // part of it — which is what read as ragged half-holes rather than
+        // clean recesses.
+        let shrink = 1.0 - progress; // 1.0 -> 0.0, the plate withdraws entirely
         let sinkFactor = 1.0 - (progress * 0.25); // 1.0 -> 0.75
         let targetC = cVal * sinkFactor;
         
