@@ -203,7 +203,7 @@ export default function Landing() {
         
         {/* Logo */}
         <div style={{ position: 'absolute', top: 24, left: 32, zIndex: 50, display: 'flex', alignItems: 'center', gap: 12 }}>
-          <img src="/favicon.svg" alt="AXON" style={{ width: 42, height: 42, borderRadius: 10 }} />
+          <img src="/axon_logo.png" alt="AXON" style={{ width: 42, height: 42, borderRadius: 10 }} />
           <span className="title-text" style={{ fontSize: 16, letterSpacing: '2px', fontWeight: 'bold' }}>AXON</span>
         </div>
 
@@ -241,7 +241,7 @@ export default function Landing() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 1.5 }}
-              style={{ width: '400px', fontSize: '18px', color: 'var(--color-text-secondary)' }}
+              style={{ width: '400px', fontSize: '18px', color: 'rgba(255,255,255,0.92)', textShadow: '0 1px 12px rgba(0,0,0,0.9)' }}
             >
               <div style={{ padding: '24px', borderLeft: '1px solid rgba(255,255,255,0.1)' }}>
                 {typedText}

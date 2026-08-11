@@ -367,13 +367,13 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0 }) {
         let cVal = isX ? hatchCentroids[plateIdx].x : (isY ? hatchCentroids[plateIdx].y : hatchCentroids[plateIdx].z);
         
         // As progress goes 0 -> 1, the plates shrink and sink to form the 3D cavity
-        // Fully, not partly. Stopping at 0.2 left a fifth of the plate hanging
-        // in its own opening, and because the cavity funnel behind it is built
-        // from the full original triangle, the leftover sliver only covered
-        // part of it — which is what read as ragged half-holes rather than
-        // clean recesses.
-        let shrink = 1.0 - progress; // 1.0 -> 0.0, the plate withdraws entirely
-        let sinkFactor = 1.0 - (progress * 0.25); // 1.0 -> 0.75
+        // Neither a fifth left hanging nor gone altogether. The plate keeps
+        // almost its full size and is pressed down into the recess, so it is
+        // still there to see just below the rim — a panel pushed inward, lit
+        // from the same studio as everything else and falling into shadow as
+        // it goes. That is what closes the black hole: something is in it.
+        let shrink = 1.0 - (progress * 0.12); // 1.0 -> 0.88, stays a real plate
+        let sinkFactor = 1.0 - (progress * 0.12); // 1.0 -> 0.88, seated near the rim
         let targetC = cVal * sinkFactor;
         
         p = targetC + (p - cVal) * shrink;
