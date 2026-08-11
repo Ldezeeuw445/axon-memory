@@ -23,7 +23,7 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0 }) {
   // Pre-calculate the perfectly closed state (base) and the open/fractured state (target)
   const { 
     outerGeometry, innerDataGeometry, wiresGeometry,
-    cavityGeometry, goldLightGeometry, plateRimGeometry,
+    cavityGeometry, goldLightGeometry, panelSideGeometry,
     basePositions, targetPositions,
     baseInnerPositions, targetInnerPositions,
     wireLinks, hatchCentroids, count
@@ -202,15 +202,24 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0 }) {
     // out of the body rather than a decal sliding across it.
     // Filled per frame in the morph loop; three plates, three edges, two
     // triangles each.
-    const rimGeo = new THREE.BufferGeometry();
-    rimGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(3 * 3 * 2 * 3 * 3), 3));
+    // Sides for every panel, not just the three that open into cavities.
+    //
+    // The whole shell lifts outward as the Core approaches, but each panel was
+    // a single triangle — so the widening gaps showed nothing behind them, and
+    // 180 paper-thin shards drifting apart reads as floating rather than as
+    // something being pushed out. Each panel already has an inner face at 0.98
+    // that travels with it; these quads close the edge between the two, so a
+    // panel becomes a slab with a visible flank.
+    const sideVerts = (count / 3) * 3 * 2 * 3;
+    const sideGeo = new THREE.BufferGeometry();
+    sideGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(sideVerts * 3), 3));
     
     return { 
       outerGeometry: outGeo, 
       innerDataGeometry: inGeo, 
       wiresGeometry: wGeo,
       cavityGeometry: cavGeo,
-      plateRimGeometry: rimGeo,
+      panelSideGeometry: sideGeo,
       goldLightGeometry: lGeo,
       basePositions: basePositionsArr, 
       targetPositions: targetPositionsArr,
@@ -380,39 +389,35 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0 }) {
     }
     outerGeometry.attributes.position.needsUpdate = true;
 
-    // Side walls for the sliding plates. Each plate edge is bridged back to the
-    // rim of the opening it came from, so the gap that appears as it travels is
-    // a machined flank rather than nothing. The walls are zero-width while the
-    // plate is seated and grow with it, which is exactly how a block being
-    // pushed out of a body behaves.
+    // Close the edge of every panel, so each reads as a slab being pushed out
+    // rather than a shard floating free.
     {
-      const rimPos = plateRimGeometry.attributes.position.array;
+      const sidePos = panelSideGeometry.attributes.position.array;
       let w = 0;
-      for (let plate = 1; plate <= 3; plate++) {
-        const base = plate * 9;
+      for (let f = 0; f < count; f += 3) {
+        const b = f * 3;
         for (let e = 0; e < 3; e++) {
           const n = (e + 1) % 3;
-          // current (moved) plate corners
-          const ax = outPos[base + e * 3],     ay = outPos[base + e * 3 + 1],     az = outPos[base + e * 3 + 2];
-          const bx = outPos[base + n * 3],     by = outPos[base + n * 3 + 1],     bz = outPos[base + n * 3 + 2];
-          // where that edge started, on the shell
-          const cx = basePositions[base + e * 3], cy = basePositions[base + e * 3 + 1], cz = basePositions[base + e * 3 + 2];
-          const dx = basePositions[base + n * 3], dy = basePositions[base + n * 3 + 1], dz = basePositions[base + n * 3 + 2];
+          const oe = b + e * 3, on = b + n * 3;
 
-          rimPos[w++] = ax; rimPos[w++] = ay; rimPos[w++] = az;
-          rimPos[w++] = bx; rimPos[w++] = by; rimPos[w++] = bz;
-          rimPos[w++] = cx; rimPos[w++] = cy; rimPos[w++] = cz;
+          const ax = outPos[oe], ay = outPos[oe + 1], az = outPos[oe + 2];
+          const bx = outPos[on], by = outPos[on + 1], bz = outPos[on + 2];
+          const cx = inPos[oe],  cy = inPos[oe + 1],  cz = inPos[oe + 2];
+          const dx = inPos[on],  dy = inPos[on + 1],  dz = inPos[on + 2];
 
-          rimPos[w++] = bx; rimPos[w++] = by; rimPos[w++] = bz;
-          rimPos[w++] = dx; rimPos[w++] = dy; rimPos[w++] = dz;
-          rimPos[w++] = cx; rimPos[w++] = cy; rimPos[w++] = cz;
+          sidePos[w++] = ax; sidePos[w++] = ay; sidePos[w++] = az;
+          sidePos[w++] = bx; sidePos[w++] = by; sidePos[w++] = bz;
+          sidePos[w++] = cx; sidePos[w++] = cy; sidePos[w++] = cz;
+
+          sidePos[w++] = bx; sidePos[w++] = by; sidePos[w++] = bz;
+          sidePos[w++] = dx; sidePos[w++] = dy; sidePos[w++] = dz;
+          sidePos[w++] = cx; sidePos[w++] = cy; sidePos[w++] = cz;
         }
       }
-      plateRimGeometry.attributes.position.needsUpdate = true;
-      plateRimGeometry.computeVertexNormals();
+      panelSideGeometry.attributes.position.needsUpdate = true;
+      panelSideGeometry.computeVertexNormals();
     }
-    outerGeometry.computeVertexNormals();
-    
+
     innerDataGeometry.attributes.position.needsUpdate = true;
     innerDataGeometry.computeVertexNormals();
 
@@ -481,8 +486,8 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0 }) {
           />
         </mesh>
 
-        {/* Flanks of the sliding plates — their thickness. */}
-        <mesh geometry={plateRimGeometry}>
+        {/* Flanks of every panel — their thickness. */}
+        <mesh geometry={panelSideGeometry}>
           <meshPhysicalMaterial
             color="#2b2d33"
             roughness={0.34}
