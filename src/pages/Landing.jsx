@@ -191,8 +191,9 @@ export default function Landing() {
             <Lightformer form="rect" intensity={16} position={[-3.2, 4, 4]} scale={[0.35, 7, 1]} color="#ffffff" />
             <Lightformer form="rect" intensity={11} position={[3.6, -2, 3.5]} scale={[0.3, 6, 1]} color="#cfe2ff" />
             <Lightformer form="circle" intensity={2.2} position={[0, -6, 1]} scale={[7, 7, 1]} color="#2a3a5c" />
-            <Lightformer form="rect" intensity={1.1} position={[-7, -4, 2]} scale={[9, 6, 1]} color="#4a5470" />
-            <Lightformer form="rect" intensity={0.8} position={[0, 0, -9]} scale={[11, 9, 1]} color="#39435c" />
+            <Lightformer form="rect" intensity={4.5} position={[-7, -3, 3]} scale={[11, 9, 1]} color="#8d9bb8" />
+            <Lightformer form="rect" intensity={2.6} position={[0, 0, -9]} scale={[13, 11, 1]} color="#6c7893" />
+            <Lightformer form="rect" intensity={3.2} position={[-6, 5, 1]} scale={[8, 7, 1]} color="#aab6cc" />
           </Environment>
         </Canvas>
       </div>
@@ -202,7 +203,7 @@ export default function Landing() {
         
         {/* Logo */}
         <div style={{ position: 'absolute', top: 24, left: 32, zIndex: 50, display: 'flex', alignItems: 'center', gap: 12 }}>
-          <img src="/axon_logo.png" alt="AXON" style={{ width: 32, height: 32, borderRadius: 8 }} />
+          <img src="/favicon.svg" alt="AXON" style={{ width: 42, height: 42, borderRadius: 10 }} />
           <span className="title-text" style={{ fontSize: 16, letterSpacing: '2px', fontWeight: 'bold' }}>AXON</span>
         </div>
 

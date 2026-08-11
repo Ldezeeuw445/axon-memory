@@ -70,7 +70,9 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0 }) {
       // another barely parted. A narrow spread keeps the lift even, so the
       // three cavities are the only real openings and everything else simply
       // rises.
-      const noise = 1 + (Math.random() - 0.5) * 0.06; 
+      const LIFT = 1.13;   // how far every panel travels outward
+      const SPREAD = 0.05; // how much that varies between neighbours
+      const noise = LIFT + (Math.random() - 0.5) * SPREAD; 
       const finalCentroid = centroid.clone().multiplyScalar(noise * factor);
       const offset = finalCentroid.clone().sub(centroid);
       
@@ -492,7 +494,7 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0 }) {
         <mesh geometry={innerDataGeometry} scale={0.98}>
           <meshBasicMaterial 
             ref={innerSkinMaterialRef}
-            color="#0044ff" 
+            color="#7e8ea6" 
             wireframe={true} 
             transparent 
             opacity={0.15} 
