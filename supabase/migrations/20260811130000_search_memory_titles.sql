@@ -14,6 +14,12 @@
 -- into a function that matches the index exactly. Entities are folded in as
 -- well: they are the extracted topics, and they are what a person is most
 -- likely to search by.
+--
+-- Entities are read with jsonb_to_tsvector and an explicit 'english' config.
+-- The two-argument form inherits the session's default config and is only
+-- STABLE, so it cannot be indexed; unnesting the array with a subquery is
+-- rejected outright ("cannot use subquery in index expression"). The
+-- three-argument form is IMMUTABLE and indexes cleanly.
 
 create or replace function public.search_memory_items(
   p_user_id uuid,
@@ -32,8 +38,7 @@ as $$
     and (
       to_tsvector('english', coalesce(title, '') || ' ' || content)
         @@ websearch_to_tsquery('english', p_query)
-      or to_tsvector('english', coalesce(array_to_string(
-           array(select jsonb_array_elements_text(entities)), ' '), ''))
+      or jsonb_to_tsvector('english', entities, '["string"]')
         @@ websearch_to_tsquery('english', p_query)
     )
   order by occurred_at desc
@@ -45,9 +50,6 @@ $$;
 grant execute on function public.search_memory_items(uuid, text, int)
   to authenticated, service_role;
 
--- Entities are searched through a separate expression, so give that one its
--- own index rather than leaving it to a sequential scan.
 create index if not exists memory_items_entities_fts
   on public.memory_items
-  using gin (to_tsvector('english', coalesce(array_to_string(
-    array(select jsonb_array_elements_text(entities)), ' '), '')));
+  using gin (jsonb_to_tsvector('english', entities, '["string"]'));
