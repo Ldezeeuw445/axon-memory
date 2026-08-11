@@ -51,17 +51,26 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0 }) {
       v2.toArray(basePositionsArr, (i+1) * 3);
       v3.toArray(basePositionsArr, (i+2) * 3);
 
-      const inset = 0.98;
-      v1.clone().multiplyScalar(inset).toArray(baseInnerPositionsArr, i * 3);
-      v2.clone().multiplyScalar(inset).toArray(baseInnerPositionsArr, (i+1) * 3);
-      v3.clone().multiplyScalar(inset).toArray(baseInnerPositionsArr, (i+2) * 3);
+      // The inner face is both deeper and slightly smaller, so the flank leans
+      // inward the way a cut facet does rather than standing straight up like
+      // an extrusion.
+      const inset = 0.972;
+      const taper = 0.93;
+      const faceC = new THREE.Vector3().add(v1).add(v2).add(v3).divideScalar(3);
+      v1.clone().lerp(faceC, 1 - taper).multiplyScalar(inset).toArray(baseInnerPositionsArr, i * 3);
+      v2.clone().lerp(faceC, 1 - taper).multiplyScalar(inset).toArray(baseInnerPositionsArr, (i+1) * 3);
+      v3.clone().lerp(faceC, 1 - taper).multiplyScalar(inset).toArray(baseInnerPositionsArr, (i+2) * 3);
 
       const centroid = new THREE.Vector3().add(v1).add(v2).add(v3).divideScalar(3);
         
       let factor = 1;
       if (centroid.z < -1) factor = 0.85;
       
-      const noise = 1 + (Math.random() - 0.5) * 0.25; 
+      // Was +/-12.5% per face, which let one side of the shell gape while
+      // another barely parted. A narrow spread keeps the lift even, so the
+      // three cavities are the only real openings and everything else simply
+      // rises.
+      const noise = 1 + (Math.random() - 0.5) * 0.06; 
       const finalCentroid = centroid.clone().multiplyScalar(noise * factor);
       const offset = finalCentroid.clone().sub(centroid);
       
@@ -460,7 +469,7 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0 }) {
           <meshStandardMaterial 
             ref={innerCoreMaterialRef}
             color="#010205" 
-            emissive="#4d7ab8" 
+            emissive="#6d7f96" 
             emissiveIntensity={0.5}
             wireframe={true}
             transparent
@@ -587,7 +596,7 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0 }) {
           position={[0, 0, 0]} 
           intensity={stage >= 2 ? 3 : 0} 
           distance={6} 
-          color="#a8c4e8" 
+          color="#c8d4e2" 
         />
       </group>
     </Float>
