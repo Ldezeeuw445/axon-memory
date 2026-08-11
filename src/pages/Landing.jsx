@@ -185,12 +185,14 @@ export default function Landing() {
             polished mineral.
           */}
           <Environment resolution={256}>
-            <Lightformer form="rect" intensity={6} position={[0, 8, 2]} rotation={[Math.PI / 2, 0, 0]} scale={[14, 10, 1]} color="#dfe9ff" />
-            <Lightformer form="rect" intensity={3.5} position={[-8, 2, -6]} scale={[12, 9, 1]} color="#9fb6e0" />
-            <Lightformer form="rect" intensity={1.8} position={[8, -1, 5]} scale={[9, 7, 1]} color="#6d7f9e" />
-            <Lightformer form="rect" intensity={12} position={[-3.2, 4, 4]} scale={[0.35, 7, 1]} color="#ffffff" />
-            <Lightformer form="rect" intensity={8} position={[3.6, -2, 3.5]} scale={[0.3, 6, 1]} color="#cfe2ff" />
+            <Lightformer form="rect" intensity={9} position={[0, 8, 2]} rotation={[Math.PI / 2, 0, 0]} scale={[14, 10, 1]} color="#dfe9ff" />
+            <Lightformer form="rect" intensity={5.2} position={[-8, 2, -6]} scale={[12, 9, 1]} color="#9fb6e0" />
+            <Lightformer form="rect" intensity={2.8} position={[8, -1, 5]} scale={[9, 7, 1]} color="#6d7f9e" />
+            <Lightformer form="rect" intensity={16} position={[-3.2, 4, 4]} scale={[0.35, 7, 1]} color="#ffffff" />
+            <Lightformer form="rect" intensity={11} position={[3.6, -2, 3.5]} scale={[0.3, 6, 1]} color="#cfe2ff" />
             <Lightformer form="circle" intensity={2.2} position={[0, -6, 1]} scale={[7, 7, 1]} color="#2a3a5c" />
+            <Lightformer form="rect" intensity={1.1} position={[-7, -4, 2]} scale={[9, 6, 1]} color="#4a5470" />
+            <Lightformer form="rect" intensity={0.8} position={[0, 0, -9]} scale={[11, 9, 1]} color="#39435c" />
           </Environment>
         </Canvas>
       </div>

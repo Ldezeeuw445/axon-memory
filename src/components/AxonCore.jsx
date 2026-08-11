@@ -90,9 +90,16 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0 }) {
         const coreAttach2 = v2.clone().normalize().multiplyScalar(1.8);
         const coreAttach3 = v3.clone().normalize().multiplyScalar(1.8);
         
-        if (i === 0 || Math.random() > 0.2) links.push({ plateVertexIndex: i, corePoint: coreAttach1 });
-        if (i === 0 || Math.random() > 0.2) links.push({ plateVertexIndex: i+1, corePoint: coreAttach2 });
-        if (i === 0 || Math.random() > 0.2) links.push({ plateVertexIndex: i+2, corePoint: coreAttach3 });
+        // Tether only the faces that actually move: the extracted shard (0)
+        // and the three sliding plates (1-3). Previously a wire was added to
+        // roughly four out of five faces on the entire shell at random, so the
+        // strands read as decoration that happened to land well rather than as
+        // the thing holding a moving plate to the core.
+        if (i < 12) {
+          links.push({ plateVertexIndex: i, corePoint: coreAttach1 });
+          links.push({ plateVertexIndex: i + 1, corePoint: coreAttach2 });
+          links.push({ plateVertexIndex: i + 2, corePoint: coreAttach3 });
+        }
       }
     }
     
@@ -285,8 +292,8 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0 }) {
         lightRef.current.intensity = 3 + (peak * 20);
       } else {
         wiresMaterialRef.current.opacity = 0.4;
-        wiresMaterialRef.current.color.setHex(0x0044ff);
-        innerCoreMaterialRef.current.emissive.setHex(0x0044ff);
+        wiresMaterialRef.current.color.setHex(0x6f93c4);
+        innerCoreMaterialRef.current.emissive.setHex(0x4d7ab8);
         if (lightRef.current) {
           lightRef.current.color.setHex(0x00aaff);
           lightRef.current.intensity = stage >= 2 ? 3 : 0;
@@ -443,7 +450,7 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0 }) {
           <meshStandardMaterial 
             ref={innerCoreMaterialRef}
             color="#010205" 
-            emissive="#0044ff" 
+            emissive="#4d7ab8" 
             emissiveIntensity={0.5}
             wireframe={true}
             transparent
@@ -477,12 +484,12 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0 }) {
         {/* Flanks of the sliding plates — their thickness. */}
         <mesh geometry={plateRimGeometry}>
           <meshPhysicalMaterial
-            color="#0a1224"
-            roughness={0.22}
-            metalness={0.7}
-            clearcoat={0.7}
-            clearcoatRoughness={0.2}
-            envMapIntensity={2.0}
+            color="#2b2d33"
+            roughness={0.34}
+            metalness={0.78}
+            clearcoat={0.5}
+            clearcoatRoughness={0.28}
+            envMapIntensity={2.1}
             side={THREE.DoubleSide}
           />
         </mesh>
@@ -570,7 +577,7 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0 }) {
           position={[0, 0, 0]} 
           intensity={stage >= 2 ? 3 : 0} 
           distance={6} 
-          color="#00aaff" 
+          color="#a8c4e8" 
         />
       </group>
     </Float>
