@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Search } from 'lucide-react';
 import DataLandscape from '../components/DataLandscape';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import FragmentPanel from '../components/FragmentPanel';
 import { DATA_SOURCES, AI_PROVIDERS } from '../lib/logos';
 import { useAuth } from '../contexts/AuthContext';
@@ -14,10 +15,41 @@ const TYPE_COLORS = {
   default:   '#94a3b8',
 };
 
+// Real memories for whichever summit is open. The panel used to render
+// "Ingested snippet #1/2/3" regardless of what was stored — three invented
+// rows sitting next to a live memory graph.
+function useSourceMemories(sourceId, userId) {
+  const [items, setItems] = useState(null);
+
+  useEffect(() => {
+    if (!sourceId || !userId || !isSupabaseConfigured) {
+      setItems(null);
+      return;
+    }
+    let cancelled = false;
+    supabase
+      .from('memory_items')
+      .select('id, title, content, content_type, occurred_at')
+      .eq('user_id', userId)
+      .eq('source_type', sourceId)
+      .order('occurred_at', { ascending: false })
+      .limit(5)
+      .then(({ data }) => {
+        if (!cancelled) setItems(data ?? []);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sourceId, userId]);
+
+  return items;
+}
+
 export default function MemoryGraph({ asFacet }) {
   const { user } = useAuth();
   const [selectedSource, setSelectedSource] = useState(null);
   const [search, setSearch] = useState('');
+  const sourceMemories = useSourceMemories(selectedSource, user?.id);
 
   const isMobile = window.innerWidth < 500;
 
@@ -73,33 +105,43 @@ export default function MemoryGraph({ asFacet }) {
               </div>
               
               <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.85)', lineHeight: 1.6, marginBottom: 24, padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.05)' }}>
-                This source is actively streaming context into the AXON memory graph. The 3D peaks represent data density and recent activity.
+                Summit height reflects how much this source has contributed to your memory graph.
               </div>
               
               <div>
                 <h3 style={{ fontSize: 14, color: 'white', marginBottom: 12, borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 8 }}>Recent Memories</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {[1, 2, 3].map(i => (
-                    <div 
-                      key={i} 
-                      style={{ 
-                        display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', 
-                        background: 'rgba(255,255,255,0.03)', borderRadius: 8, cursor: 'pointer',
-                        transition: 'all 0.2s', border: '1px solid transparent'
-                      }}
-                      onMouseOver={ev => {
-                        ev.currentTarget.style.background = 'rgba(255,255,255,0.08)';
-                        ev.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
-                      }}
-                      onMouseOut={ev => {
-                        ev.currentTarget.style.background = 'rgba(255,255,255,0.03)';
-                        ev.currentTarget.style.borderColor = 'transparent';
-                      }}
-                    >
-                      <div style={{ width: 10, height: 10, borderRadius: '50%', background: TYPE_COLORS[Object.keys(TYPE_COLORS)[i]] || TYPE_COLORS.default }} />
-                      <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)' }}>Ingested snippet #{i}</span>
-                    </div>
-                  ))}
+                  {sourceMemories === null ? (
+                    <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>Loading…</span>
+                  ) : sourceMemories.length === 0 ? (
+                    <span style={{ fontSize: 13, color: 'var(--color-text-secondary)', lineHeight: 1.6 }}>
+                      Nothing stored from this source yet.
+                    </span>
+                  ) : (
+                    sourceMemories.map((m) => (
+                      <div
+                        key={m.id}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
+                          background: 'rgba(255,255,255,0.03)', borderRadius: 8,
+                          transition: 'all 0.2s', border: '1px solid transparent'
+                        }}
+                        onMouseOver={ev => {
+                          ev.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+                          ev.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
+                        }}
+                        onMouseOut={ev => {
+                          ev.currentTarget.style.background = 'rgba(255,255,255,0.03)';
+                          ev.currentTarget.style.borderColor = 'transparent';
+                        }}
+                      >
+                        <div style={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0, background: TYPE_COLORS[m.content_type] || TYPE_COLORS.default }} />
+                        <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {m.title || (m.content || '').slice(0, 48) || 'Untitled memory'}
+                        </span>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </FragmentPanel>

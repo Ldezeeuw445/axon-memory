@@ -4,19 +4,40 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import SetupBanner from '../components/SetupBanner';
 
-const DEMO_STATS = {
-  memoryNodes: 247,
-  activeAdapters: 3,
-  tokensSaved: '1.2M',
-  tokenValue: '$14.50',
-  recentNodes: [
-    { id: 1, title: 'AXON Product Strategy v2', type: 'document', created_at: new Date(Date.now() - 5 * 60000).toISOString() },
-    { id: 2, title: 'Q3 OKR: Launch mobile app', type: 'goal', created_at: new Date(Date.now() - 18 * 60000).toISOString() },
-    { id: 3, title: 'Competitor analysis: Mem.ai', type: 'research', created_at: new Date(Date.now() - 45 * 60000).toISOString() },
-    { id: 4, title: 'API key management architecture', type: 'technical', created_at: new Date(Date.now() - 2 * 3600000).toISOString() },
-    { id: 5, title: 'User interview notes — Emma K.', type: 'interview', created_at: new Date(Date.now() - 5 * 3600000).toISOString() },
-  ],
+// Shown before data arrives, when Supabase isn't configured, or when a load
+// fails. Deliberately empty rather than invented: a real zero tells the truth,
+// a plausible-looking 247 does not, and a memory product that displays numbers
+// it made up has no business asking anyone to trust what it remembers.
+const EMPTY_STATS = {
+  memoryNodes: 0,
+  activeAdapters: 0,
+  tokensSaved: '0',
+  tokenValue: '$0.00',
+  contextServed: 0,
+  recentNodes: [],
+  breakdown: [],
 };
+
+// content_type values come from the check constraint on memory_items.
+const CONTENT_TYPE_LABELS = {
+  email: 'Email',
+  commit: 'Commits',
+  pull_request: 'Pull requests',
+  issue: 'Issues',
+  page: 'Pages',
+  message: 'Messages',
+  note: 'Notes',
+};
+
+const BREAKDOWN_COLORS = [
+  'var(--color-neon-cyan)',
+  'var(--color-neon-purple)',
+  '#f59e0b',
+  '#10b981',
+  '#f97316',
+  'rgba(255,255,255,0.45)',
+  'rgba(255,255,255,0.3)',
+];
 
 function StatCard({ title, value, icon, gradient, desc }) {
   return (
@@ -58,26 +79,38 @@ export default function Dashboard({ asFacet }) {
 
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase || isDemo) {
-      setStats(DEMO_STATS);
+      setStats(EMPTY_STATS);
       setLoading(false);
       return;
     }
 
     async function loadStats() {
       try {
-        const [itemsRes, sourcesRes, adaptersRes, tokenRes, recentRes] = await Promise.all([
+        const [itemsRes, sourcesRes, adaptersRes, tokenRes, recentRes, breakdownRes] = await Promise.all([
           supabase.from('memory_items').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
           supabase.from('source_connections').select('id', { count: 'exact', head: true }).eq('user_id', user.id).in('status', ['connected', 'syncing']),
           supabase.from('api_keys').select('id', { count: 'exact', head: true }).eq('user_id', user.id).is('revoked_at', null),
           supabase.from('context_pack_logs').select('approx_tokens_saved').eq('user_id', user.id),
           supabase.from('memory_items').select('id, title, content_type, source_type, occurred_at').eq('user_id', user.id).order('occurred_at', { ascending: false }).limit(5),
+          supabase.rpc('memory_breakdown', { p_user_id: user.id }),
         ]);
 
         const itemsCount = itemsRes.count ?? 0;
         const tokensSaved = (tokenRes.data || []).reduce((sum, r) => sum + (r.approx_tokens_saved || 0), 0);
 
+        const rows = breakdownRes.data ?? [];
+        const totalCounted = rows.reduce((sum, r) => sum + Number(r.item_count || 0), 0);
+        const breakdown = rows.map((r, i) => ({
+          label: CONTENT_TYPE_LABELS[r.content_type] ?? r.content_type,
+          count: Number(r.item_count || 0),
+          pct: totalCounted ? Math.round((Number(r.item_count) / totalCounted) * 100) : 0,
+          color: BREAKDOWN_COLORS[i % BREAKDOWN_COLORS.length],
+        }));
+
         setStats({
           memoryNodes: itemsCount,
+          contextServed: (tokenRes.data || []).length,
+          breakdown,
           activeAdapters: (sourcesRes.count ?? 0) + (adaptersRes.count ?? 0),
           tokensSaved: tokensSaved ? `${Math.round(tokensSaved / 1000)}K` : '0',
           tokenValue: `$${(tokensSaved * 0.00001).toFixed(2)}`,
@@ -90,7 +123,7 @@ export default function Dashboard({ asFacet }) {
         });
       } catch (err) {
         console.error('Dashboard load error:', err);
-        setStats(DEMO_STATS);
+        setStats(EMPTY_STATS);
       } finally {
         setLoading(false);
       }
@@ -129,7 +162,7 @@ export default function Dashboard({ asFacet }) {
           <StatCard title="Memory Nodes" value={stats.memoryNodes.toLocaleString()} icon={<Network size={18} />} desc="Stored context entries" />
           <StatCard title="Active Adapters" value={stats.activeAdapters} icon={<Plug size={18} />} desc="Connected AI tools" />
           <StatCard title="Tokens Saved" value={stats.tokensSaved} icon={<Cpu size={18} />} gradient desc={`Optimized context — ~${stats.tokenValue} saved`} />
-          <StatCard title="Memory Health" value="98%" icon={<ShieldCheck size={18} />} gradient desc="No fragmentation detected" />
+          <StatCard title="Context Served" value={stats.contextServed.toLocaleString()} icon={<ShieldCheck size={18} />} gradient desc="Context packs delivered to your AI tools" />
         </div>
       )}
 
@@ -177,23 +210,23 @@ export default function Dashboard({ asFacet }) {
             <TrendingUp size={18} color="var(--color-neon-cyan)" />
             <h3 style={{ fontSize: '16px', fontWeight: 700 }}>Memory Breakdown</h3>
           </div>
-          {[
-            { label: 'Documents', pct: 38, color: 'var(--color-neon-cyan)' },
-            { label: 'Goals & OKRs', pct: 22, color: 'var(--color-neon-purple)' },
-            { label: 'Research', pct: 18, color: '#f59e0b' },
-            { label: 'Conversations', pct: 14, color: '#10b981' },
-            { label: 'Other', pct: 8, color: 'rgba(255,255,255,0.3)' },
-          ].map(({ label, pct, color }) => (
-            <div key={label} style={{ marginBottom: '14px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '5px' }}>
-                <span style={{ color: 'var(--color-text-secondary)' }}>{label}</span>
-                <span style={{ fontWeight: 600 }}>{pct}%</span>
+          {stats.breakdown.length === 0 ? (
+            <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: 1.6 }}>
+              Nothing stored yet. Once memories arrive, this shows what kinds they are.
+            </p>
+          ) : (
+            stats.breakdown.map(({ label, pct, count, color }) => (
+              <div key={label} style={{ marginBottom: '14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '5px' }}>
+                  <span style={{ color: 'var(--color-text-secondary)' }}>{label}</span>
+                  <span style={{ fontWeight: 600 }} title={`${count} ${count === 1 ? 'memory' : 'memories'}`}>{pct}%</span>
+                </div>
+                <div style={{ height: '4px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: '4px', transition: 'width 0.6s ease' }} />
+                </div>
               </div>
-              <div style={{ height: '4px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: '4px', transition: 'width 0.6s ease' }} />
-              </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
 
