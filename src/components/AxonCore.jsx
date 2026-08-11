@@ -3,6 +3,13 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { MeshTransmissionMaterial, Float } from '@react-three/drei';
 
+// Blue is a signal, not a surface. It exists for the moment a connection lands
+// and decays straight back to these neutral resting tones.
+const PULSE_BLUE = new THREE.Color('#0a5cff');
+const REST_EMISSIVE = new THREE.Color('#6d7f96');
+const REST_LIGHT = new THREE.Color('#c8d4e2');
+const REST_WIRE = new THREE.Color('#6f93c4');
+
 export default function AxonCore({ stage = 2, injectionPulseTime = 0 }) {
   const groupRef = useRef();
   const mountTime = useRef(null);
@@ -288,7 +295,19 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0 }) {
       
       innerCoreMaterialRef.current.emissiveIntensity = THREE.MathUtils.lerp(5.0, 0.5, Math.pow(flashProgress, 0.5));
       lightRef.current.intensity = THREE.MathUtils.lerp(20.0, 3.0, Math.pow(flashProgress, 0.5));
-      
+
+      // Blue belongs here and nowhere else. Desaturating the Core to stop it
+      // reading as blue plastic also drained this flash, which is the one
+      // moment the colour is supposed to appear — it fires on connection,
+      // reflects through the glass and briefly tints the drifting particles.
+      // So the pulse starts saturated and decays back to the neutral resting
+      // tone rather than living there.
+      innerCoreMaterialRef.current.emissive.copy(PULSE_BLUE).lerp(REST_EMISSIVE, Math.pow(flashProgress, 0.6));
+      lightRef.current.color.copy(PULSE_BLUE).lerp(REST_LIGHT, Math.pow(flashProgress, 0.6));
+
+      if (wiresMaterialRef.current) {
+        wiresMaterialRef.current.color.copy(PULSE_BLUE).lerp(REST_WIRE, Math.pow(flashProgress, 0.6));
+      }
       if (wiresMaterialRef.current) {
         wiresMaterialRef.current.opacity = THREE.MathUtils.lerp(1.0, 0.4, Math.pow(flashProgress, 0.5));
       }
