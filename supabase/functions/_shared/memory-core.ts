@@ -57,13 +57,15 @@ export async function buildContextPack(
       .limit(60);
 
     if (query) {
-      itemsQuery = admin
-        .from("memory_items")
-        .select("id, content_type, title, content, entities, occurred_at, source_type")
-        .eq("user_id", userId)
-        .textSearch("content", query, { type: "websearch", config: "english" })
-        .order("occurred_at", { ascending: false })
-        .limit(60);
+      // Searches title + content + entities through the expression the GIN
+      // index in 0001_init.sql actually covers. Searching the `content`
+      // column alone missed every memory whose subject only appears in its
+      // title — which is most of them.
+      itemsQuery = admin.rpc("search_memory_items", {
+        p_user_id: userId,
+        p_query: query,
+        p_limit: 60,
+      });
       searchMode = "keyword";
     }
 
