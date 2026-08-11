@@ -116,25 +116,52 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0 }) {
       centroids[p].set(cx, cy, cz);
     }
     // 3D Cavity Geometry (walls for the holes of plates 1, 2, 3)
+    //
+    // Each cavity used to be three flat triangles running to a single needle
+    // point — a funnel, which is why the holes read as simple cut-outs. A real
+    // recess has a chamfer where it breaks the surface, walls that step inward,
+    // and a floor. Building it as concentric rings gives the light something to
+    // catch at every depth instead of one uninterrupted slope.
     const cavityPosArr = [];
+
+    // Each ring: how far its vertices are pulled toward the face centroid, and
+    // how deep it sits. The first band is deliberately narrow — that tight
+    // chamfer at the rim is what reads as a cut edge rather than a hole.
+    const RINGS = [
+      { inset: 0.0,  depth: 1.0   },
+      { inset: 0.13, depth: 0.965 },
+      { inset: 0.42, depth: 0.9   },
+      { inset: 0.66, depth: 0.82  },
+      { inset: 0.82, depth: 0.765 },
+    ];
+
     for (let p = 1; p < 4; p++) {
       let idx = p * 9;
-      let v0 = new THREE.Vector3(basePositionsArr[idx], basePositionsArr[idx+1], basePositionsArr[idx+2]);
-      let v1 = new THREE.Vector3(basePositionsArr[idx+3], basePositionsArr[idx+4], basePositionsArr[idx+5]);
-      let v2 = new THREE.Vector3(basePositionsArr[idx+6], basePositionsArr[idx+7], basePositionsArr[idx+8]);
-      
-      let c = new THREE.Vector3()
-        .addVectors(v0, v1).add(v2).divideScalar(3);
-      
-      // Deep point of the cavity
-      let d = c.clone().multiplyScalar(0.75);
-      
-      // Wall 1: V0, V1, D
-      cavityPosArr.push(v0.x, v0.y, v0.z, v1.x, v1.y, v1.z, d.x, d.y, d.z);
-      // Wall 2: V1, V2, D
-      cavityPosArr.push(v1.x, v1.y, v1.z, v2.x, v2.y, v2.z, d.x, d.y, d.z);
-      // Wall 3: V2, V0, D
-      cavityPosArr.push(v2.x, v2.y, v2.z, v0.x, v0.y, v0.z, d.x, d.y, d.z);
+      const v = [
+        new THREE.Vector3(basePositionsArr[idx], basePositionsArr[idx+1], basePositionsArr[idx+2]),
+        new THREE.Vector3(basePositionsArr[idx+3], basePositionsArr[idx+4], basePositionsArr[idx+5]),
+        new THREE.Vector3(basePositionsArr[idx+6], basePositionsArr[idx+7], basePositionsArr[idx+8]),
+      ];
+      const c = new THREE.Vector3().addVectors(v[0], v[1]).add(v[2]).divideScalar(3);
+
+      const ringVerts = RINGS.map(({ inset, depth }) =>
+        v.map((corner) => c.clone().lerp(corner, 1 - inset).multiplyScalar(depth))
+      );
+
+      // Wall bands between consecutive rings, two triangles per side.
+      for (let r = 0; r < ringVerts.length - 1; r++) {
+        const a = ringVerts[r];
+        const b = ringVerts[r + 1];
+        for (let e = 0; e < 3; e++) {
+          const n = (e + 1) % 3;
+          cavityPosArr.push(a[e].x, a[e].y, a[e].z, a[n].x, a[n].y, a[n].z, b[e].x, b[e].y, b[e].z);
+          cavityPosArr.push(a[n].x, a[n].y, a[n].z, b[n].x, b[n].y, b[n].z, b[e].x, b[e].y, b[e].z);
+        }
+      }
+
+      // Flat floor, so the cavity bottoms out instead of tapering to a point.
+      const f = ringVerts[ringVerts.length - 1];
+      cavityPosArr.push(f[0].x, f[0].y, f[0].z, f[1].x, f[1].y, f[1].z, f[2].x, f[2].y, f[2].z);
     }
     const cavGeo = new THREE.BufferGeometry();
     cavGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(cavityPosArr), 3));
@@ -201,7 +228,7 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0 }) {
     const progress = 1 - Math.pow(1 - openTimeline, 3); // easeOutCubic
 
     // Update Cavity Opacity based on progress
-    if (cavityWireMaterialRef.current) cavityWireMaterialRef.current.opacity = progress * 0.9;
+    if (cavityWireMaterialRef.current) cavityWireMaterialRef.current.opacity = progress * 0.32;
     if (cavitySolidMaterialRef.current) cavitySolidMaterialRef.current.opacity = progress * 0.95;
     if (goldLightMaterialRef.current) goldLightMaterialRef.current.opacity = progress * 0.9;
 
@@ -408,10 +435,10 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0 }) {
         <mesh geometry={cavityGeometry}>
           <meshPhysicalMaterial 
             ref={cavityWireMaterialRef}
-            color="#001a4d" 
-            emissive="#002266"
-            emissiveIntensity={0.2}
-            roughness={0.8}
+            color="#123a7a" 
+            emissive="#1b4fa0"
+            emissiveIntensity={0.35}
+            roughness={0.6}
             metalness={0.5}
             transparent
             opacity={0}
@@ -422,9 +449,12 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0 }) {
         <mesh geometry={cavityGeometry}>
           <meshPhysicalMaterial 
             ref={cavitySolidMaterialRef}
-            color="#000a1a" 
-            roughness={0.9}
-            metalness={0.1}
+            color="#050c1c" 
+            roughness={0.28}
+            metalness={0.55}
+            clearcoat={0.6}
+            clearcoatRoughness={0.25}
+            envMapIntensity={1.8}
             transparent
             opacity={0}
             side={THREE.DoubleSide}
