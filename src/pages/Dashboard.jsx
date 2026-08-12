@@ -151,7 +151,7 @@ export default function Dashboard({ asFacet }) {
         />
       )}
 
-      {loading ? (
+      {loading || !stats ? (
         <div className="stat-grid" style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '24px' }}>
           {[...Array(4)].map((_, i) => (
             <div key={i} className="glass-card" style={{ flex: '1 1 160px', minWidth: '140px', height: '100px', animation: 'pulse 1.5s infinite' }} />
@@ -172,7 +172,7 @@ export default function Dashboard({ asFacet }) {
             <Clock size={18} color="var(--color-neon-cyan)" />
             <h3 style={{ fontSize: '16px', fontWeight: 700 }}>Recent Memory Ingestion</h3>
           </div>
-          {loading ? (
+          {loading || !stats ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {[...Array(4)].map((_, i) => (
                 <div key={i} style={{ height: '48px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', animation: 'pulse 1.5s infinite' }} />
@@ -210,9 +210,12 @@ export default function Dashboard({ asFacet }) {
             <TrendingUp size={18} color="var(--color-neon-cyan)" />
             <h3 style={{ fontSize: '16px', fontWeight: 700 }}>Memory Breakdown</h3>
           </div>
-          {stats.breakdown.length === 0 ? (
+          {/* `stats` is null until the first load resolves, and this panel sits
+              outside the loading guard above — reading .breakdown straight off
+              it crashed the whole dashboard on first paint. */}
+          {!stats?.breakdown?.length ? (
             <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: 1.6 }}>
-              Nothing stored yet. Once memories arrive, this shows what kinds they are.
+              {loading ? 'Loading…' : 'Nothing stored yet. Once memories arrive, this shows what kinds they are.'}
             </p>
           ) : (
             stats.breakdown.map(({ label, pct, count, color }) => (
