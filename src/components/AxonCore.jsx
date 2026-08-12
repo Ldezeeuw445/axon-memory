@@ -5,12 +5,12 @@ import { MeshTransmissionMaterial, Float } from '@react-three/drei';
 
 // Blue is a signal, not a surface. It exists for the moment a connection lands
 // and decays straight back to these neutral resting tones.
-const PULSE_BLUE = new THREE.Color('#0a5cff');
+const PULSE_BLUE = new THREE.Color('#0b6bff');
 const REST_EMISSIVE = new THREE.Color('#6d7f96');
 const REST_LIGHT = new THREE.Color('#c8d4e2');
 const REST_WIRE = new THREE.Color('#6f93c4');
 
-export default function AxonCore({ stage = 2, injectionPulseTime = 0 }) {
+export default function AxonCore({ stage = 2, injectionPulseTime = 0, experiencePulseTime = 0 }) {
   const groupRef = useRef();
   const mountTime = useRef(null);
   const innerCoreMaterialRef = useRef();
@@ -21,6 +21,7 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0 }) {
   const cavitySolidMaterialRef = useRef();
   const goldLightMaterialRef = useRef();
   const flashTime = useRef(0);
+  const flashStart = useRef(0);
   const extractionTime = useRef(0);
   
   // Track animation progress (0 = closed/far, 1 = open/near)
@@ -287,10 +288,13 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0 }) {
       }
     }
     
-    // Core Pulse on Connection
-    if (stage === 3 && innerCoreMaterialRef.current && lightRef.current) {
-      if (flashTime.current === 0) flashTime.current = state.clock.elapsedTime;
-      const flashElapsed = state.clock.elapsedTime - flashTime.current;
+    // Core Pulse on Connection — driven by the Experience AXON press.
+    if (experiencePulseTime > 0 && innerCoreMaterialRef.current && lightRef.current) {
+      if (flashTime.current !== experiencePulseTime) {
+        flashTime.current = experiencePulseTime;
+        flashStart.current = state.clock.elapsedTime;
+      }
+      const flashElapsed = state.clock.elapsedTime - flashStart.current;
       const flashProgress = Math.min(flashElapsed / 2.0, 1.0);
       
       innerCoreMaterialRef.current.emissiveIntensity = THREE.MathUtils.lerp(5.0, 0.5, Math.pow(flashProgress, 0.5));

@@ -45,6 +45,7 @@ export default function Landing() {
   const [selectedApp, setSelectedApp] = useState(null);
   const [injectedParticles, setInjectedParticles] = useState([]);
   const [injectionTrigger, setInjectionTrigger] = useState(0);
+  const [experienceTrigger, setExperienceTrigger] = useState(0);
   const [showToast, setShowToast] = useState(false);
   
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -88,6 +89,7 @@ export default function Landing() {
 
   const handleExperienceClick = () => {
     playGlassTick('medium');
+    setExperienceTrigger(Date.now());
     setStage(3);
   };
 
@@ -168,7 +170,7 @@ export default function Landing() {
 
           {/* 3D SCENE */}
           <group scale={isMobile ? 0.65 : 1}>
-            <AxonCore stage={stage} injectionPulseTime={injectionTrigger} />
+            <AxonCore stage={stage} injectionPulseTime={injectionTrigger} experiencePulseTime={experienceTrigger} />
             <Shockwave position={isMobile ? [0, 4, 8.5] : [3.5, 0, 8.5]} triggerTime={injectionTrigger} />
           </group>
 
@@ -311,7 +313,7 @@ export default function Landing() {
               {!activeFacet ? (
                 <>
                   <FragmentPanel 
-                    style={isMobile ? { position: 'absolute', top: '8%', left: '5%', right: '5%', pointerEvents: 'auto' } : { position: 'absolute', top: '20%', left: '10%', pointerEvents: 'auto' }} 
+                    style={isMobile ? { position: 'absolute', top: '8%', left: '5%', right: '5%', pointerEvents: 'auto' } : { position: 'absolute', top: '26%', left: '15%', pointerEvents: 'auto' }} 
                     delay={0.2}
                   >
                     <div style={{ marginBottom: '24px' }}>
@@ -331,7 +333,7 @@ export default function Landing() {
                   </FragmentPanel>
     
                   <FragmentPanel 
-                    style={isMobile ? { position: 'absolute', bottom: '15%', left: '5%', right: '5%', pointerEvents: 'auto' } : { position: 'absolute', bottom: '25%', right: '10%', pointerEvents: 'auto' }} 
+                    style={isMobile ? { position: 'absolute', bottom: '15%', left: '5%', right: '5%', pointerEvents: 'auto' } : { position: 'absolute', bottom: '9%', right: '5%', pointerEvents: 'auto' }} 
                     delay={0.4}
                   >
                     <h3 className="title-text" style={{ fontSize: '18px', color: 'white', marginBottom: '16px' }}>Active Thread</h3>
