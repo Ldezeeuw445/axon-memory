@@ -306,11 +306,11 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0, experience
       // reflects through the glass and briefly tints the drifting particles.
       // So the pulse starts saturated and decays back to the neutral resting
       // tone rather than living there.
-      innerCoreMaterialRef.current.emissive.copy(PULSE_BLUE).lerp(REST_EMISSIVE, Math.pow(flashProgress, 2.2));
-      lightRef.current.color.copy(PULSE_BLUE).lerp(REST_LIGHT, Math.pow(flashProgress, 2.2));
+      innerCoreMaterialRef.current.emissive.copy(PULSE_BLUE).lerp(REST_EMISSIVE, Math.pow(flashProgress, 1.15));
+      lightRef.current.color.copy(PULSE_BLUE).lerp(REST_LIGHT, Math.pow(flashProgress, 1.15));
 
       if (wiresMaterialRef.current) {
-        wiresMaterialRef.current.color.copy(PULSE_BLUE).lerp(REST_WIRE, Math.pow(flashProgress, 2.2));
+        wiresMaterialRef.current.color.copy(PULSE_BLUE).lerp(REST_WIRE, Math.pow(flashProgress, 1.15));
       }
       if (wiresMaterialRef.current) {
         wiresMaterialRef.current.opacity = THREE.MathUtils.lerp(1.0, 0.4, Math.pow(flashProgress, 0.5));

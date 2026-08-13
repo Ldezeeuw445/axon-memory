@@ -4,6 +4,7 @@ import { Canvas } from '@react-three/fiber';
 import { AdaptiveDpr, Environment, Lightformer, PerformanceMonitor, Stars, Sparkles } from '@react-three/drei';
 import * as THREE from 'three';
 import AxonCore from '../components/AxonCore';
+import CorePortal from '../components/CorePortal';
 import MemoryParticle from '../components/MemoryParticle';
 import FragmentPanel from '../components/FragmentPanel';
 import ConnectSourceModal from '../components/ConnectSourceModal';
@@ -179,10 +180,10 @@ export default function Landing() {
           )}
 
           {/* 3D SCENE */}
-          <group scale={isMobile ? 0.65 : 1}>
+          <CorePortal open={!!activeFacet} baseScale={isMobile ? 0.65 : 1}>
             <AxonCore stage={stage} injectionPulseTime={injectionTrigger} experiencePulseTime={experienceTrigger} />
             <Shockwave position={isMobile ? [0, 4, 8.5] : [3.5, 0, 8.5]} triggerTime={injectionTrigger} />
-          </group>
+          </CorePortal>
 
           {/*
             Was <Environment preset="city" />, which fetches an HDR from a CDN —
