@@ -62,7 +62,13 @@ export default function MemoryGraph({ asFacet }) {
         </header>
       )}
 
-      <div className="glass-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 0, minHeight: isMobile ? 340 : 480, position: 'relative' }}>
+      <div
+        className={asFacet ? '' : 'glass-card'}
+        style={{
+          flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 0,
+          minHeight: asFacet ? 0 : (isMobile ? 340 : 480), position: 'relative',
+        }}
+      >
         
         {/* Overlay Toolbar */}
         <div style={{ position: 'absolute', top: 16, left: 16, right: 16, display: 'flex', alignItems: 'center', gap: 8, zIndex: 10, pointerEvents: 'none' }}>
@@ -75,7 +81,7 @@ export default function MemoryGraph({ asFacet }) {
         </div>
 
         {/* 3D Data Landscape */}
-        <div style={{ flex: 1, position: 'relative', overflow: 'hidden', borderRadius: 10, background: '#02040a' }}>
+        <div style={{ flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden', borderRadius: asFacet ? 0 : 10, background: 'transparent' }}>
           <DataLandscape onNodeSelect={(id) => setSelectedSource(id)} />
         </div>
 

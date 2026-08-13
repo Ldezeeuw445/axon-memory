@@ -11,7 +11,8 @@
  * its roots on the right too, so the visitor keeps their bearings across the
  * dive. Same starfield, same grade, one continuous space.
  */
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
+import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 
@@ -114,7 +115,10 @@ function MemoryCard({ memory, side }) {
   );
 }
 
-export default function MemoryRoots({ hub, memories = [], surfaceY = 0, opacity = 1, showCards = true }) {
+export default function MemoryRoots({ hub, memories = [], surfaceY = 0, diveRef = null }) {
+  const lineMat = useRef(null);
+  const nodeGroup = useRef(null);
+  const cardsOn = useRef(false);
   const { segments, tips } = useMemo(() => {
     if (!hub) return { segments: [], tips: [] };
     const origin = new THREE.Vector3(hub.x, surfaceY - 0.4, hub.z);
@@ -129,14 +133,34 @@ export default function MemoryRoots({ hub, memories = [], surfaceY = 0, opacity 
     return g;
   }, [segments]);
 
+  useFrame(() => {
+    const d = diveRef?.current ?? 1;
+    if (lineMat.current) lineMat.current.opacity = d * 0.85;
+    if (nodeGroup.current) {
+      nodeGroup.current.children.forEach((g) => {
+        const m = g.children[0]?.material;
+        if (m) m.opacity = d;
+      });
+      // Cards only once far enough under for them to be legible.
+      const want = d > 0.6;
+      if (want !== cardsOn.current) {
+        cardsOn.current = want;
+        nodeGroup.current.children.forEach((g) => {
+          if (g.children[1]) g.children[1].visible = want;
+        });
+      }
+    }
+  });
+
   if (!hub) return null;
 
   return (
     <group>
       <lineSegments geometry={lineGeo}>
-        <lineBasicMaterial color={GOLD_DIM} transparent opacity={opacity * 0.85} toneMapped={false} />
+        <lineBasicMaterial ref={lineMat} color={GOLD_DIM} transparent opacity={0} toneMapped={false} />
       </lineSegments>
 
+      <group ref={nodeGroup}>
       {tips.map((p, i) => {
         const m = memories[i];
         if (!m) return null;
@@ -146,12 +170,13 @@ export default function MemoryRoots({ hub, memories = [], surfaceY = 0, opacity 
           <group key={m.id ?? i} position={p}>
             <mesh>
               <sphereGeometry args={[0.13, 14, 14]} />
-              <meshBasicMaterial color={GOLD} toneMapped={false} transparent opacity={opacity} />
+              <meshBasicMaterial color={GOLD} toneMapped={false} transparent opacity={0} />
             </mesh>
-            {showCards && opacity > 0.55 && <MemoryCard memory={m} side={side} />}
+            <group visible={false}><MemoryCard memory={m} side={side} /></group>
           </group>
         );
       })}
+      </group>
     </group>
   );
 }

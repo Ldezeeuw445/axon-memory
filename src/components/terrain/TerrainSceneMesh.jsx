@@ -9,7 +9,7 @@ import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { makeGlowTexture } from './terrainEngine';
 
-export default function TerrainSceneMesh({ engine, resolution = 200, shadowsEnabled = true, surfaceOpacity = 1 }) {
+export default function TerrainSceneMesh({ engine, resolution = 200, shadowsEnabled = true, diveRef = null }) {
   const { solidGeo, capGeo, pointsGeo } = useMemo(() => {
     const size = engine.size;
     const geo = new THREE.PlaneGeometry(size, size, resolution, resolution);
@@ -56,8 +56,17 @@ export default function TerrainSceneMesh({ engine, resolution = 200, shadowsEnab
 
   const glowTex = useMemo(() => makeGlowTexture(), []);
   const ptsMat = useRef(null);
+  const rockMat = useRef(null);
 
   useFrame(({ clock }) => {
+    // The surface thins as the camera descends through it, so the dive reads as
+    // passing into the ground rather than the terrain being switched off.
+    if (rockMat.current && diveRef) {
+      const o = 1 - diveRef.current * 0.82;
+      rockMat.current.opacity = o;
+      rockMat.current.transparent = o < 0.999;
+      rockMat.current.depthWrite = o > 0.9;
+    }
     if (ptsMat.current) {
       ptsMat.current.opacity = 0.72 + 0.22 * Math.sin(clock.elapsedTime * 1.6);
     }
@@ -87,12 +96,10 @@ export default function TerrainSceneMesh({ engine, resolution = 200, shadowsEnab
       {/* Lit opaque rock terrain - blocks view through mountains */}
       <mesh geometry={solidGeo} renderOrder={0} castShadow={shadowsEnabled} receiveShadow={shadowsEnabled}>
         <meshStandardMaterial
+          ref={rockMat}
           vertexColors
           roughness={0.93}
           metalness={0.06}
-          transparent={surfaceOpacity < 0.999}
-          opacity={surfaceOpacity}
-          depthWrite={surfaceOpacity > 0.9}
           polygonOffset
           polygonOffsetFactor={2}
           polygonOffsetUnits={2}

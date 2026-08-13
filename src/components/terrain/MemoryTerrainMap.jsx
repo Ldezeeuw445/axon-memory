@@ -127,7 +127,7 @@ function RiseIn({ children, duration = 2.4 }) {
  * it — so the dive stays a single continuous move rather than three animations
  * that have to be kept in step.
  */
-function DiveDriver({ active, diveRef, onChange }) {
+function DiveDriver({ active, diveRef, onBelow }) {
   useFrame((_, dt) => {
     const want = active ? 1 : 0;
     const speed = active ? 1.35 : 2.2; // slower going down, quicker coming back
@@ -136,10 +136,11 @@ function DiveDriver({ active, diveRef, onChange }) {
       0,
       1,
     );
-    if (Math.abs(next - diveRef.current) > 0.0005) {
-      diveRef.current = next;
-      onChange(next);
-    }
+    const wasBelow = diveRef.current > 0.02;
+    diveRef.current = next;
+    // React only hears about crossing the surface, not every frame of the way.
+    const isBelow = next > 0.02;
+    if (isBelow !== wasBelow) onBelow(isBelow);
   });
   return null;
 }
@@ -158,7 +159,7 @@ export default function MemoryTerrainMap({
   const [hoveredId, setHoveredId] = useState(null);
   const controlsRef = useRef(null);
   const diveRef = useRef(0);
-  const [dive, setDive] = useState(0);
+  const [below, setBelow] = useState(false);
   const [perfDpr, setPerfDpr] = useState(1.35);
 
   const isMobile = useMemo(() => {
@@ -240,7 +241,7 @@ export default function MemoryTerrainMap({
         <color attach="background" args={['#020409']} />
         <fog attach="fog" args={['#020409', 55, 130]} />
         <RiseIn>
-          <TerrainSceneMesh engine={engine} resolution={isMobile ? 128 : 200} shadowsEnabled={!isMobile} surfaceOpacity={1 - dive * 0.82} />
+          <TerrainSceneMesh engine={engine} resolution={isMobile ? 128 : 200} shadowsEnabled={!isMobile} diveRef={diveRef} />
           <TerrainMarkers
             engine={engine}
             selected={selected}
@@ -253,15 +254,14 @@ export default function MemoryTerrainMap({
           />
         </RiseIn>
         <Stars radius={150} depth={70} count={isMobile ? 1200 : 3000} factor={3.2} saturation={0} fade speed={0.5} />
-        <DiveDriver active={!!selected} diveRef={diveRef} onChange={setDive} />
+        <DiveDriver active={!!selected} diveRef={diveRef} onBelow={setBelow} />
         <TerrainCameraRig engine={engine} selected={selected} controlsRef={controlsRef} diveRef={diveRef} />
-        {dive > 0.02 && selected && (
+        {below && selected && (
           <MemoryRoots
             hub={selected}
             memories={leafData}
             surfaceY={engine.heightAt(selected.x, selected.z)}
-            opacity={dive}
-            showCards={dive > 0.6}
+            diveRef={diveRef}
           />
         )}
         <OrbitControls

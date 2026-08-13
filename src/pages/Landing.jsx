@@ -367,10 +367,15 @@ export default function Landing() {
                   }}
                   delay={0.1}
                 >
-                  <div style={{ flex: 1, overflowY: 'auto' }}>
-                    {activeFacet === 'dashboard' && <Dashboard asFacet={true} />}
+                  {/* A height:100% child inside an `overflow:auto` box resolves
+                      against content height, not the box — so the terrain canvas
+                      collapsed to nothing and the panel rendered black. This is a
+                      flex column with min-height 0 so children can be given real
+                      height; the graph fills it, the rest scroll on their own. */}
+                  <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                    {activeFacet === 'dashboard' && <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}><Dashboard asFacet={true} /></div>}
                     {activeFacet === 'graph' && <MemoryGraph asFacet={true} />}
-                    {activeFacet === 'connections' && <ConnectionsFacet />}
+                    {activeFacet === 'connections' && <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}><ConnectionsFacet /></div>}
                     {activeFacet === 'billing' && (
                       <div style={{ textAlign: 'center', padding: '40px' }}>
                         <h2 style={{ fontSize: '24px', marginBottom: '16px' }}>AXON Pro</h2>
