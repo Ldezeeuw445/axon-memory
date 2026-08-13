@@ -258,6 +258,7 @@ export function TerrainCameraRig({
   engine,
   selected,
   controlsRef,
+  diveRef,
   defaultCam = [0, 18, 31],
   defaultTarget = [0, 0.5, 0],
 }) {
@@ -308,8 +309,20 @@ export function TerrainCameraRig({
       if (a.t >= 1) a.active = false;
     }
     ctl.enabled = !a.active;
-    const minY = engine.heightAt(camera.position.x, camera.position.z) + 0.7;
-    if (camera.position.y < minY) camera.position.y = minY;
+
+    const dive = diveRef?.current ?? 0;
+    if (dive > 0.001 && selected) {
+      // Sink both the camera and what it is looking at, so the move reads as
+      // descending through the ground rather than tilting down at it.
+      const drop = 9.5 * dive;
+      camera.position.y -= drop;
+      camera.position.z += 2.5 * dive;
+      ctl.target.y -= drop * 1.05;
+    } else {
+      // Only keep the camera above ground while we are not diving.
+      const minY = engine.heightAt(camera.position.x, camera.position.z) + 0.7;
+      if (camera.position.y < minY) camera.position.y = minY;
+    }
     ctl.update();
   });
 

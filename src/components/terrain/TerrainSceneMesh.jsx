@@ -9,7 +9,7 @@ import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { makeGlowTexture } from './terrainEngine';
 
-export default function TerrainSceneMesh({ engine, resolution = 200, shadowsEnabled = true }) {
+export default function TerrainSceneMesh({ engine, resolution = 200, shadowsEnabled = true, surfaceOpacity = 1 }) {
   const { solidGeo, capGeo, pointsGeo } = useMemo(() => {
     const size = engine.size;
     const geo = new THREE.PlaneGeometry(size, size, resolution, resolution);
@@ -90,6 +90,9 @@ export default function TerrainSceneMesh({ engine, resolution = 200, shadowsEnab
           vertexColors
           roughness={0.93}
           metalness={0.06}
+          transparent={surfaceOpacity < 0.999}
+          opacity={surfaceOpacity}
+          depthWrite={surfaceOpacity > 0.9}
           polygonOffset
           polygonOffsetFactor={2}
           polygonOffsetUnits={2}

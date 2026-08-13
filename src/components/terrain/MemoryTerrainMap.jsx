@@ -15,9 +15,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Stars } from '@react-three/drei';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
+import * as THREE from 'three';
 import { buildTerrainEngine, TERRAIN_GOLD } from './terrainEngine';
 import TerrainSceneMesh from './TerrainSceneMesh';
 import TerrainMarkers, { TerrainCameraRig, computeLeafRing } from './TerrainMarkers';
+import MemoryRoots from './MemoryRoots';
 
 /**
  * Turn AXON's real data into terrain hubs.
@@ -119,6 +121,29 @@ function RiseIn({ children, duration = 2.4 }) {
   );
 }
 
+/**
+ * Drives the descent. One value from 0 (above the terrain) to 1 (below it),
+ * eased, with the camera, the surface fade and the root system all reading off
+ * it — so the dive stays a single continuous move rather than three animations
+ * that have to be kept in step.
+ */
+function DiveDriver({ active, diveRef, onChange }) {
+  useFrame((_, dt) => {
+    const want = active ? 1 : 0;
+    const speed = active ? 1.35 : 2.2; // slower going down, quicker coming back
+    const next = THREE.MathUtils.clamp(
+      diveRef.current + (want - diveRef.current) * Math.min(1, dt * speed * 2),
+      0,
+      1,
+    );
+    if (Math.abs(next - diveRef.current) > 0.0005) {
+      diveRef.current = next;
+      onChange(next);
+    }
+  });
+  return null;
+}
+
 export default function MemoryTerrainMap({
   hubs,
   focusHubId,
@@ -132,6 +157,8 @@ export default function MemoryTerrainMap({
   const [canvasKey, setCanvasKey] = useState(0);
   const [hoveredId, setHoveredId] = useState(null);
   const controlsRef = useRef(null);
+  const diveRef = useRef(0);
+  const [dive, setDive] = useState(0);
 
   const isMobile = useMemo(() => {
     if (typeof navigator === 'undefined') return false;
@@ -201,7 +228,7 @@ export default function MemoryTerrainMap({
         <color attach="background" args={['#020409']} />
         <fog attach="fog" args={['#020409', 55, 130]} />
         <RiseIn>
-          <TerrainSceneMesh engine={engine} resolution={isMobile ? 128 : 200} shadowsEnabled={!isMobile} />
+          <TerrainSceneMesh engine={engine} resolution={isMobile ? 128 : 200} shadowsEnabled={!isMobile} surfaceOpacity={1 - dive * 0.82} />
           <TerrainMarkers
             engine={engine}
             selected={selected}
@@ -214,7 +241,17 @@ export default function MemoryTerrainMap({
           />
         </RiseIn>
         <Stars radius={150} depth={70} count={isMobile ? 1200 : 3000} factor={3.2} saturation={0} fade speed={0.5} />
-        <TerrainCameraRig engine={engine} selected={selected} controlsRef={controlsRef} />
+        <DiveDriver active={!!selected} diveRef={diveRef} onChange={setDive} />
+        <TerrainCameraRig engine={engine} selected={selected} controlsRef={controlsRef} diveRef={diveRef} />
+        {dive > 0.02 && selected && (
+          <MemoryRoots
+            hub={selected}
+            memories={leafData}
+            surfaceY={engine.heightAt(selected.x, selected.z)}
+            opacity={dive}
+            showCards={dive > 0.6}
+          />
+        )}
         <OrbitControls
           ref={controlsRef}
           enablePan={false}
