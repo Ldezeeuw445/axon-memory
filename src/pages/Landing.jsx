@@ -363,7 +363,11 @@ export default function Landing() {
                     left: isMobile ? '5%' : '10%', right: isMobile ? '5%' : '10%',
                     pointerEvents: 'auto',
                     display: 'flex', flexDirection: 'column',
-                    padding: '24px'
+                    // The terrain runs to the panel's edge; the reading facets
+                    // keep their inset. The padding was what drew the inner
+                    // rectangle that made it a box inside a box.
+                    padding: activeFacet === 'graph' ? '0' : '24px',
+                    overflow: 'hidden'
                   }}
                   delay={0.1}
                 >

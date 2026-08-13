@@ -264,6 +264,7 @@ export function TerrainCameraRig({
 }) {
   const { camera } = useThree();
   const anim = useRef({ active: false, t: 0 });
+  const diveBase = useRef({ camY: 0, camZ: 0, tgtY: 0 });
 
   useEffect(() => {
     const ctl = controlsRef.current;
@@ -312,14 +313,19 @@ export function TerrainCameraRig({
 
     const dive = diveRef?.current ?? 0;
     if (dive > 0.001 && selected) {
-      // Sink both the camera and what it is looking at, so the move reads as
-      // descending through the ground rather than tilting down at it.
+      // The descent is an absolute offset from where the fly-to left the
+      // camera, not a nudge applied to wherever it happens to be. Subtracting
+      // from the live position every frame made it fall forever, which is why
+      // the roots flashed past and the view ended in the void below them.
       const drop = 9.5 * dive;
-      camera.position.y -= drop;
-      camera.position.z += 2.5 * dive;
-      ctl.target.y -= drop * 1.05;
+      camera.position.y = diveBase.current.camY - drop;
+      camera.position.z = diveBase.current.camZ + 2.5 * dive;
+      ctl.target.y = diveBase.current.tgtY - drop * 1.05;
     } else {
-      // Only keep the camera above ground while we are not diving.
+      // Remember where level flight left us, so the next dive starts from here.
+      diveBase.current.camY = camera.position.y;
+      diveBase.current.camZ = camera.position.z;
+      diveBase.current.tgtY = ctl.target.y;
       const minY = engine.heightAt(camera.position.x, camera.position.z) + 0.7;
       if (camera.position.y < minY) camera.position.y = minY;
     }
