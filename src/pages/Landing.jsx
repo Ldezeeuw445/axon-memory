@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Canvas } from '@react-three/fiber';
-import { Environment, Lightformer, Stars, Sparkles } from '@react-three/drei';
+import { AdaptiveDpr, Environment, Lightformer, PerformanceMonitor, Stars, Sparkles } from '@react-three/drei';
 import * as THREE from 'three';
 import AxonCore from '../components/AxonCore';
 import MemoryParticle from '../components/MemoryParticle';
@@ -46,6 +46,7 @@ export default function Landing() {
   const [injectedParticles, setInjectedParticles] = useState([]);
   const [injectionTrigger, setInjectionTrigger] = useState(0);
   const [experienceTrigger, setExperienceTrigger] = useState(0);
+  const [perfDpr, setPerfDpr] = useState(1.5);
   const [showToast, setShowToast] = useState(false);
   
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -140,7 +141,16 @@ export default function Landing() {
     <div className="full-screen">
       {/* The 3D Field */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-        <Canvas camera={{ position: [0, 0, 10], fov: 35 }}>
+        <Canvas dpr={[0.75, perfDpr]} camera={{ position: [0, 0, 10], fov: 35 }}>
+          {/* Same trade as the terrain: full resolution while it is affordable,
+              stepped down only when frames actually slip. The transmission
+              material on the Core is the expensive part, and it scales with
+              pixel count. */}
+          <PerformanceMonitor
+            onDecline={() => setPerfDpr((d) => Math.max(0.75, d - 0.25))}
+            onIncline={() => setPerfDpr((d) => Math.min(1.75, d + 0.25))}
+          />
+          <AdaptiveDpr pixelated={false} />
           <ambientLight intensity={0.1} />
           <spotLight position={[0, 10, 5]} angle={0.3} penumbra={1} intensity={2} color="#ffffff" />
           

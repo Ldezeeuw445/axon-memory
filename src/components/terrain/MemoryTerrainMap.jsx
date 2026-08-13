@@ -13,7 +13,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Stars } from '@react-three/drei';
+import { AdaptiveDpr, OrbitControls, PerformanceMonitor, Stars } from '@react-three/drei';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import { buildTerrainEngine, TERRAIN_GOLD } from './terrainEngine';
@@ -159,6 +159,7 @@ export default function MemoryTerrainMap({
   const controlsRef = useRef(null);
   const diveRef = useRef(0);
   const [dive, setDive] = useState(0);
+  const [perfDpr, setPerfDpr] = useState(1.35);
 
   const isMobile = useMemo(() => {
     if (typeof navigator === 'undefined') return false;
@@ -203,7 +204,7 @@ export default function MemoryTerrainMap({
       <Canvas
         key={canvasKey}
         shadows={!isMobile}
-        dpr={isMobile ? [1, 1.25] : [1, 1.6]}
+        dpr={[0.75, perfDpr]}
         camera={{ position: [0, 18, 31], fov: 48, near: 0.1, far: 500 }}
         gl={{
           antialias: !isMobile,
@@ -225,6 +226,17 @@ export default function MemoryTerrainMap({
         }}
         onPointerMissed={() => onBackground()}
       >
+        {/*
+          Keeps it smooth without giving up quality. Resolution stays full while
+          the GPU can afford it and only drops when frames actually start to
+          slip, then climbs back once there is headroom — rather than picking a
+          permanently lower setting to survive the worst case.
+        */}
+        <PerformanceMonitor
+          onDecline={() => setPerfDpr((d) => Math.max(0.75, d - 0.25))}
+          onIncline={() => setPerfDpr((d) => Math.min(isMobile ? 1.25 : 1.6, d + 0.25))}
+        />
+        <AdaptiveDpr pixelated={false} />
         <color attach="background" args={['#020409']} />
         <fog attach="fog" args={['#020409', 55, 130]} />
         <RiseIn>
