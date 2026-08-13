@@ -317,10 +317,10 @@ export function TerrainCameraRig({
       // camera, not a nudge applied to wherever it happens to be. Subtracting
       // from the live position every frame made it fall forever, which is why
       // the roots flashed past and the view ended in the void below them.
-      const drop = 9.5 * dive;
+      const drop = 16.5 * dive;
       camera.position.y = diveBase.current.camY - drop;
-      camera.position.z = diveBase.current.camZ + 2.5 * dive;
-      ctl.target.y = diveBase.current.tgtY - drop * 1.05;
+      camera.position.z = diveBase.current.camZ - 6.5 * dive;
+      ctl.target.y = diveBase.current.tgtY - drop * 0.92;
     } else {
       // Remember where level flight left us, so the next dive starts from here.
       diveBase.current.camY = camera.position.y;
