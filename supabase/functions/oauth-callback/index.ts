@@ -1,4 +1,4 @@
-// GET /functions/v1/oauth-callback?provider=...&code=...&state=...
+// GET /functions/v1/oauth-callback?code=...&state=...
 // Public (no user JWT — the provider hits this directly). Verified via signed `state`.
 // Exchanges the code for tokens, encrypts + upserts source_connections, then
 // redirects the browser back into the app.
@@ -22,7 +22,7 @@ async function exchangeCode(provider: Provider, code: string) {
     client_id: cfg.clientId,
     client_secret: cfg.clientSecret,
     code,
-    redirect_uri: redirectUri(provider),
+    redirect_uri: redirectUri(),
     grant_type: "authorization_code",
   });
 
@@ -43,20 +43,23 @@ Deno.serve(async (req: Request) => {
   if (preflight) return preflight;
 
   const url = new URL(req.url);
-  const provider = url.searchParams.get("provider") as Provider | null;
   const code = url.searchParams.get("code");
   const stateRaw = url.searchParams.get("state");
   const errorParam = url.searchParams.get("error");
 
   if (errorParam) return redirectToApp(`/sources?error=${encodeURIComponent(errorParam)}`);
-  if (!provider || !code || !stateRaw) return redirectToApp("/sources?error=missing_params");
+  if (!code || !stateRaw) return redirectToApp("/sources?error=missing_params");
 
+  // The provider now comes out of the signed state rather than the query, so
+  // the callback URL can stay clean and there is nothing to cross-check.
   let userId: string;
+  let provider: Provider;
   try {
     const state = await parseState(stateRaw);
-    if (state.provider !== provider) throw new Error("state/provider mismatch");
     if (Date.now() - state.ts > 10 * 60 * 1000) throw new Error("state expired");
+    if (!(state.provider in PROVIDERS)) throw new Error("unknown provider in state");
     userId = state.userId;
+    provider = state.provider as Provider;
   } catch {
     return redirectToApp("/sources?error=invalid_state");
   }

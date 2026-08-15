@@ -5,10 +5,17 @@
 //   supabase secrets set SLACK_OAUTH_CLIENT_ID=... SLACK_OAUTH_CLIENT_SECRET=...
 export type Provider = "gmail" | "github" | "notion" | "slack";
 
-function redirectUri(provider: Provider) {
+export function redirectUri() {
   // Edge Functions are reachable at <project-url>/functions/v1/<fn-name>.
+  //
+  // Deliberately no query string. Every provider requires the redirect URI to
+  // match what is registered byte for byte, and a `?provider=` suffix meant
+  // four separate URIs to register, each an opportunity for a mismatch that
+  // surfaces only as a generic redirect_uri_mismatch. Which provider it is
+  // comes out of the signed `state` instead — that is also the safer source,
+  // since a query parameter is attacker-controllable and the state is not.
   const projectUrl = Deno.env.get("SUPABASE_URL")!;
-  return `${projectUrl}/functions/v1/oauth-callback?provider=${provider}`;
+  return `${projectUrl}/functions/v1/oauth-callback`;
 }
 
 export const PROVIDERS: Record<
@@ -26,7 +33,7 @@ export const PROVIDERS: Record<
     authorizeUrl: (state) => {
       const params = new URLSearchParams({
         client_id: Deno.env.get("GOOGLE_OAUTH_CLIENT_ID") ?? "",
-        redirect_uri: redirectUri("gmail"),
+        redirect_uri: redirectUri(),
         response_type: "code",
         access_type: "offline",
         prompt: "consent",
@@ -44,7 +51,7 @@ export const PROVIDERS: Record<
     authorizeUrl: (state) => {
       const params = new URLSearchParams({
         client_id: Deno.env.get("GITHUB_OAUTH_CLIENT_ID") ?? "",
-        redirect_uri: redirectUri("github"),
+        redirect_uri: redirectUri(),
         scope: "repo read:user",
         state,
       });
@@ -59,7 +66,7 @@ export const PROVIDERS: Record<
     authorizeUrl: (state) => {
       const params = new URLSearchParams({
         client_id: Deno.env.get("NOTION_OAUTH_CLIENT_ID") ?? "",
-        redirect_uri: redirectUri("notion"),
+        redirect_uri: redirectUri(),
         response_type: "code",
         owner: "user",
         state,
@@ -75,7 +82,7 @@ export const PROVIDERS: Record<
     authorizeUrl: (state) => {
       const params = new URLSearchParams({
         client_id: Deno.env.get("SLACK_OAUTH_CLIENT_ID") ?? "",
-        redirect_uri: redirectUri("slack"),
+        redirect_uri: redirectUri(),
         scope: "channels:history,channels:read,groups:history,users:read,team:read",
         user_scope: "",
         state,
