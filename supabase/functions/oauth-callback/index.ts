@@ -18,24 +18,44 @@ function redirectToApp(pathAndQuery: string) {
 
 async function exchangeCode(provider: Provider, code: string) {
   const cfg = PROVIDERS[provider];
-  const body = new URLSearchParams({
-    client_id: cfg.clientId,
-    client_secret: cfg.clientSecret,
-    code,
-    redirect_uri: redirectUri(),
-    grant_type: "authorization_code",
-  });
 
-  const res = await fetch(cfg.tokenUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Accept: "application/json",
-    },
-    body,
-  });
+  // Notion is the odd one out: its token endpoint expects HTTP Basic auth and
+  // a JSON body, not the client credentials form-encoded alongside the code.
+  // Sending it the same shape as Google and GitHub fails the exchange even
+  // when the redirect URI and the credentials are all correct.
+  const isNotion = provider === "notion";
+
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    "Content-Type": isNotion ? "application/json" : "application/x-www-form-urlencoded",
+  };
+  let body: string;
+
+  if (isNotion) {
+    headers.Authorization = `Basic ${btoa(`${cfg.clientId}:${cfg.clientSecret}`)}`;
+    body = JSON.stringify({
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: redirectUri(),
+    });
+  } else {
+    body = new URLSearchParams({
+      client_id: cfg.clientId,
+      client_secret: cfg.clientSecret,
+      code,
+      redirect_uri: redirectUri(),
+      grant_type: "authorization_code",
+    }).toString();
+  }
+
+  const res = await fetch(cfg.tokenUrl, { method: "POST", headers, body });
   if (!res.ok) throw new Error(`Token exchange failed (${res.status}): ${await res.text()}`);
-  return res.json();
+
+  const json = await res.json();
+  // Slack answers 200 with {ok:false,error:"..."} rather than an HTTP error, so
+  // a failed exchange would otherwise sail through as success.
+  if (json?.ok === false) throw new Error(`Token exchange rejected: ${json.error ?? "unknown"}`);
+  return json;
 }
 
 Deno.serve(async (req: Request) => {
