@@ -96,4 +96,3 @@ export const PROVIDERS: Record<
   },
 };
 
-export { redirectUri };
