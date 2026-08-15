@@ -54,7 +54,14 @@ async function exchangeCode(provider: Provider, code: string) {
   const json = await res.json();
   // Slack answers 200 with {ok:false,error:"..."} rather than an HTTP error, so
   // a failed exchange would otherwise sail through as success.
-  if (json?.ok === false) throw new Error(`Token exchange rejected: ${json.error ?? "unknown"}`);
+  if (json?.ok === false) throw new Error(`slack_${json.error ?? "unknown"}`);
+  // GitHub does the same with a bare {error, error_description}, and Google
+  // returns {error} on a rejected code. Without this the failure only surfaces
+  // further down, where the cause is no longer visible.
+  if (typeof json?.error === "string") {
+    throw new Error(`${json.error}${json.error_description ? `: ${String(json.error_description).slice(0, 140)}` : ""}`);
+  }
+  if (!json?.access_token) throw new Error("no_access_token_in_response");
   return json;
 }
 
@@ -130,7 +137,10 @@ Deno.serve(async (req: Request) => {
 
     return redirectToApp(`/sources?connected=${provider}`);
   } catch (err) {
+    // Every failure in this block used to come back as "token_exchange_failed",
+    // database writes and encryption included, which hid the actual cause.
     console.error("oauth-callback error", err);
-    return redirectToApp(`/sources?error=token_exchange_failed`);
+    const reason = err instanceof Error ? err.message : String(err);
+    return redirectToApp(`/sources?error=${encodeURIComponent(reason.slice(0, 180))}`);
   }
 });
