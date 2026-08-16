@@ -152,6 +152,7 @@ export default function MemoryTerrainMap({
   onSelectLeaf,
   onBackground,
   leaves: leafData = [],
+  leavesByHub = {},
   autoRotate = false,
   showLeafLabels = true,
 }) {
@@ -263,14 +264,23 @@ export default function MemoryTerrainMap({
         <Stars radius={100} depth={50} count={isMobile ? 1200 : 3000} factor={3} saturation={0} fade speed={0.3} />
         <DiveDriver active={!!selected} diveRef={diveRef} onBelow={setBelow} />
         <TerrainCameraRig engine={engine} selected={selected} controlsRef={controlsRef} diveRef={diveRef} />
-        {below && selected && (
+        {/*
+          Used to render one root system, for the selected hub only, gated
+          behind `below` (itself gated behind a manual dive). That meant no
+          root was visible until you clicked a specific summit and waited for
+          the dive to cross the surface — "per hub, without moving the
+          camera" needs every hub's root standing on its own, all the time.
+        */}
+        {engine.hubs.map((hub) => (
           <MemoryRoots
-            hub={selected}
-            memories={leafData}
-            surfaceY={engine.heightAt(selected.x, selected.z)}
-            diveRef={diveRef}
+            key={hub.id}
+            hub={hub}
+            memories={leavesByHub[hub.id] ?? (hub.id === selected?.id ? leafData : [])}
+            surfaceY={engine.heightAt(hub.x, hub.z)}
+            diveRef={hub.id === selected?.id ? diveRef : null}
+            onSelectMemory={(m) => { if (m.source) onSelectLeaf(m.source); }}
           />
-        )}
+        ))}
         <OrbitControls
           ref={controlsRef}
           enablePan={false}

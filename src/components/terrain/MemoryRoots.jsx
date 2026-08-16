@@ -70,7 +70,7 @@ function buildRoots(origin, memories, seedBase) {
   return { segments, tips };
 }
 
-function MemoryCard({ memory, side }) {
+function MemoryCard({ memory, side, onSelect }) {
   const label = (memory.detail || memory.source_type || 'memory').toUpperCase();
   const when = memory.occurred_at ? new Date(memory.occurred_at) : null;
 
@@ -79,9 +79,13 @@ function MemoryCard({ memory, side }) {
       center={false}
       distanceFactor={14}
       zIndexRange={[30, 0]}
-      style={{ pointerEvents: 'none', transform: `translateX(${side > 0 ? '18px' : 'calc(-100% - 18px)'})` }}
+      style={{ transform: `translateX(${side > 0 ? '18px' : 'calc(-100% - 18px)'})` }}
     >
       <div
+        role={onSelect ? 'button' : undefined}
+        tabIndex={onSelect ? 0 : undefined}
+        onClick={onSelect ? () => onSelect(memory) : undefined}
+        onKeyDown={onSelect ? (e) => { if (e.key === 'Enter' || e.key === ' ') onSelect(memory); } : undefined}
         style={{
           width: 232,
           padding: '13px 15px',
@@ -91,6 +95,8 @@ function MemoryCard({ memory, side }) {
           boxShadow: '0 10px 34px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,205,120,0.09)',
           fontFamily: "'Inter', sans-serif",
           backdropFilter: 'blur(3px)',
+          cursor: onSelect ? 'pointer' : 'default',
+          pointerEvents: 'auto',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 }}>
@@ -115,7 +121,7 @@ function MemoryCard({ memory, side }) {
   );
 }
 
-export default function MemoryRoots({ hub, memories = [], surfaceY = 0, diveRef = null }) {
+export default function MemoryRoots({ hub, memories = [], surfaceY = 0, diveRef = null, onSelectMemory = null }) {
   const lineMat = useRef(null);
   const nodeGroup = useRef(null);
   const cardsOn = useRef(false);
@@ -134,15 +140,20 @@ export default function MemoryRoots({ hub, memories = [], surfaceY = 0, diveRef 
   }, [segments]);
 
   useFrame(() => {
-    const d = diveRef?.current ?? 1;
+    // Every hub's root reads at a real baseline now, not just the one being
+    // dived into — "per hub, without moving the camera" means all of them
+    // stand on their own by default. diveRef (only set on the hub currently
+    // being dived into) still lifts that one hub above the floor toward full
+    // strength as it's approached, on top of the shared baseline.
+    const d = Math.max(diveRef?.current ?? 1, 0.55);
     if (lineMat.current) lineMat.current.opacity = d * 0.85;
     if (nodeGroup.current) {
       nodeGroup.current.children.forEach((g) => {
         const m = g.children[0]?.material;
         if (m) m.opacity = d;
       });
-      // Cards only once far enough under for them to be legible.
-      const want = d > 0.6;
+      // Cards readable by default; diving into a hub just brings them fully up.
+      const want = d > 0.3;
       if (want !== cardsOn.current) {
         cardsOn.current = want;
         nodeGroup.current.children.forEach((g) => {
@@ -172,7 +183,7 @@ export default function MemoryRoots({ hub, memories = [], surfaceY = 0, diveRef 
               <sphereGeometry args={[0.13, 14, 14]} />
               <meshBasicMaterial color={GOLD} toneMapped={false} transparent opacity={0} />
             </mesh>
-            <group visible={false}><MemoryCard memory={m} side={side} /></group>
+            <group visible={false}><MemoryCard memory={m} side={side} onSelect={onSelectMemory} /></group>
           </group>
         );
       })}

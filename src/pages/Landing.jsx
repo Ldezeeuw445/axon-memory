@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { AdaptiveDpr, Environment, Lightformer, PerformanceMonitor, Stars, Sparkles } from '@react-three/drei';
 import * as THREE from 'three';
 import AxonCore from '../components/AxonCore';
@@ -18,6 +18,42 @@ import MemoryGraph from './MemoryGraph';
 import ConnectionsFacet from './ConnectionsFacet';
 import { LayoutDashboard, Network, Link, CreditCard } from 'lucide-react';
 import { callFunction } from '../lib/functions';
+
+const CORE_DIVE_EASE = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+
+/**
+ * Choosing a facet used to release CorePortal's panel and withdraw the shell
+ * while the camera itself stayed bolted to [0,0,10] — the content in front
+ * of the viewer moved, but the viewer never went anywhere, so it read as
+ * watching a panel open rather than flying into the Core. This moves the
+ * camera through the gap the panel leaves, forward and past where the shell
+ * withdrew to. Mirrors CorePortal's own easing and open/close speed (1.25 /
+ * 2.0) exactly so the dive and the release are one motion, not two things
+ * that happen to run near the same time.
+ */
+function CoreCameraDolly({ open }) {
+  const { camera } = useThree();
+  const t = useRef(0);
+  const restPos = useRef(null);
+  const restFov = useRef(camera.fov);
+  if (restPos.current === null) restPos.current = camera.position.clone();
+
+  useFrame((state, dt) => {
+    const want = open ? 1 : 0;
+    const speed = open ? 1.25 : 2.0;
+    t.current += (want - t.current) * Math.min(1, dt * speed * 2);
+    const e = CORE_DIVE_EASE(THREE.MathUtils.clamp(t.current, 0, 1));
+
+    camera.position.z = THREE.MathUtils.lerp(restPos.current.z, -2, e);
+    camera.position.x = THREE.MathUtils.lerp(restPos.current.x, -1.6, e);
+    camera.position.y = THREE.MathUtils.lerp(restPos.current.y, 0.3, e);
+    camera.fov = THREE.MathUtils.lerp(restFov.current, 46, e);
+    camera.updateProjectionMatrix();
+    camera.lookAt(0, 0, THREE.MathUtils.lerp(0, -9, e));
+  });
+
+  return null;
+}
 
 function GalaxyBackground() {
   return (
@@ -189,6 +225,7 @@ export default function Landing() {
           )}
 
           {/* 3D SCENE */}
+          <CoreCameraDolly open={!!activeFacet} />
           <CorePortal open={!!activeFacet} baseScale={isMobile ? 0.65 : 1}>
             <AxonCore stage={stage} injectionPulseTime={injectionTrigger} experiencePulseTime={experienceTrigger} />
             <Shockwave position={isMobile ? [0, 4, 8.5] : [3.5, 0, 8.5]} triggerTime={injectionTrigger} />

@@ -168,12 +168,69 @@ function useLeavesForHub(hubId) {
   return leaves;
 }
 
+/**
+ * Real memories for EVERY hub at once, not just the focused one — the roots
+ * under each summit need their own memories to show without the visitor
+ * having to click into that hub first. One query per real source
+ * (REAL_SOURCE_IDS), same shape useLeavesForHub already produces, just kept
+ * apart per hub_id instead of collapsed into one list.
+ */
+function useLeavesByHub(hubs) {
+  const { user, isDemo } = useAuth();
+  const [leavesByHub, setLeavesByHub] = useState({});
+  const hubIds = useMemo(() => hubs.map((h) => h.id).join(','), [hubs]);
+
+  useEffect(() => {
+    if (isDemo || !user || !isSupabaseConfigured || !hubIds) {
+      setLeavesByHub({});
+      return;
+    }
+
+    let cancelled = false;
+    async function load() {
+      const ids = hubIds.split(',').filter((id) => REAL_SOURCE_IDS.includes(id));
+      const results = await Promise.all(
+        ids.map((id) =>
+          supabase
+            .from('memory_items')
+            .select('id, title, content, source_type, occurred_at')
+            .eq('user_id', user.id)
+            .eq('source_type', id)
+            .order('occurred_at', { ascending: false })
+            .limit(6),
+        ),
+      );
+      if (cancelled) return;
+
+      const byHub = {};
+      ids.forEach((id, i) => {
+        byHub[id] = (results[i].data || []).map((row) => ({
+          id: row.id,
+          label: row.title || (row.content || '').slice(0, 40) || 'Memory',
+          detail: row.source_type,
+          occurred_at: row.occurred_at,
+          source: row,
+        }));
+      });
+      setLeavesByHub(byHub);
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [hubIds, user, isDemo]);
+
+  return leavesByHub;
+}
+
 export default function DataLandscape({ onNodeSelect, onMemorySelect }) {
   const { sources, totalItems } = useRealBeaconData();
   const [focusHubId, setFocusHubId] = useState(null);
 
   const hubs = useMemo(() => hubsFromAxonSources(sources, totalItems), [sources, totalItems]);
   const leaves = useLeavesForHub(focusHubId);
+  const leavesByHub = useLeavesByHub(hubs);
 
   const handleFocusHub = useCallback(
     (id) => {
@@ -193,6 +250,7 @@ export default function DataLandscape({ onNodeSelect, onMemorySelect }) {
       onSelectLeaf={(item) => onMemorySelect?.(item)}
       onBackground={handleBackground}
       leaves={leaves}
+      leavesByHub={leavesByHub}
       autoRotate={!focusHubId}
     />
   );

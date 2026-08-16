@@ -61,11 +61,15 @@ export default function TerrainSceneMesh({ engine, resolution = 200, shadowsEnab
   useFrame(({ clock }) => {
     // The surface thins as the camera descends through it, so the dive reads as
     // passing into the ground rather than the terrain being switched off.
+    // A small baseline translucency even at rest (was a hard 1 = fully
+    // opaque) lets every hub's root glow faintly through its own summit
+    // without diving in — roots used to be entirely hidden behind solid rock
+    // until you dove below the surface for that one hub.
     if (rockMat.current && diveRef) {
-      const o = 1 - diveRef.current * 0.82;
+      const o = 0.94 - diveRef.current * 0.76;
       rockMat.current.opacity = o;
-      rockMat.current.transparent = o < 0.999;
-      rockMat.current.depthWrite = o > 0.9;
+      rockMat.current.transparent = true;
+      rockMat.current.depthWrite = o > 0.85;
     }
     if (ptsMat.current) {
       ptsMat.current.opacity = 0.72 + 0.22 * Math.sin(clock.elapsedTime * 1.6);
