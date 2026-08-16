@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { CheckCircle, RefreshCw, Trash2, Clock, Database, ChevronRight, AlertTriangle } from 'lucide-react';
+import { CheckCircle, RefreshCw, Trash2, Clock, Database, ChevronRight, AlertTriangle, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { callFunction } from '../lib/functions';
 import { useAuth } from '../contexts/AuthContext';
@@ -66,12 +66,20 @@ export default function DataSources({ asFacet }) {
     const error = searchParams.get('error');
     if (connected) setBanner({ type: 'success', text: `${connected} connected — syncing your data now.` });
     if (error) setBanner({ type: 'error', text: `Connection failed: ${error}` });
-    if (connected || error) {
+    // A success message can time out; a failure must not. The reason a
+    // connection failed was being wiped from both the banner and the URL after
+    // four seconds, which left nothing to act on and nothing to report.
+    if (connected) {
       const t = setTimeout(() => {
         setBanner(null);
-        setSearchParams((p) => { p.delete('connected'); p.delete('error'); return p; }, { replace: true });
+        setSearchParams((p) => { p.delete('connected'); return p; }, { replace: true });
       }, 4000);
       return () => clearTimeout(t);
+    }
+    if (error) {
+      // Clear it from the address bar so a refresh does not resurrect it, but
+      // leave the banner up until it is dismissed.
+      setSearchParams((p) => { p.delete('error'); return p; }, { replace: true });
     }
   }, [searchParams]);
 
@@ -134,7 +142,14 @@ export default function DataSources({ asFacet }) {
           border: `1px solid ${banner.type === 'success' ? 'rgba(37,194,160,0.3)' : 'rgba(255,80,80,0.25)'}`,
         }}>
           {banner.type === 'success' ? <CheckCircle size={16} color="#25c2a0" /> : <AlertTriangle size={16} color="#ff6b6b" />}
-          <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{banner.text}</span>
+          <span style={{ fontSize: 13, color: 'var(--color-text-secondary)', flex: 1, userSelect: 'text' }}>{banner.text}</span>
+          <button
+            onClick={() => setBanner(null)}
+            aria-label="Dismiss"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-secondary)', padding: 4, display: 'flex', flexShrink: 0 }}
+          >
+            <X size={14} />
+          </button>
         </div>
       )}
 
