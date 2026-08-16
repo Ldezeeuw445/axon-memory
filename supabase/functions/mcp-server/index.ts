@@ -20,7 +20,7 @@ import { handlePreflight, corsHeaders } from "../_shared/cors.ts";
 import { supabaseAdmin } from "../_shared/supabase-admin.ts";
 import { resolveBearerToken } from "../_shared/mcp-auth.ts";
 import { buildContextPack, rememberMemory, listSourcesForUser } from "../_shared/memory-core.ts";
-import { APP_URL } from "../_shared/oauth.ts";
+import { mcpOrigin } from "../_shared/oauth.ts";
 
 const SERVER_INFO = { name: "axon-memory", version: "1.0.0" };
 const PROTOCOL_VERSION = "2025-06-18";
@@ -163,7 +163,7 @@ function json(payload: unknown, cors: Record<string, string>, status = 200) {
 }
 
 function unauthorized(cors: Record<string, string>) {
-  const resourceOrigin = new URL(APP_URL).origin.replace("https://", "https://mcp.");
+  const resourceOrigin = mcpOrigin();
   return new Response(JSON.stringify({ jsonrpc: "2.0", error: { code: -32001, message: "Unauthorized" } }), {
     status: 401,
     headers: {

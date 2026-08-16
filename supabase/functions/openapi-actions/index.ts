@@ -6,20 +6,7 @@
 // once; end users then get a normal "Sign in with Axon Memory" button and
 // never see a token. Same api_keys table underneath, same shared memory.
 import { handlePreflight } from "../_shared/cors.ts";
-import { APP_URL } from "../_shared/oauth.ts";
-
-function mcpOrigin(): string {
-  try {
-    const u = new URL(APP_URL);
-    if (u.hostname.includes(".")) {
-      const parts = u.hostname.split(".");
-      return `${u.protocol}//mcp.${parts.slice(-2).join(".")}`;
-    }
-    return APP_URL;
-  } catch {
-    return APP_URL;
-  }
-}
+import { mcpOrigin } from "../_shared/oauth.ts";
 
 Deno.serve((req: Request) => {
   const preflight = handlePreflight(req);

@@ -9,22 +9,7 @@
 // auto-discover the whole flow from a single pasted URL — no manual
 // client_id/secret typing required, no raw API token copy-pasting.
 import { handlePreflight, jsonResponse } from "../_shared/cors.ts";
-import { APP_URL } from "../_shared/oauth.ts";
-
-function mcpOrigin(): string {
-  try {
-    const u = new URL(APP_URL);
-    // app.axon-memory.com -> mcp.axon-memory.com ; localhost stays as-is for dev.
-    if (u.hostname.includes(".")) {
-      const parts = u.hostname.split(".");
-      const root = parts.slice(-2).join(".");
-      return `${u.protocol}//mcp.${root}`;
-    }
-    return APP_URL;
-  } catch {
-    return APP_URL;
-  }
-}
+import { APP_URL, mcpOrigin } from "../_shared/oauth.ts";
 
 Deno.serve((req: Request) => {
   const preflight = handlePreflight(req);
