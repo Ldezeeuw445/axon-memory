@@ -218,6 +218,23 @@ export const AI_PROVIDERS = [
       'Paste it below and click Test & Connect',
     ],
   },
+  {
+    id: 'grok',
+    name: 'Grok',
+    tagline: 'Grok with your memory attached',
+    placeholder: 'xai-...',
+    docsUrl: 'https://grok.com',
+    docsLabel: 'grok.com',
+    color: '#4b5563',
+    bg: 'linear-gradient(135deg, #4b5563, #1f2937)',
+    Logo: GrokLogo,
+    guide: [
+      'Open Grok → Settings → Connectors',
+      'Add a custom connector',
+      'Paste your AXON memory endpoint',
+      'Approve the OAuth prompt',
+    ],
+  },
 ];
 
 // ── Data Source Config (with logos) ─────────────────────────────

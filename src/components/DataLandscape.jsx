@@ -28,6 +28,7 @@ const MAPPED_SOURCES = [
   { id: 'anthropic', name: 'CLAUDE', icon: AI_PROVIDERS.find((s) => s.id === 'anthropic')?.Logo, type: 'ai' },
   { id: 'cursor', name: 'CURSOR', icon: AI_PROVIDERS.find((s) => s.id === 'cursor')?.Logo, type: 'ai' },
   { id: 'perplexity', name: 'PERPLEXITY', icon: AI_PROVIDERS.find((s) => s.id === 'perplexity')?.Logo, type: 'ai' },
+  { id: 'grok', name: 'GROK', icon: AI_PROVIDERS.find((s) => s.id === 'grok')?.Logo, type: 'ai' },
 ];
 
 // The four providers with a real OAuth backend (source_connections).
@@ -41,6 +42,7 @@ const ADAPTER_PATTERNS = {
   anthropic: /claude|anthropic/i,
   cursor: /cursor/i,
   perplexity: /perplexity/i,
+  grok: /grok|xai/i,
 };
 
 const OFFLINE = MAPPED_SOURCES.map((s) => ({ ...s, count: 0, status: 'OFFLINE' }));
