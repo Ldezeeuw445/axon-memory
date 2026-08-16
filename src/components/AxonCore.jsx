@@ -10,7 +10,7 @@ const REST_EMISSIVE = new THREE.Color('#6d7f96');
 const REST_LIGHT = new THREE.Color('#c8d4e2');
 const REST_WIRE = new THREE.Color('#6f93c4');
 
-export default function AxonCore({ stage = 2, injectionPulseTime = 0, experiencePulseTime = 0 }) {
+export default function AxonCore({ stage = 2, injectionPulseTime = 0, experiencePulseTime = 0, opening = false }) {
   const groupRef = useRef();
   const mountTime = useRef(null);
   const innerCoreMaterialRef = useRef();
@@ -286,9 +286,15 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0, experience
     if (goldLightMaterialRef.current) goldLightMaterialRef.current.opacity = progress * 0.9;
 
     if (groupRef.current) {
-      groupRef.current.rotation.y += 0.0008;
-      groupRef.current.rotation.x += 0.0004;
-      
+      // Frozen while a facet is opening: CorePortal turns the outer shell so
+      // the release point faces the camera, and this inner ambient spin
+      // would otherwise keep carrying that point away from camera again
+      // right after, fighting the very turn CorePortal just made.
+      if (!opening) {
+        groupRef.current.rotation.y += 0.0008;
+        groupRef.current.rotation.x += 0.0004;
+      }
+
       if (timeline >= 1.0) {
         const breath = 1 + Math.sin(state.clock.elapsedTime * 0.5) * 0.015;
         groupRef.current.scale.set(breath, breath, breath);

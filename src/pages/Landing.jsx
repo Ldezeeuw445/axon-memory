@@ -40,16 +40,22 @@ function CoreCameraDolly({ open }) {
 
   useFrame((state, dt) => {
     const want = open ? 1 : 0;
-    const speed = open ? 1.25 : 2.0;
+    // Matches CorePortal's own speed exactly (0.5 open / 1.3 close) — turn,
+    // release and dive are one motion now, not three things that happen to
+    // start together and then drift apart.
+    const speed = open ? 0.5 : 1.3;
     t.current += (want - t.current) * Math.min(1, dt * speed * 2);
     const e = CORE_DIVE_EASE(THREE.MathUtils.clamp(t.current, 0, 1));
 
-    camera.position.z = THREE.MathUtils.lerp(restPos.current.z, -2, e);
-    camera.position.x = THREE.MathUtils.lerp(restPos.current.x, -1.6, e);
-    camera.position.y = THREE.MathUtils.lerp(restPos.current.y, 0.3, e);
-    camera.fov = THREE.MathUtils.lerp(restFov.current, 46, e);
+    // Travels past where the Core withdraws to (shell ends at z=-11) so
+    // that by full open the frustum has nothing left in it but the galaxy —
+    // step 5's "screen is fully and only the background" end state.
+    camera.position.z = THREE.MathUtils.lerp(restPos.current.z, -15, e);
+    camera.position.x = THREE.MathUtils.lerp(restPos.current.x, 0, e);
+    camera.position.y = THREE.MathUtils.lerp(restPos.current.y, 0, e);
+    camera.fov = THREE.MathUtils.lerp(restFov.current, 58, e);
     camera.updateProjectionMatrix();
-    camera.lookAt(0, 0, THREE.MathUtils.lerp(0, -9, e));
+    camera.lookAt(0, 0, THREE.MathUtils.lerp(0, -30, e));
   });
 
   return null;
@@ -227,7 +233,7 @@ export default function Landing() {
           {/* 3D SCENE */}
           <CoreCameraDolly open={!!activeFacet} />
           <CorePortal open={!!activeFacet} baseScale={isMobile ? 0.65 : 1}>
-            <AxonCore stage={stage} injectionPulseTime={injectionTrigger} experiencePulseTime={experienceTrigger} />
+            <AxonCore stage={stage} injectionPulseTime={injectionTrigger} experiencePulseTime={experienceTrigger} opening={!!activeFacet} />
             <Shockwave position={isMobile ? [0, 4, 8.5] : [3.5, 0, 8.5]} triggerTime={injectionTrigger} />
           </CorePortal>
 
