@@ -83,7 +83,14 @@ export const PROVIDERS: Record<
       const params = new URLSearchParams({
         client_id: Deno.env.get("SLACK_OAUTH_CLIENT_ID") ?? "",
         redirect_uri: redirectUri(),
-        scope: "channels:history,channels:read,groups:history,users:read,team:read",
+        // source-sync.ts's conversations.list asks for BOTH public and
+        // private channels (types=public_channel,private_channel). Slack
+        // gates each channel type behind its own read scope — channels:read
+        // only covers the public_channel half of that request. groups:read
+        // was missing, so listing ever failed the moment a private channel
+        // was in scope, before sync got anywhere near groups:history (which
+        // only covers reading messages in a channel already listed).
+        scope: "channels:history,channels:read,groups:history,groups:read,users:read,team:read",
         user_scope: "",
         state,
       });
@@ -92,7 +99,7 @@ export const PROVIDERS: Record<
     tokenUrl: "https://slack.com/api/oauth.v2.access",
     clientId: Deno.env.get("SLACK_OAUTH_CLIENT_ID") ?? "",
     clientSecret: Deno.env.get("SLACK_OAUTH_CLIENT_SECRET") ?? "",
-    scopes: "channels:history,channels:read,groups:history,users:read,team:read",
+    scopes: "channels:history,channels:read,groups:history,groups:read,users:read,team:read",
   },
 };
 
