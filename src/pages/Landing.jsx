@@ -34,7 +34,12 @@ function GalaxyBackground() {
 export default function Landing() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const [stage, setStage] = useState(0); 
+  const FACETS = ['dashboard', 'graph', 'connections', 'billing'];
+  const requestedFacet = (() => {
+    const f = new URLSearchParams(window.location.search).get('facet');
+    return FACETS.includes(f) ? f : null;
+  })();
+  const [stage, setStage] = useState(requestedFacet ? 3 : 0); 
   // 0: Cold Open
   // 1: The Void
   // 2: Core Awakens
@@ -51,7 +56,11 @@ export default function Landing() {
   const [showToast, setShowToast] = useState(false);
   
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [activeFacet, setActiveFacet] = useState(null); // 'dashboard' | 'graph' | 'connections' | 'billing'
+  // Openable straight onto a facet via ?facet=, so the app has exactly one
+  // surface. The standalone /dashboard, /sources and /graph routes carried a
+  // completely different visual language and dropped people out of the shell;
+  // they now redirect here instead.
+  const [activeFacet, setActiveFacet] = useState(requestedFacet);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);

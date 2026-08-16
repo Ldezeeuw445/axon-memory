@@ -74,8 +74,8 @@ Deno.serve(async (req: Request) => {
   const stateRaw = url.searchParams.get("state");
   const errorParam = url.searchParams.get("error");
 
-  if (errorParam) return redirectToApp(`/sources?error=${encodeURIComponent(errorParam)}`);
-  if (!code || !stateRaw) return redirectToApp("/sources?error=missing_params");
+  if (errorParam) return redirectToApp(`/?facet=connections&error=${encodeURIComponent(errorParam)}`);
+  if (!code || !stateRaw) return redirectToApp("/?facet=connections&error=missing_params");
 
   // The provider now comes out of the signed state rather than the query, so
   // the callback URL can stay clean and there is nothing to cross-check.
@@ -88,7 +88,7 @@ Deno.serve(async (req: Request) => {
     userId = state.userId;
     provider = state.provider as Provider;
   } catch {
-    return redirectToApp("/sources?error=invalid_state");
+    return redirectToApp("/?facet=connections&error=invalid_state");
   }
 
   try {
@@ -135,12 +135,12 @@ Deno.serve(async (req: Request) => {
       { onConflict: "user_id,provider" },
     );
 
-    return redirectToApp(`/sources?connected=${provider}`);
+    return redirectToApp(`/?facet=connections&connected=${provider}`);
   } catch (err) {
     // Every failure in this block used to come back as "token_exchange_failed",
     // database writes and encryption included, which hid the actual cause.
     console.error("oauth-callback error", err);
     const reason = err instanceof Error ? err.message : String(err);
-    return redirectToApp(`/sources?error=${encodeURIComponent(reason.slice(0, 180))}`);
+    return redirectToApp(`/?facet=connections&error=${encodeURIComponent(reason.slice(0, 180))}`);
   }
 });

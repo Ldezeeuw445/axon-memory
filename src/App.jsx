@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './contexts/AuthContext';
@@ -21,6 +21,13 @@ import BusinessDocs from './pages/BusinessDocs';
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
 import NotFound from './pages/NotFound';
+
+/** Sends a legacy route into the shell, preserving any query the callback added. */
+function FacetRedirect({ facet }) {
+  const q = new URLSearchParams(window.location.search);
+  q.set('facet', facet);
+  return <Navigate to={`/?${q.toString()}`} replace />;
+}
 
 function AppLayout() {
   return (
@@ -45,11 +52,16 @@ function AppLayout() {
               {/* App (authenticated) */}
               <Route path="/splash" element={<ProtectedRoute><Splash /></ProtectedRoute>} />
               <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
-              <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/sources" element={<ProtectedRoute><DataSources /></ProtectedRoute>} />
-              <Route path="/adapters" element={<ProtectedRoute><AIAdapters /></ProtectedRoute>} />
-              <Route path="/connections" element={<ProtectedRoute><ConnectionsFacet /></ProtectedRoute>} />
-              <Route path="/graph" element={<ProtectedRoute><MemoryGraph /></ProtectedRoute>} />
+              {/* One surface only. These used to render a second, plainer copy of
+                  each screen outside the shell — different chrome, no Core — so
+                  landing on one meant leaving the app. They now open the shell
+                  on the matching facet, query string and all, which is what the
+                  OAuth callback relies on to bring people back inside. */}
+              <Route path="/dashboard" element={<FacetRedirect facet="dashboard" />} />
+              <Route path="/sources" element={<FacetRedirect facet="connections" />} />
+              <Route path="/adapters" element={<FacetRedirect facet="connections" />} />
+              <Route path="/connections" element={<FacetRedirect facet="connections" />} />
+              <Route path="/graph" element={<FacetRedirect facet="graph" />} />
               <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
 
               {/* Billing */}
