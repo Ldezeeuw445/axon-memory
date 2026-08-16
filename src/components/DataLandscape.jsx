@@ -33,6 +33,16 @@ const MAPPED_SOURCES = [
 // The four providers with a real OAuth backend (source_connections).
 const REAL_SOURCE_IDS = ['gmail', 'github', 'notion', 'slack'];
 
+// An MCP client names itself when it registers (client_name), so a connected
+// adapter can be matched back to its summit. Without this the terrain had one
+// boolean for all four — connect Claude, and Cursor and Perplexity lit up too.
+const ADAPTER_PATTERNS = {
+  openai: /chatgpt|openai|gpt/i,
+  anthropic: /claude|anthropic/i,
+  cursor: /cursor/i,
+  perplexity: /perplexity/i,
+};
+
 const OFFLINE = MAPPED_SOURCES.map((s) => ({ ...s, count: 0, status: 'OFFLINE' }));
 
 function useRealBeaconData() {
@@ -51,7 +61,7 @@ function useRealBeaconData() {
         supabase.from('memory_items').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
         supabase
           .from('api_keys')
-          .select('id')
+          .select('id, name')
           .eq('user_id', user.id)
           .is('revoked_at', null)
           .not('oauth_client_id', 'is', null),
@@ -70,7 +80,7 @@ function useRealBeaconData() {
         REAL_SOURCE_IDS.map((p, i) => [p, perProvider[i]?.count ?? 0]),
       );
       const totalItems = itemsRes.count ?? 0;
-      const hasAiAdapterConnected = (keysRes.data || []).length > 0;
+      const adapterNames = (keysRes.data || []).map((k) => k.name || '');
 
       const sources = MAPPED_SOURCES.map((s) => {
         if (REAL_SOURCE_IDS.includes(s.id)) {
@@ -81,12 +91,16 @@ function useRealBeaconData() {
             status: row ? String(row.status).toUpperCase() : 'OFFLINE',
           };
         }
-        // AXON's memory pool is shared across every connected AI adapter —
-        // there's no per-provider node count, only "connected or not".
+        // A connected adapter can recall the whole pool, so its summit is the
+        // full total rather than a slice — but only if that adapter is the one
+        // actually connected. An unconnected assistant stands at zero, which is
+        // the truth about what it can currently reach.
+        const pattern = ADAPTER_PATTERNS[s.id];
+        const connected = pattern ? adapterNames.some((n) => pattern.test(n)) : false;
         return {
           ...s,
-          count: hasAiAdapterConnected ? totalItems : 0,
-          status: hasAiAdapterConnected ? 'ONLINE' : 'OFFLINE',
+          count: connected ? totalItems : 0,
+          status: connected ? 'ONLINE' : 'OFFLINE',
         };
       });
 
