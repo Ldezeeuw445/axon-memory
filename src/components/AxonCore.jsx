@@ -36,7 +36,9 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0, experience
     baseInnerPositions, targetInnerPositions,
     wireLinks, hatchCentroids, count
   } = useMemo(() => {
-    const baseGeo = new THREE.IcosahedronGeometry(2, 2);
+    // Detail 2 -> 3: ~4x the faces, reads as a genuinely faceted crystal up
+    // close instead of a low-poly ball with a few dozen visible triangles.
+    const baseGeo = new THREE.IcosahedronGeometry(2, 3);
     const nonIndexedGeo = baseGeo.toNonIndexed();
     
     const positions = nonIndexedGeo.attributes.position.array;
@@ -70,10 +72,15 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0, experience
       v3.clone().lerp(faceC, 1 - taper).multiplyScalar(inset).toArray(baseInnerPositionsArr, (i+2) * 3);
 
       const centroid = new THREE.Vector3().add(v1).add(v2).add(v3).divideScalar(3);
-        
-      let factor = 1;
-      if (centroid.z < -1) factor = 0.85;
-      
+
+      // No per-region factor here on purpose: this used to shrink every face
+      // on the back half (centroid.z < -1) to 0.85, which is a big share of
+      // the shell, not an opening — it read as a caved-in patch that rotated
+      // into view every time the Core turned, breaking the round silhouette.
+      // The three actual openings are built explicitly below (cavityPosArr,
+      // faces 1-3 only); every other face is meant to simply rise evenly.
+      const factor = 1;
+
       // Was +/-12.5% per face, which let one side of the shell gape while
       // another barely parted. A narrow spread keeps the lift even, so the
       // three cavities are the only real openings and everything else simply

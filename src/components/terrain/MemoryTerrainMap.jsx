@@ -201,7 +201,7 @@ export default function MemoryTerrainMap({
   }, [onBackground]);
 
   return (
-    <div style={{ width: '100%', height: '100%', background: '#020409' }}>
+    <div style={{ width: '100%', height: '100%', background: '#020203' }}>
       <Canvas
         key={canvasKey}
         shadows={!isMobile}
@@ -238,8 +238,15 @@ export default function MemoryTerrainMap({
           onIncline={() => setPerfDpr((d) => Math.min(isMobile ? 1.25 : 1.6, d + 0.25))}
         />
         <AdaptiveDpr pixelated={false} />
-        <color attach="background" args={['#020409']} />
-        <fog attach="fog" args={['#020409', 55, 130]} />
+        {/*
+          Was its own #020409 + wider/denser Stars — close to the Core view's
+          space but not the same one, so arriving here read as stepping into a
+          separate boxed scene instead of continuing through the same galaxy.
+          Matched to Landing.jsx's Canvas exactly (color/Stars) so the two
+          feel like one continuous space, not two.
+        */}
+        <color attach="background" args={['#020203']} />
+        <fog attach="fog" args={['#020203', 55, 130]} />
         <RiseIn>
           <TerrainSceneMesh engine={engine} resolution={isMobile ? 128 : 200} shadowsEnabled={!isMobile} diveRef={diveRef} />
           <TerrainMarkers
@@ -253,7 +260,7 @@ export default function MemoryTerrainMap({
             showLeafLabels={showLeafLabels}
           />
         </RiseIn>
-        <Stars radius={150} depth={70} count={isMobile ? 1200 : 3000} factor={3.2} saturation={0} fade speed={0.5} />
+        <Stars radius={100} depth={50} count={isMobile ? 1200 : 3000} factor={3} saturation={0} fade speed={0.3} />
         <DiveDriver active={!!selected} diveRef={diveRef} onBelow={setBelow} />
         <TerrainCameraRig engine={engine} selected={selected} controlsRef={controlsRef} diveRef={diveRef} />
         {below && selected && (
