@@ -46,7 +46,7 @@ export default function DataSources({ asFacet }) {
     const [{ data }, itemRows] = await Promise.all([
       supabase
         .from('source_connections')
-        .select('id, provider, status, external_account_label, last_synced_at, created_at')
+        .select('id, provider, status, external_account_label, last_synced_at, last_error, created_at')
         .eq('user_id', user.id),
       supabase.from('memory_items').select('source_type').eq('user_id', user.id),
     ]);
@@ -184,6 +184,11 @@ export default function DataSources({ asFacet }) {
           const isReal = REAL_PROVIDER_IDS.includes(source.id);
           const conn = connections[source.id];
           const isConnected = conn && ['connected', 'syncing'].includes(conn.status);
+          // A failed sync sets status to 'error'. That is still a connection —
+          // the tokens are there and the account is linked — but it used to
+          // fall through to the same branch as "never connected", so the card
+          // showed Connect again and the reason in last_error was never seen.
+          const hasError = conn && conn.status === 'error';
           const isBusy = busyProvider === source.id;
           const { Logo, name, tagline, bg } = source;
 
@@ -198,7 +203,22 @@ export default function DataSources({ asFacet }) {
                   <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 11, marginTop: 2 }}>{tagline}</div>
                 </div>
                 {isConnected && <CheckCircle size={16} color="#25c2a0" />}
+                {hasError && <AlertTriangle size={16} color="#ffb02e" />}
               </div>
+
+              {hasError && (
+                <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--color-border)', fontSize: 12 }}>
+                  <div style={{ color: '#ffb02e', fontWeight: 600, marginBottom: 3 }}>Last sync failed</div>
+                  <div style={{ color: 'var(--color-text-secondary)', wordBreak: 'break-word' }}>
+                    {conn.last_error || 'No reason recorded.'}
+                  </div>
+                  {conn.account_label && (
+                    <div style={{ color: 'var(--color-text-secondary)', marginTop: 4 }}>
+                      Still linked to {conn.account_label} — try Sync again.
+                    </div>
+                  )}
+                </div>
+              )}
 
               {isConnected && (
                 <div style={{ display: 'flex', gap: 16, padding: '10px 16px', borderBottom: '1px solid var(--color-border)', fontSize: 12, color: 'var(--color-text-secondary)' }}>

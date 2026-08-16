@@ -31,7 +31,7 @@ Deno.serve(async (req: Request) => {
   // user to notice and click "Sync now" themselves).
   const { data: connections, error } = await admin
     .from("source_connections")
-    .select("id, user_id, provider, access_token_encrypted, status")
+    .select("id, user_id, provider, access_token_encrypted, refresh_token_encrypted, status")
     .in("status", ["connected", "error"])
     .limit(BATCH_LIMIT);
 
