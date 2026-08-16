@@ -39,5 +39,7 @@ Deno.serve(async (req: Request) => {
   if (!result.ok) {
     return jsonResponse({ error: "Sync failed", detail: result.error }, { status: 502, origin });
   }
-  return jsonResponse({ synced: result.synced }, { origin });
+  // Both numbers, so "the provider returned nothing" and "we fetched items but
+  // stored none" are distinguishable in the UI instead of both reading as 0.
+  return jsonResponse({ synced: result.synced, fetched: result.fetched }, { origin });
 });

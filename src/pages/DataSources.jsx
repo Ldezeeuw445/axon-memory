@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { CheckCircle, RefreshCw, Trash2, Clock, Database, ChevronRight, AlertTriangle, X } from 'lucide-react';
+import { CheckCircle, RefreshCw, Trash2, Clock, Database, ChevronRight, AlertTriangle, Info, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { callFunction } from '../lib/functions';
 import { useAuth } from '../contexts/AuthContext';
@@ -23,6 +23,12 @@ function timeAgo(iso) {
   if (h < 24) return `${h}h ago`;
   return `${Math.floor(h / 24)}d ago`;
 }
+
+const BANNER_STYLES = {
+  success: { bg: 'rgba(37,194,160,0.1)', border: 'rgba(37,194,160,0.3)' },
+  info: { bg: 'rgba(138,180,248,0.08)', border: 'rgba(138,180,248,0.25)' },
+  error: { bg: 'rgba(255,80,80,0.08)', border: 'rgba(255,80,80,0.25)' },
+};
 
 export default function DataSources({ asFacet }) {
   const { user, isDemo } = useAuth();
@@ -98,8 +104,21 @@ export default function DataSources({ asFacet }) {
   const sync = async (conn) => {
     setBusyProvider(conn.provider);
     try {
-      await callFunction('sync-source', { body: { source_connection_id: conn.id } });
+      const res = await callFunction('sync-source', { body: { source_connection_id: conn.id } });
       await load();
+      // Silence after a sync is indistinguishable from a sync that did nothing,
+      // which is exactly how "0 memories" went unexplained. Say what happened:
+      // nothing offered, nothing new, or n stored.
+      const fetched = res?.fetched ?? 0;
+      const synced = res?.synced ?? 0;
+      setBanner({
+        type: synced > 0 ? 'success' : 'info',
+        text: synced > 0
+          ? `${conn.provider}: ${synced} new ${synced === 1 ? 'memory' : 'memories'} stored.`
+          : fetched > 0
+            ? `${conn.provider}: ${fetched} items found, all already stored — nothing new.`
+            : `${conn.provider}: the provider returned no items. Check that AXON has access to the content you expect.`,
+      });
     } catch (err) {
       setBanner({ type: 'error', text: err.message });
     } finally {
@@ -138,10 +157,17 @@ export default function DataSources({ asFacet }) {
       {banner && (
         <div style={{
           display: 'flex', alignItems: 'center', gap: 10, borderRadius: 12, padding: '12px 16px', marginBottom: 20,
-          background: banner.type === 'success' ? 'rgba(37,194,160,0.1)' : 'rgba(255,80,80,0.08)',
-          border: `1px solid ${banner.type === 'success' ? 'rgba(37,194,160,0.3)' : 'rgba(255,80,80,0.25)'}`,
+          // 'info' is its own state: a sync that found nothing is a fact
+          // about the connection, not a failure, and colouring it red sends
+          // people hunting for a bug that isn't there.
+          background: BANNER_STYLES[banner.type ?? 'error'].bg,
+          border: `1px solid ${BANNER_STYLES[banner.type ?? 'error'].border}`,
         }}>
-          {banner.type === 'success' ? <CheckCircle size={16} color="#25c2a0" /> : <AlertTriangle size={16} color="#ff6b6b" />}
+          {banner.type === 'success'
+            ? <CheckCircle size={16} color="#25c2a0" />
+            : banner.type === 'info'
+              ? <Info size={16} color="#8ab4f8" />
+              : <AlertTriangle size={16} color="#ff6b6b" />}
           <span style={{ fontSize: 13, color: 'var(--color-text-secondary)', flex: 1, userSelect: 'text' }}>{banner.text}</span>
           <button
             onClick={() => setBanner(null)}

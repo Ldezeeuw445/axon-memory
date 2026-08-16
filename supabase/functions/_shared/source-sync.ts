@@ -182,10 +182,14 @@ async function syncSlack(token: string): Promise<MemoryDraft[]> {
 export async function syncOneConnection(
   admin: SupabaseClient,
   conn: SourceConnectionRow,
-): Promise<{ ok: true; synced: number } | { ok: false; error: string }> {
+): Promise<{ ok: true; fetched: number; synced: number } | { ok: false; error: string }> {
   try {
     const accessToken = await decryptToken(conn.access_token_encrypted ?? "");
     let drafts: MemoryDraft[] = [];
+    // Counted separately from drafts: "how many the provider gave us" and "how
+    // many are now actually in the database" are different questions, and
+    // collapsing them is what hid this failure.
+    let stored = 0;
 
     if (conn.provider === "gmail") drafts = await syncGmail(accessToken);
     else if (conn.provider === "github") drafts = await syncGithub(accessToken);
@@ -209,10 +213,18 @@ export async function syncOneConnection(
       // Postgres only returns the rows it actually inserted, so `inserted`
       // here is exactly "what's genuinely new this sync" — already-seen items
       // are silently skipped and never re-embedded.
-      const { data: inserted } = await admin
+      const { data: inserted, error: upsertErr } = await admin
         .from("memory_items")
         .upsert(rows, { onConflict: "user_id,source_connection_id,external_id", ignoreDuplicates: true })
         .select("id, title, content");
+
+      // This error used to be discarded. A failed write left `inserted` null,
+      // embedded nothing, and still reported ok with synced = drafts.length —
+      // so a sync that stored zero items announced itself as a success and
+      // cleared last_error on the way out. Undiagnosable from the outside.
+      if (upsertErr) throw new Error(`memory_items upsert failed: ${upsertErr.message}`);
+
+      stored = inserted?.length ?? 0;
 
       if (inserted && inserted.length > 0) {
         // Best-effort, same as manual remember: a failed embedding never
@@ -230,7 +242,7 @@ export async function syncOneConnection(
       .update({ status: "connected", last_synced_at: new Date().toISOString(), last_error: null })
       .eq("id", conn.id);
 
-    return { ok: true, synced: drafts.length };
+    return { ok: true, fetched: drafts.length, synced: stored };
   } catch (err) {
     const message = String(err instanceof Error ? err.message : err);
     console.error(`syncOneConnection error [${conn.provider} / ${conn.id}]`, message);
