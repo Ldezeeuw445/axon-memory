@@ -311,16 +311,21 @@ export function TerrainCameraRig({
     }
     ctl.enabled = !a.active;
 
-    const dive = diveRef?.current ?? 0;
-    if (dive > 0.001 && selected) {
-      // The descent is an absolute offset from where the fly-to left the
-      // camera, not a nudge applied to wherever it happens to be. Subtracting
-      // from the live position every frame made it fall forever, which is why
-      // the roots flashed past and the view ended in the void below them.
-      const drop = 16.5 * dive;
-      camera.position.y = diveBase.current.camY - drop;
-      camera.position.z = diveBase.current.camZ - 6.5 * dive;
-      ctl.target.y = diveBase.current.tgtY - drop * 0.92;
+    const rise = diveRef?.current ?? 0;
+    if (rise > 0.001 && selected) {
+      // Up, not down. The graph used to hang beneath the summit, so reading it
+      // meant putting the terrain between the camera and the thing being read.
+      // It now grows into open sky, and the camera climbs alongside it.
+      //
+      // Absolute offsets from where the fly-to left the camera, never nudges
+      // applied to the live position — a per-frame subtraction compounds and
+      // the camera runs away.
+      const climb = 15.5 * rise;
+      camera.position.y = diveBase.current.camY + climb;
+      // Pulling back as it climbs keeps the whole column in frame instead of
+      // framing one node at a time.
+      camera.position.z = diveBase.current.camZ + 7.5 * rise;
+      ctl.target.y = diveBase.current.tgtY + climb * 1.15;
     } else {
       // Remember where level flight left us, so the next dive starts from here.
       diveBase.current.camY = camera.position.y;

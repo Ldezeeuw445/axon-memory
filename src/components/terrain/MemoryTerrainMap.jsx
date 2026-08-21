@@ -19,7 +19,7 @@ import * as THREE from 'three';
 import { buildTerrainEngine, TERRAIN_GOLD } from './terrainEngine';
 import TerrainSceneMesh from './TerrainSceneMesh';
 import TerrainMarkers, { TerrainCameraRig, computeLeafRing } from './TerrainMarkers';
-import MemoryRoots from './MemoryRoots';
+import MemorySky from './MemorySky';
 
 /**
  * Turn AXON's real data into terrain hubs.
@@ -122,25 +122,31 @@ function RiseIn({ children, duration = 2.4 }) {
 }
 
 /**
- * Drives the descent. One value from 0 (above the terrain) to 1 (below it),
- * eased, with the camera, the surface fade and the root system all reading off
- * it — so the dive stays a single continuous move rather than three animations
- * that have to be kept in step.
+ * Drives the ascent. One value from 0 (resting over the terrain) to 1 (up in
+ * open sky), eased, with the camera, the surface fade and the memory column all
+ * reading off it — so it stays a single continuous move rather than three
+ * animations that have to be kept in step.
+ *
+ * The same value used to drive a descent through the summit. Inverting the
+ * direction turned the surface fade from a thing that had to be fought — the
+ * terrain was between you and the graph — into the thing that clears the view:
+ * as the camera climbs, the landscape falls away and the column is left against
+ * empty space.
  */
 function DiveDriver({ active, diveRef, onBelow }) {
   useFrame((_, dt) => {
     const want = active ? 1 : 0;
-    const speed = active ? 1.35 : 2.2; // slower going down, quicker coming back
+    const speed = active ? 1.35 : 2.2; // slower going up, quicker coming back
     const next = THREE.MathUtils.clamp(
       diveRef.current + (want - diveRef.current) * Math.min(1, dt * speed * 2),
       0,
       1,
     );
-    const wasBelow = diveRef.current > 0.02;
+    const wasAloft = diveRef.current > 0.02;
     diveRef.current = next;
-    // React only hears about crossing the surface, not every frame of the way.
-    const isBelow = next > 0.02;
-    if (isBelow !== wasBelow) onBelow(isBelow);
+    // React only hears about leaving the surface, not every frame of the way.
+    const isAloft = next > 0.02;
+    if (isAloft !== wasAloft) onBelow(isAloft);
   });
   return null;
 }
@@ -272,12 +278,12 @@ export default function MemoryTerrainMap({
           camera" needs every hub's root standing on its own, all the time.
         */}
         {engine.hubs.map((hub) => (
-          <MemoryRoots
+          <MemorySky
             key={hub.id}
             hub={hub}
             memories={leavesByHub[hub.id] ?? (hub.id === selected?.id ? leafData : [])}
             surfaceY={engine.heightAt(hub.x, hub.z)}
-            diveRef={hub.id === selected?.id ? diveRef : null}
+            riseRef={hub.id === selected?.id ? diveRef : null}
             onSelectMemory={(m) => { if (m.source) onSelectLeaf(m.source); }}
           />
         ))}

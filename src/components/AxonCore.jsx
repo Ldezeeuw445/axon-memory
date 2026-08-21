@@ -21,6 +21,7 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0, experience
   const cavitySolidMaterialRef = useRef();
   const goldLightMaterialRef = useRef();
   const occluderRef = useRef();
+  const spinDamp = useRef(1);
   const flashTime = useRef(0);
   const flashStart = useRef(0);
   const extractionTime = useRef(0);
@@ -332,10 +333,18 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0, experience
       // the release point faces the camera, and this inner ambient spin
       // would otherwise keep carrying that point away from camera again
       // right after, fighting the very turn CorePortal just made.
-      if (!opening && aperture <= 0) {
-        groupRef.current.rotation.y += 0.0008;
-        groupRef.current.rotation.x += 0.0004;
-      } else if (aperture > 0) {
+      // The ambient drift is eased out, never cut. `opening` goes true on the
+      // frame of the click while aperture is still 0 for another two seconds,
+      // and the old branches covered neither case in that gap — so a turning
+      // object stopped dead on one frame. That halt is the stutter, and it
+      // landed at exactly the moment the sequence is meant to establish that
+      // the Core has mass.
+      const wantSpin = opening ? 0 : 1;
+      spinDamp.current += (wantSpin - spinDamp.current) * Math.min(1, delta * 1.5);
+      groupRef.current.rotation.y += 0.0008 * spinDamp.current;
+      groupRef.current.rotation.x += 0.0004 * spinDamp.current;
+
+      if (aperture > 0) {
         // The plates were chosen around local +Z, so returning the shell to its
         // unrotated orientation is what turns the opening to face the camera.
         // Eased per-frame rather than set: a massive object settling, not a
