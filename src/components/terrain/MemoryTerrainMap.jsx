@@ -78,15 +78,25 @@ function configFromHubs(hubs) {
     const ring = i % 2 === 0 ? 15 : 21;
     const jitter = (((i * 53) % 7) / 7 - 0.5) * 2.4;
     const r = ring + jitter;
-    const t = Math.min(1, (h.memoryCount || 0) / maxCount);
+    // Height was 2.1 + 1.4t, so a source holding nothing still got a mountain
+    // two thirds the size of the largest one — the landscape looked like a
+    // reading of the data without being one. It starts near the ground now, and
+    // an empty source is visibly empty.
+    //
+    // Square-rooted rather than linear: with one source holding most of the
+    // graph, a straight ratio flattens everything else into the floor. The root
+    // keeps the order intact — more memories is always a higher summit — while
+    // leaving a source with a handful still findable.
+    const ratio = Math.min(1, (h.memoryCount || 0) / maxCount);
+    const t = Math.sqrt(ratio);
     cfgHubs.push({
       id: h.id,
       name: h.label,
       memories: h.memoryCount || 0,
       color: TERRAIN_GOLD,
       position: [Math.cos(angle) * r, Math.sin(angle) * r * 0.82],
-      height: 2.1 + 1.4 * t,
-      radius: 3.8 + 1.8 * t,
+      height: 0.34 + 3.3 * t,
+      radius: 2.4 + 3.1 * t,
       icon: h.icon,
       source: h,
     });
