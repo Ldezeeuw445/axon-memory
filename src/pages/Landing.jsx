@@ -274,10 +274,28 @@ export default function Landing() {
               <span style={{ color: 'var(--color-text-secondary)', fontSize: 13 }}>
                 {user.user_metadata?.full_name || user.email}
               </span>
-              <button 
+              {/* Matches Sign In. It was the one square, flat control left in a
+                  header of pill-shaped glass, which is what made it read as
+                  older than everything around it. */}
+              <button
                 onClick={signOut}
-                className="glass-button" 
-                style={{ padding: '6px 16px', fontSize: 12, background: 'rgba(255,255,255,0.05)' }}
+                style={{
+                  padding: '8px 18px',
+                  fontSize: 12,
+                  letterSpacing: '0.08em',
+                  fontWeight: 500,
+                  color: 'rgba(255,255,255,0.72)',
+                  background: 'linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02))',
+                  border: '1px solid rgba(255,255,255,0.11)',
+                  borderRadius: 999,
+                  cursor: 'pointer',
+                  backdropFilter: 'blur(14px)',
+                  WebkitBackdropFilter: 'blur(14px)',
+                  boxShadow: '0 6px 22px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.09)',
+                  transition: 'background 0.25s ease, border-color 0.25s ease, color 0.25s ease',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.13), rgba(255,255,255,0.05))'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; e.currentTarget.style.color = 'rgba(255,255,255,0.92)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02))'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.11)'; e.currentTarget.style.color = 'rgba(255,255,255,0.72)'; }}
               >
                 Sign Out
               </button>

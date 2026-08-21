@@ -106,7 +106,10 @@ export default function MemoryGraph({ asFacet }) {
           
           return (
             <FragmentPanel style={{
-              position: 'absolute', top: 16, right: 16, bottom: 16,
+              /* Clears the header. The panel started at the same corner the
+                 account name and Sign Out occupy, and the header carries a far
+                 higher stacking order, so the two drew over each other. */
+              position: 'absolute', top: 78, right: 16, bottom: 16,
               width: isMobile ? 'calc(100% - 32px)' : '350px',
               display: 'flex', flexDirection: 'column',
               zIndex: 20,

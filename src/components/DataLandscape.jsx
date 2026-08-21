@@ -37,6 +37,29 @@ const REAL_SOURCE_IDS = ['gmail', 'github', 'notion', 'slack'];
 // An MCP client names itself when it registers (client_name), so a connected
 // adapter can be matched back to its summit. Without this the terrain had one
 // boolean for all four — connect Claude, and Cursor and Perplexity lit up too.
+// What an assistant wrote is recorded on the memory as metadata.remembered_via,
+// carrying the name the MCP client registered under. Adapter summits filter on
+// it, so Claude's column is what Claude saved and Cursor's is what Cursor saved.
+// Without this every adapter fell through unfiltered and showed the whole
+// account — which, with GitHub holding most of it, looked like every summit was
+// GitHub.
+const ADAPTER_IDS = ['openai', 'anthropic', 'cursor', 'perplexity', 'grok'];
+
+const ADAPTER_LABELS = {
+  openai: ['chatgpt', 'openai', 'gpt'],
+  anthropic: ['claude', 'anthropic'],
+  cursor: ['cursor'],
+  perplexity: ['perplexity'],
+  grok: ['grok', 'xai'],
+};
+
+/** PostgREST or-filter matching any of an adapter's registered names. */
+export function rememberedViaFilter(hubId) {
+  const tokens = ADAPTER_LABELS[hubId];
+  if (!tokens) return null;
+  return tokens.map((t) => `metadata->>remembered_via.ilike.*${t}*`).join(',');
+}
+
 const ADAPTER_PATTERNS = {
   openai: /chatgpt|openai|gpt/i,
   anthropic: /claude|anthropic/i,
@@ -74,12 +97,27 @@ function useRealBeaconData() {
             .eq('user_id', user.id)
             .eq('source_type', p),
         ),
+        // Every summit now measures the same thing: what that source or
+        // assistant put into the graph. Adapters used to be given the account
+        // total, so four of them stood at identical height and clicking one
+        // opened everything the account held.
+        ...ADAPTER_IDS.map((a) => {
+          const via = rememberedViaFilter(a);
+          const q = supabase
+            .from('memory_items')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', user.id);
+          return via ? q.or(via) : q;
+        }),
       ]);
       if (cancelled) return;
 
       const byProvider = Object.fromEntries((sourceRes.data || []).map((r) => [r.provider, r]));
       const countByProvider = Object.fromEntries(
         REAL_SOURCE_IDS.map((p, i) => [p, perProvider[i]?.count ?? 0]),
+      );
+      const countByAdapter = Object.fromEntries(
+        ADAPTER_IDS.map((a, i) => [a, perProvider[REAL_SOURCE_IDS.length + i]?.count ?? 0]),
       );
       const totalItems = itemsRes.count ?? 0;
       const adapterNames = (keysRes.data || []).map((k) => k.name || '');
@@ -93,15 +131,14 @@ function useRealBeaconData() {
             status: row ? String(row.status).toUpperCase() : 'OFFLINE',
           };
         }
-        // A connected adapter can recall the whole pool, so its summit is the
-        // full total rather than a slice — but only if that adapter is the one
-        // actually connected. An unconnected assistant stands at zero, which is
-        // the truth about what it can currently reach.
+        // Height is contribution, the same as it is for a source: what this
+        // assistant has written into the graph. Being connected is carried by
+        // the status, not by borrowing the account total.
         const pattern = ADAPTER_PATTERNS[s.id];
         const connected = pattern ? adapterNames.some((n) => pattern.test(n)) : false;
         return {
           ...s,
-          count: connected ? totalItems : 0,
+          count: countByAdapter[s.id] ?? 0,
           status: connected ? 'ONLINE' : 'OFFLINE',
         };
       });
@@ -146,8 +183,15 @@ function useLeavesForHub(hubId) {
         // account cannot pull an unbounded result set into the browser.
         .limit(500);
 
-      if (hubId !== 'axon-core' && REAL_SOURCE_IDS.includes(hubId)) {
-        q = q.eq('source_type', hubId);
+      if (hubId !== 'axon-core') {
+        if (REAL_SOURCE_IDS.includes(hubId)) {
+          q = q.eq('source_type', hubId);
+        } else {
+          const via = rememberedViaFilter(hubId);
+          // An assistant with no filter of its own would show the whole
+          // account, so an unknown hub shows nothing rather than everything.
+          q = via ? q.or(via) : q.eq('id', '00000000-0000-0000-0000-000000000000');
+        }
       }
 
       const { data } = await q;
