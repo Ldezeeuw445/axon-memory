@@ -170,6 +170,9 @@ export default function MemoryTerrainMap({
   // True from the moment the camera commits to the climb, so terrain-level
   // furniture can stand down before the column arrives.
   const [aloft, setAloft] = useState(false);
+  // A DOM control reaching the camera. A ref rather than state: the button
+  // fires once, and nothing about it should re-render the scene.
+  const jumpRef = useRef(null);
   const [perfDpr, setPerfDpr] = useState(1.35);
 
   const isMobile = useMemo(() => {
@@ -211,7 +214,44 @@ export default function MemoryTerrainMap({
   }, [onBackground]);
 
   return (
-    <div style={{ width: '100%', height: '100%', background: '#020203' }}>
+    <div style={{ width: '100%', height: '100%', background: '#020203', position: 'relative' }}>
+      {/* Only while there is a thread to travel. A column runs the length of its
+          source, so its two ends are the one thing dragging cannot reach
+          quickly — everything else is already a drag or a pinch away. */}
+      {aloft && (
+        <div style={{
+          position: 'absolute', right: 18, top: '50%', transform: 'translateY(-50%)',
+          display: 'flex', flexDirection: 'column', gap: 1, zIndex: 20,
+          borderRadius: 11, overflow: 'hidden',
+          border: '1px solid rgba(255,255,255,0.09)',
+          background: 'rgba(10,10,12,0.6)',
+          backdropFilter: 'blur(8px)',
+        }}>
+          {[
+            { end: 'top', label: 'Newest', d: 'M6 14L11 9L16 14' },
+            { end: 'bottom', label: 'Oldest', d: 'M6 9L11 14L16 9' },
+          ].map(({ end, label, d }) => (
+            <button
+              key={end}
+              type="button"
+              aria-label={`Jump to ${label.toLowerCase()} memory`}
+              title={label}
+              onClick={() => { jumpRef.current = end; }}
+              style={{
+                width: 38, height: 34, display: 'grid', placeItems: 'center',
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                color: 'rgba(255,255,255,0.62)',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#ffb02e'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.62)'; }}
+            >
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+                <path d={d} stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          ))}
+        </div>
+      )}
       <Canvas
         key={canvasKey}
         shadows={!isMobile}
@@ -278,7 +318,14 @@ export default function MemoryTerrainMap({
         </RiseIn>
         <Stars radius={100} depth={50} count={isMobile ? 1200 : 3000} factor={3} saturation={0} fade speed={0.3} />
         <DiveDriver active={!!selected} diveRef={diveRef} onBelow={(v) => { setBelow(v); setAloft(v); }} />
-        <TerrainCameraRig engine={engine} selected={selected} controlsRef={controlsRef} diveRef={diveRef} />
+        <TerrainCameraRig
+          engine={engine}
+          selected={selected}
+          controlsRef={controlsRef}
+          diveRef={diveRef}
+          jumpRef={jumpRef}
+          columnLength={selected ? (leafData.length || (leavesByHub[selected.id] ?? []).length) : 0}
+        />
         {/*
           Used to render one root system, for the selected hub only, gated
           behind `below` (itself gated behind a manual dive). That meant no

@@ -260,6 +260,8 @@ export function TerrainCameraRig({
   selected,
   controlsRef,
   diveRef,
+  jumpRef = null,
+  columnLength = 0,
   defaultCam = [0, 18, 31],
   defaultTarget = [0, 0.5, 0],
 }) {
@@ -302,6 +304,28 @@ export function TerrainCameraRig({
   useFrame((_, dt) => {
     const ctl = controlsRef.current;
     if (!ctl) return;
+
+    // A jump is a request for a height, not a teleport: it retargets the same
+    // eased move the arrival uses, so the ends of a long thread are reachable
+    // without dragging the whole way and without cutting.
+    if (jumpRef?.current && selected) {
+      const end = jumpRef.current;
+      jumpRef.current = null;
+      const peakY = engine.heightAt(selected.x, selected.z);
+      const y = end === 'top'
+        ? peakY + SKY_RISE + SKY_STEP * Math.max(0, columnLength - 8)
+        : peakY + SKY_RISE + SKY_STEP * 7;
+      const offset = camera.position.clone().sub(ctl.target);
+      anim.current = {
+        active: true,
+        t: 0,
+        fromPos: camera.position.clone(),
+        toPos: new THREE.Vector3(ctl.target.x, y, ctl.target.z).add(offset),
+        fromTgt: ctl.target.clone(),
+        toTgt: new THREE.Vector3(ctl.target.x, y, ctl.target.z),
+      };
+    }
+
     const a = anim.current;
     if (a.active) {
       a.t = Math.min(1, a.t + dt / 1.5);

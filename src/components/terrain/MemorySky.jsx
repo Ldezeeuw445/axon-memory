@@ -21,8 +21,9 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 
-const GOLD = '#ffb02e';
-const GOLD_DIM = '#7a4f10';
+const GOLD = '#ffb02e';      // the accent on a card, where it belongs
+const NODE = '#c98829';      // the node itself: present, not a light source
+const GOLD_DIM = '#6b4310';
 
 // Well clear of the peaks: lower down, the first nodes sat in among the summits
 // and the column competed with the landscape it came out of.
@@ -34,7 +35,7 @@ export const RISE = 22;
 // unreadable at exactly the scale where reading them is the point. A long
 // thread is not a problem to compress away — its length is the honest picture
 // of how much is stored.
-export const STEP = 1.62;
+export const STEP = 1.12;
 
 const TWIST = 0.22;  // a slow lean for depth, not a spiral
 const RADIUS = 2.4;  // how far each node stands off the axis
@@ -224,8 +225,12 @@ export default function MemorySky({ hub, memories = [], surfaceY = 0, riseRef = 
         {nodes.map(({ memory, position, side }, i) => (
           <group key={memory.id ?? i} position={position}>
             <mesh>
-              <sphereGeometry args={[0.15, 16, 16]} />
-              <meshBasicMaterial color={GOLD} toneMapped={false} transparent opacity={0} />
+              {/* Smaller and tone-mapped. Unmapped basic material sits outside
+                  the exposure curve, so every node came through at full channel
+                  value and then fed the bloom — which is what made them read as
+                  bright yellow lamps rather than points on a thread. */}
+              <sphereGeometry args={[0.085, 14, 14]} />
+              <meshBasicMaterial color={NODE} transparent opacity={0} />
             </mesh>
             {cardIds.has(i) && (
               <MemoryCard
