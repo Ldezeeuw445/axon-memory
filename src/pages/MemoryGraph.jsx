@@ -48,8 +48,22 @@ function useSourceMemories(sourceId, userId) {
 export default function MemoryGraph({ asFacet }) {
   const { user } = useAuth();
   const [selectedSource, setSelectedSource] = useState(null);
+  // What share of everything AXON holds came from this one source. The panel
+  // said "summit height reflects how much this source has contributed" and then
+  // gave no number, which is a caption rather than an answer.
+  const [shares, setShares] = useState(null);
   const [search, setSearch] = useState('');
   const sourceMemories = useSourceMemories(selectedSource, user?.id);
+
+  useEffect(() => {
+    if (!user || !supabase) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.rpc('memory_source_breakdown', { p_user_id: user.id });
+      if (!cancelled) setShares(data ?? []);
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
 
   const isMobile = window.innerWidth < 500;
 
@@ -71,8 +85,8 @@ export default function MemoryGraph({ asFacet }) {
       >
         
         {/* Overlay Toolbar */}
-        <div style={{ position: 'absolute', top: 16, left: 16, right: 16, display: 'flex', alignItems: 'center', gap: 8, zIndex: 10, pointerEvents: 'none' }}>
-          <div style={{ pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(10,12,16,0.7)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '7px 10px', width: '250px' }}>
+        <div style={{ position: 'absolute', top: 20, left: 0, right: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, zIndex: 10, pointerEvents: 'none' }}>
+          <div style={{ pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(10,12,16,0.72)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 999, padding: '9px 16px', width: '320px', boxShadow: '0 8px 30px rgba(0,0,0,0.45)' }}>
             <Search size={13} color="var(--color-text-secondary)" />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search memories..."
               style={{ background: 'none', border: 'none', outline: 'none', color: 'var(--color-text-primary)', fontSize: 13, width: '100%' }} />
@@ -110,9 +124,27 @@ export default function MemoryGraph({ asFacet }) {
                 {sourceInfo.tagline}
               </div>
               
-              <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.85)', lineHeight: 1.6, marginBottom: 24, padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.05)' }}>
-                Summit height reflects how much this source has contributed to your memory graph.
-              </div>
+              {(() => {
+                const total = (shares ?? []).reduce((sum, r) => sum + Number(r.item_count || 0), 0);
+                const mine = Number((shares ?? []).find((r) => r.source_type === selectedSource)?.item_count || 0);
+                const pct = total ? Math.round((mine / total) * 100) : 0;
+                return (
+                  <div style={{ marginBottom: 24, padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 10 }}>
+                      <span style={{ fontSize: 28, fontWeight: 700, color: 'white', lineHeight: 1 }}>{pct}%</span>
+                      <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
+                        of your memory — {mine.toLocaleString()} of {total.toLocaleString()}
+                      </span>
+                    </div>
+                    <div style={{ height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${pct}%`, background: sourceInfo.color || TYPE_COLORS.document, borderRadius: 4, transition: 'width 0.6s ease' }} />
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 10, lineHeight: 1.5 }}>
+                      Summit height is this share — the more a source contributes, the higher its peak.
+                    </div>
+                  </div>
+                );
+              })()}
               
               <div>
                 <h3 style={{ fontSize: 14, color: 'white', marginBottom: 12, borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 8 }}>Recent Memories</h3>

@@ -140,12 +140,12 @@ export default function MemoryRoots({ hub, memories = [], surfaceY = 0, diveRef 
   }, [segments]);
 
   useFrame(() => {
-    // Every hub's root reads at a real baseline now, not just the one being
-    // dived into — "per hub, without moving the camera" means all of them
-    // stand on their own by default. diveRef (only set on the hub currently
-    // being dived into) still lifts that one hub above the floor toward full
-    // strength as it's approached, on top of the shared baseline.
-    const d = Math.max(diveRef?.current ?? 1, 0.55);
+    // Only the hub you opened. Every hub used to draw its roots at a 0.55
+    // baseline so each one "stood on its own" — but nine hubs all showing their
+    // memories at once buries the terrain under cards nobody asked for, and
+    // they read through the surface as clutter rather than as depth. diveRef is
+    // set only on the selected hub; everything else stays at zero.
+    const d = diveRef ? diveRef.current : 0;
     if (lineMat.current) lineMat.current.opacity = d * 0.85;
     if (nodeGroup.current) {
       nodeGroup.current.children.forEach((g) => {

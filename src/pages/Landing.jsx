@@ -262,13 +262,13 @@ export default function Landing() {
       <div style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
         
         {/* Logo */}
-        <div style={{ position: 'absolute', top: 24, left: 32, zIndex: 50, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ position: 'absolute', top: 24, left: 32, zIndex: 200, pointerEvents: 'none', display: 'flex', alignItems: 'center', gap: 12 }}>
           <img src="/axon_logo.png" alt="AXON" style={{ width: 42, height: 42, borderRadius: 10 }} />
           <span className="title-text" style={{ fontSize: 16, letterSpacing: '2px', fontWeight: 'bold' }}>AXON</span>
         </div>
 
         {/* Auth Overlay */}
-        <div style={{ position: 'absolute', top: 24, right: 32, zIndex: 50 }}>
+        <div style={{ position: 'absolute', top: 24, right: 32, zIndex: 200 }}>
           {user ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
               <span style={{ color: 'var(--color-text-secondary)', fontSize: 13 }}>
@@ -283,10 +283,25 @@ export default function Landing() {
               </button>
             </div>
           ) : (
-            <button 
+            <button
               onClick={() => navigate('/login')}
-              className="glass-button" 
-              style={{ padding: '8px 24px', fontSize: 13, background: 'rgba(0, 243, 255, 0.1)', color: 'var(--color-neon-cyan)', borderColor: 'rgba(0, 243, 255, 0.3)' }}
+              style={{
+                padding: '9px 22px',
+                fontSize: 12.5,
+                letterSpacing: '0.08em',
+                fontWeight: 500,
+                color: 'rgba(255,255,255,0.92)',
+                background: 'linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.03))',
+                border: '1px solid rgba(255,255,255,0.14)',
+                borderRadius: 999,
+                cursor: 'pointer',
+                backdropFilter: 'blur(14px)',
+                WebkitBackdropFilter: 'blur(14px)',
+                boxShadow: '0 6px 22px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.12)',
+                transition: 'background 0.25s ease, border-color 0.25s ease',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.15), rgba(255,255,255,0.06))'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.24)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.03))'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.14)'; }}
             >
               Sign In
             </button>
@@ -366,7 +381,7 @@ export default function Landing() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 1 }}
-              style={{ width: '100%', height: '100%', position: 'absolute', pointerEvents: 'none' }}
+              style={{ width: '100%', height: '100%', position: 'absolute', pointerEvents: 'none', zIndex: 10 }}
             >
               {!activeFacet ? (
                 <>
