@@ -19,7 +19,6 @@ import ConnectionsFacet from './ConnectionsFacet';
 import { LayoutDashboard, Network, Link, CreditCard } from 'lucide-react';
 import { callFunction } from '../lib/functions';
 
-const CORE_DIVE_EASE = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
 /**
  * Choosing a facet used to release CorePortal's panel and withdraw the shell
@@ -31,6 +30,18 @@ const CORE_DIVE_EASE = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2
  * 2.0) exactly so the dive and the release are one motion, not two things
  * that happen to run near the same time.
  */
+function GalaxyBackground() {
+  return (
+    <>
+      <color attach="background" args={['#020203']} />
+      <Stars radius={100} depth={50} count={3000} factor={3} saturation={0} fade speed={0.3} />
+      {/* Volumetric deep blue nebula dust */}
+      <Sparkles count={400} scale={30} size={15} speed={0.1} opacity={0.03} color="#7f93b5" />
+      <Sparkles count={200} scale={40} size={25} speed={0.05} opacity={0.02} color="#93a5c0" />
+    </>
+  );
+}
+
 export default function Landing() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();

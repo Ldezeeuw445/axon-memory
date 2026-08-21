@@ -47,7 +47,11 @@ const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) 
 export default function CoreGateway({ active, children, onApertureChange, onProgress, baseScale = 1 }) {
   const { camera } = useThree();
   const shell = useRef(null);
-  const t = useRef(0);
+  // Already inside on mount means the viewer arrived by link — an OAuth
+  // callback landing on ?facet=connections, say. Playing the journey there
+  // would make them sit out eleven seconds of cinema to find out whether their
+  // connection worked. The journey is for people who chose to take it.
+  const t = useRef(active ? GATEWAY_DURATION : 0);
   const restZ = useRef(null);
   const lastAperture = useRef(0);
 
