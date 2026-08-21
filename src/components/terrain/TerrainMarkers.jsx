@@ -320,12 +320,18 @@ export function TerrainCameraRig({
       // Absolute offsets from where the fly-to left the camera, never nudges
       // applied to the live position — a per-frame subtraction compounds and
       // the camera runs away.
-      const climb = 15.5 * rise;
-      camera.position.y = diveBase.current.camY + climb;
-      // Pulling back as it climbs keeps the whole column in frame instead of
-      // framing one node at a time.
-      camera.position.z = diveBase.current.camZ + 7.5 * rise;
-      ctl.target.y = diveBase.current.tgtY + climb * 1.15;
+      // Driven only while the climb is still happening. Once it has settled the
+      // camera is left alone, or every orbit and zoom the viewer attempts is
+      // overwritten on the next frame — the view would be pinned in place at
+      // exactly the moment it becomes worth looking around.
+      if (rise < 0.995) {
+        const climb = 15.5 * rise;
+        camera.position.y = diveBase.current.camY + climb;
+        // Pulling back as it climbs keeps the whole column in frame instead of
+        // framing one node at a time.
+        camera.position.z = diveBase.current.camZ + 7.5 * rise;
+        ctl.target.y = diveBase.current.tgtY + climb * 1.15;
+      }
     } else {
       // Remember where level flight left us, so the next dive starts from here.
       diveBase.current.camY = camera.position.y;

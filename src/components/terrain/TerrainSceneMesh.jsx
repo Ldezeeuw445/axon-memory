@@ -59,20 +59,26 @@ export default function TerrainSceneMesh({ engine, resolution = 200, shadowsEnab
   const rockMat = useRef(null);
 
   useFrame(({ clock }) => {
-    // The surface thins as the camera descends through it, so the dive reads as
-    // passing into the ground rather than the terrain being switched off.
-    // A small baseline translucency even at rest (was a hard 1 = fully
-    // opaque) lets every hub's root glow faintly through its own summit
-    // without diving in — roots used to be entirely hidden behind solid rock
-    // until you dove below the surface for that one hub.
-    if (rockMat.current && diveRef) {
-      const o = 0.94 - diveRef.current * 0.76;
+    // The landscape leaves entirely once the camera is up. It used to thin to
+    // a residue — 0.18 opacity of rock plus a gold grid still pulsing at full
+    // strength — which is not a calm background, it is a terrain you can still
+    // read behind the thing you are trying to read. Reaching the top of the
+    // climb should leave nothing but sky and the column.
+    const rise = diveRef ? diveRef.current : 0;
+    // Squared so the surface holds while the camera is still leaving the
+    // ground, then clears quickly over the last part of the climb.
+    const clear = 1 - rise * rise;
+
+    if (rockMat.current) {
+      const o = 0.94 * clear;
       rockMat.current.opacity = o;
       rockMat.current.transparent = true;
       rockMat.current.depthWrite = o > 0.85;
+      rockMat.current.visible = o > 0.004;
     }
     if (ptsMat.current) {
-      ptsMat.current.opacity = 0.72 + 0.22 * Math.sin(clock.elapsedTime * 1.6);
+      ptsMat.current.opacity = (0.72 + 0.22 * Math.sin(clock.elapsedTime * 1.6)) * clear;
+      ptsMat.current.visible = clear > 0.004;
     }
   });
 

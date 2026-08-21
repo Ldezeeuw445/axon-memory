@@ -16,7 +16,7 @@
  * joined to the one before it, so the column reads bottom-to-top as "this is
  * what came first, and this is what built on it".
  */
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
@@ -60,7 +60,7 @@ function layout(memories, origin) {
   });
 }
 
-function MemoryCard({ memory, side, onSelect }) {
+function MemoryCard({ memory, side, open, onToggle }) {
   const when = memory.occurred_at ? new Date(memory.occurred_at) : null;
   const label = (memory.detail || memory.source_type || 'memory').toUpperCase();
 
@@ -68,17 +68,18 @@ function MemoryCard({ memory, side, onSelect }) {
     <Html center={false} distanceFactor={13} zIndexRange={[30, 0]}
       style={{ transform: `translate(${side > 0 ? '16px' : 'calc(-100% - 16px)'}, -50%)` }}>
       <div
-        role={onSelect ? 'button' : undefined}
-        tabIndex={onSelect ? 0 : undefined}
-        onClick={onSelect ? () => onSelect(memory) : undefined}
-        onKeyDown={onSelect ? (e) => { if (e.key === 'Enter' || e.key === ' ') onSelect(memory); } : undefined}
+        role="button"
+        tabIndex={0}
+        onClick={onToggle}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onToggle(); }}
         style={{
-          width: 244, padding: '12px 15px', borderRadius: 12,
+          width: open ? 320 : 244, padding: '12px 15px', borderRadius: 12,
+          transition: 'width 0.25s ease',
           background: 'linear-gradient(160deg, rgba(24,17,6,0.95), rgba(10,8,4,0.95))',
-          border: '1px solid rgba(255,176,46,0.24)',
-          boxShadow: '0 12px 38px rgba(0,0,0,0.8)',
+          border: `1px solid rgba(255,176,46,${open ? 0.55 : 0.24})`,
+          boxShadow: open ? '0 16px 50px rgba(0,0,0,0.9)' : '0 12px 38px rgba(0,0,0,0.8)',
           fontFamily: "'Inter', sans-serif",
-          cursor: onSelect ? 'pointer' : 'default',
+          cursor: 'pointer',
           pointerEvents: 'auto',
         }}
       >
@@ -88,13 +89,29 @@ function MemoryCard({ memory, side, onSelect }) {
             {when.toLocaleDateString([], { day: '2-digit', month: 'short' })}
           </span>}
         </div>
-        <div style={{ fontSize: 13, lineHeight: 1.42, color: 'rgba(255,255,255,0.94)' }}>{memory.label}</div>
+        {/* Collapsed shows two lines so the column stays scannable; opening
+            one gives the whole thing without leaving the graph. */}
+        <div style={{
+          fontSize: 13, lineHeight: 1.42, color: 'rgba(255,255,255,0.94)',
+          display: open ? 'block' : '-webkit-box',
+          WebkitLineClamp: open ? 'none' : 2,
+          WebkitBoxOrient: 'vertical',
+          overflow: open ? 'visible' : 'hidden',
+          wordBreak: 'break-word',
+        }}>{memory.label}</div>
+        {open && when && (
+          <div style={{ marginTop: 10, paddingTop: 9, borderTop: '1px solid rgba(255,176,46,0.18)', fontSize: 10.5, letterSpacing: '0.06em', color: 'rgba(255,255,255,0.4)' }}>
+            {when.toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()}
+            {memory.source ? ` · ${String(memory.source).toUpperCase()}` : ''}
+          </div>
+        )}
       </div>
     </Html>
   );
 }
 
-export default function MemorySky({ hub, memories = [], surfaceY = 0, riseRef = null, onSelectMemory = null }) {
+export default function MemorySky({ hub, memories = [], surfaceY = 0, riseRef = null }) {
+  const [openId, setOpenId] = useState(null);
   const lineMat = useRef(null);
   const nodeGroup = useRef(null);
   const shownCards = useRef(-1);
@@ -173,7 +190,12 @@ export default function MemorySky({ hub, memories = [], surfaceY = 0, riseRef = 
               <meshBasicMaterial color={GOLD} toneMapped={false} transparent opacity={0} />
             </mesh>
             <group visible={false}>
-              <MemoryCard memory={memory} side={side} onSelect={onSelectMemory} />
+              <MemoryCard
+                memory={memory}
+                side={side}
+                open={openId === (memory.id ?? i)}
+                onToggle={() => setOpenId((cur) => (cur === (memory.id ?? i) ? null : (memory.id ?? i)))}
+              />
             </group>
           </group>
         ))}

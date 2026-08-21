@@ -167,6 +167,9 @@ export default function MemoryTerrainMap({
   const controlsRef = useRef(null);
   const diveRef = useRef(0);
   const [below, setBelow] = useState(false);
+  // True from the moment the camera commits to the climb, so terrain-level
+  // furniture can stand down before the column arrives.
+  const [aloft, setAloft] = useState(false);
   const [perfDpr, setPerfDpr] = useState(1.35);
 
   const isMobile = useMemo(() => {
@@ -264,11 +267,16 @@ export default function MemoryTerrainMap({
             onHover={setHoveredId}
             onSelectHub={handleSelectHub}
             onSelectLeaf={handleSelectLeaf}
-            showLeafLabels={showLeafLabels}
+            /* Labels scattered around the summit belong to the old
+               read-it-on-the-terrain idea. With the column in the sky they are
+               the same memories twice, one set of them lying flat across the
+               landscape — which is the clutter, not the depth. They fade as the
+               camera leaves the ground. */
+            showLeafLabels={showLeafLabels && !aloft}
           />
         </RiseIn>
         <Stars radius={100} depth={50} count={isMobile ? 1200 : 3000} factor={3} saturation={0} fade speed={0.3} />
-        <DiveDriver active={!!selected} diveRef={diveRef} onBelow={setBelow} />
+        <DiveDriver active={!!selected} diveRef={diveRef} onBelow={(v) => { setBelow(v); setAloft(v); }} />
         <TerrainCameraRig engine={engine} selected={selected} controlsRef={controlsRef} diveRef={diveRef} />
         {/*
           Used to render one root system, for the selected hub only, gated
@@ -284,7 +292,6 @@ export default function MemoryTerrainMap({
             memories={leavesByHub[hub.id] ?? (hub.id === selected?.id ? leafData : [])}
             surfaceY={engine.heightAt(hub.x, hub.z)}
             riseRef={hub.id === selected?.id ? diveRef : null}
-            onSelectMemory={(m) => { if (m.source) onSelectLeaf(m.source); }}
           />
         ))}
         <OrbitControls
@@ -294,7 +301,10 @@ export default function MemoryTerrainMap({
           dampingFactor={0.08}
           minDistance={5}
           maxDistance={58}
-          maxPolarAngle={1.42}
+          /* On the ground this stops the camera dropping under the landscape.
+             Around a column standing in open sky there is nothing to clip
+             through, and the limit only prevents looking at it from below. */
+          maxPolarAngle={aloft ? Math.PI * 0.92 : 1.42}
           autoRotate={autoRotate}
           autoRotateSpeed={0.35}
           target={[0, 0.5, 0]}
