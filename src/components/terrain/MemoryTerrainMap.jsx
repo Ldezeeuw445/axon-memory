@@ -157,8 +157,7 @@ export default function MemoryTerrainMap({
   onFocusHub,
   onSelectLeaf,
   onBackground,
-  leaves: leafData = [],
-  leavesByHub = {},
+  leaves: leafData = { hubId: null, items: [] },
   autoRotate = false,
   showLeafLabels = true,
 }) {
@@ -193,7 +192,7 @@ export default function MemoryTerrainMap({
 
   const placedLeaves = useMemo(() => {
     if (!selected) return [];
-    return computeLeafRing(selected, leafData, engine);
+    return computeLeafRing(selected, leafData.hubId === selected.id ? leafData.items : [], engine);
   }, [selected, leafData, engine]);
 
   const handleSelectHub = useCallback((hub) => onFocusHub(hub.id), [onFocusHub]);
@@ -324,7 +323,7 @@ export default function MemoryTerrainMap({
           controlsRef={controlsRef}
           diveRef={diveRef}
           jumpRef={jumpRef}
-          columnLength={selected ? (leafData.length || (leavesByHub[selected.id] ?? []).length) : 0}
+          columnLength={selected && leafData.hubId === selected.id ? leafData.items.length : 0}
         />
         {/*
           Used to render one root system, for the selected hub only, gated
@@ -345,10 +344,12 @@ export default function MemoryTerrainMap({
           <MemorySky
             key={selected.id}
             hub={selected}
-            /* leafData is the full set for the focused hub; leavesByHub holds
-               a six-item preview per hub. Preferring the preview meant the
-               column showed six of a hundred and sixty-four. */
-            memories={leafData.length ? leafData : (leavesByHub[selected.id] ?? [])}
+            /* Only ever this hub's own memories. The id travels with them, so
+               a set fetched for a different summit cannot be drawn here while
+               its replacement is still in flight — and an empty column means
+               this source genuinely holds nothing, rather than falling back to
+               some other summit's list. */
+            memories={leafData.hubId === selected.id ? leafData.items : []}
             surfaceY={engine.heightAt(selected.x, selected.z)}
             riseRef={diveRef}
           />
