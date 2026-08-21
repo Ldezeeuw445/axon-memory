@@ -311,8 +311,11 @@ export default function MemoryTerrainMap({
           enablePan={false}
           enableDamping
           dampingFactor={0.08}
-          minDistance={5}
-          maxDistance={58}
+          /* On the ground these frame a landscape. Around the column they only
+             get in the way: 5 is too far out to read a single node, and 58 is
+             not enough to see a tall column whole. */
+          minDistance={aloft ? 1.6 : 5}
+          maxDistance={aloft ? 120 : 58}
           /* On the ground this stops the camera dropping under the landscape.
              Around a column standing in open sky there is nothing to clip
              through, and the limit only prevents looking at it from below. */

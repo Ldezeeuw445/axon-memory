@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Html, QuadraticBezierLine } from '@react-three/drei';
+import { RISE as SKY_RISE, COLUMN_HEIGHT as SKY_COLUMN_HEIGHT } from './MemorySky';
 import { makeGlowTexture } from './terrainEngine';
 
 const beamVertex = `
@@ -264,7 +265,7 @@ export function TerrainCameraRig({
 }) {
   const { camera } = useThree();
   const anim = useRef({ active: false, t: 0 });
-  const diveBase = useRef({ camY: 0, camZ: 0, tgtY: 0 });
+  const diveBase = useRef({ camX: 0, camY: 0, camZ: 0, tgtX: 0, tgtY: 0, tgtZ: 0 });
 
   useEffect(() => {
     const ctl = controlsRef.current;
@@ -325,18 +326,29 @@ export function TerrainCameraRig({
       // overwritten on the next frame — the view would be pinned in place at
       // exactly the moment it becomes worth looking around.
       if (rise < 0.995) {
-        const climb = 15.5 * rise;
-        camera.position.y = diveBase.current.camY + climb;
-        // Pulling back as it climbs keeps the whole column in frame instead of
-        // framing one node at a time.
-        camera.position.z = diveBase.current.camZ + 7.5 * rise;
-        ctl.target.y = diveBase.current.tgtY + climb * 1.15;
+        // Aimed at the middle of the column rather than at a point below it, so
+        // that when control is handed back, orbiting turns around the thing
+        // being read instead of swinging it through frame.
+        const peakY = engine.heightAt(selected.x, selected.z);
+        const centreY = peakY + SKY_RISE + SKY_COLUMN_HEIGHT / 2;
+        const back = 44;
+
+        camera.position.y = THREE.MathUtils.lerp(diveBase.current.camY, centreY, rise);
+        camera.position.x = THREE.MathUtils.lerp(diveBase.current.camX, selected.x, rise);
+        camera.position.z = THREE.MathUtils.lerp(diveBase.current.camZ, selected.z + back, rise);
+
+        ctl.target.x = THREE.MathUtils.lerp(diveBase.current.tgtX, selected.x, rise);
+        ctl.target.y = THREE.MathUtils.lerp(diveBase.current.tgtY, centreY, rise);
+        ctl.target.z = THREE.MathUtils.lerp(diveBase.current.tgtZ, selected.z, rise);
       }
     } else {
       // Remember where level flight left us, so the next dive starts from here.
+      diveBase.current.camX = camera.position.x;
       diveBase.current.camY = camera.position.y;
       diveBase.current.camZ = camera.position.z;
+      diveBase.current.tgtX = ctl.target.x;
       diveBase.current.tgtY = ctl.target.y;
+      diveBase.current.tgtZ = ctl.target.z;
       const minY = engine.heightAt(camera.position.x, camera.position.z) + 0.7;
       if (camera.position.y < minY) camera.position.y = minY;
     }

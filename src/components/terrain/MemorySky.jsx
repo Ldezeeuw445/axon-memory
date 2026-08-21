@@ -27,9 +27,13 @@ const GOLD_DIM = '#7a4f10';
 // Every memory a source holds gets a node. What has to give instead is the
 // spacing: a hundred and sixty at a fixed step would be a column three hundred
 // units tall that you could only ever see a slice of.
-const RISE = 3.4;        // clearance above the summit before the first node
+// Well clear of the peaks. At 3.4 the first nodes sat in among the summits and
+// the column had to compete with the landscape it came out of; up here it
+// stands in open sky with nothing behind it, which is the whole point of going
+// up rather than down.
+export const RISE = 22;  // clearance above the summit before the first node
 const STEP_MAX = 1.62;   // spacing for a handful of memories
-const COLUMN_HEIGHT = 46; // the tallest a column gets, however many it holds
+export const COLUMN_HEIGHT = 46; // the tallest a column gets, however many it holds
 const TWIST = 0.78;      // radians of rotation per step at full spacing
 const RADIUS = 2.15;     // how far each node stands off the axis
 
