@@ -13,6 +13,11 @@ import { distillForUser } from "../_shared/distill.ts";
 // How many connections to sync per run. Kept modest so one cron tick can
 // never run long enough to overlap the next one at this stage of scale.
 const BATCH_LIMIT = 100;
+// Distillation is the expensive half — a model call per user, against a run
+// that has to finish inside the scheduler's window. Capping it keeps a tick
+// bounded no matter how many accounts exist; the ordering below is what makes
+// sure the ones skipped this time go first next time.
+const DISTILL_USERS_PER_RUN = 8;
 
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
@@ -34,6 +39,11 @@ Deno.serve(async (req: Request) => {
     .from("source_connections")
     .select("id, user_id, provider, access_token_encrypted, refresh_token_encrypted, status")
     .in("status", ["connected", "error"])
+    // Longest-unsynced first. Without an order Postgres returns whatever it
+    // likes, and with more connections than the limit that tends to be the
+    // same set every run — so past the hundredth account, the rest would
+    // simply never sync. Ordering turns the cap into a rotation.
+    .order("last_synced_at", { ascending: true, nullsFirst: true })
     .limit(BATCH_LIMIT);
 
   if (error) {
@@ -70,9 +80,13 @@ Deno.serve(async (req: Request) => {
   // Raw items become facts here rather than on their own schedule: the moment
   // new material lands is exactly when there is something new to conclude, and
   // one job is easier to reason about than two that have to stay in step.
-  for (const userId of touched) {
+  // In sync order, so the accounts that waited longest are also the ones whose
+  // facts get refreshed first.
+  for (const userId of [...touched].slice(0, DISTILL_USERS_PER_RUN)) {
     try {
-      const { written } = await distillForUser(admin, userId);
+      // Two passes rather than three: a tick has other users to reach, and a
+      // large backfill still finishes over a few runs.
+      const { written } = await distillForUser(admin, userId, 2);
       results.distilled.users += 1;
       results.distilled.facts += written;
     } catch (err) {
