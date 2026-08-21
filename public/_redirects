@@ -1,5 +1,16 @@
-# Client-side routing: every unmatched path is handled by the React router,
-# so serve index.html rather than a 404. Cloudflare Pages happens to do this
-# by default today, but /dashboard and /graph breaking on refresh is not a
+# A missing asset must stay missing.
+#
+# The catch-all below also swallowed /assets/*, so a request for a hashed bundle
+# that an edge node did not have yet came back as index.html with status 200 and
+# Content-Type text/html. Browsers cached that under the .js URL — a 1391-byte
+# HTML page where 1.8MB of JavaScript should be — and every later load of that
+# build rendered nothing at all, with no console error and no failed request to
+# point at. The build is fingerprinted, so nothing under /assets/ should ever
+# fall through to the app shell.
+/assets/*  /assets/:splat  404
+
+# Client-side routing: every other unmatched path is handled by the React
+# router, so serve index.html rather than a 404. Cloudflare Pages happens to do
+# this by default today, but /dashboard and /graph breaking on refresh is not a
 # thing to leave to implicit behaviour.
 /*  /index.html  200

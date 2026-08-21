@@ -111,13 +111,21 @@ export default function DataSources({ asFacet }) {
       // nothing offered, nothing new, or n stored.
       const fetched = res?.fetched ?? 0;
       const synced = res?.synced ?? 0;
+      // Distillation is the half that makes recall useful, and it is invisible
+      // from the outside — a run that read material and concluded nothing looks
+      // exactly like one that never reached the model.
+      const facts = res?.facts ?? 0;
+      const considered = res?.considered ?? 0;
+      const distilled = considered > 0
+        ? ` Read ${considered} for facts${facts > 0 ? `, learned ${facts}.` : ' — none drawn.'}`
+        : '';
       setBanner({
         type: synced > 0 ? 'success' : 'info',
-        text: synced > 0
+        text: (synced > 0
           ? `${conn.provider}: ${synced} new ${synced === 1 ? 'memory' : 'memories'} stored.`
           : fetched > 0
             ? `${conn.provider}: ${fetched} items found, all already stored — nothing new.`
-            : `${conn.provider}: the provider returned no items. Check that AXON has access to the content you expect.`,
+            : `${conn.provider}: the provider returned no items. Check that AXON has access to the content you expect.`) + distilled,
       });
     } catch (err) {
       setBanner({ type: 'error', text: err.message });

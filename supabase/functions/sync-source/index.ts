@@ -7,6 +7,7 @@ import { handlePreflight, jsonResponse } from "../_shared/cors.ts";
 import { getUserFromRequest } from "../_shared/auth.ts";
 import { supabaseAdmin } from "../_shared/supabase-admin.ts";
 import { syncOneConnection } from "../_shared/source-sync.ts";
+import { distillForUser } from "../_shared/distill.ts";
 
 Deno.serve(async (req: Request) => {
   const preflight = handlePreflight(req);
@@ -39,7 +40,25 @@ Deno.serve(async (req: Request) => {
   if (!result.ok) {
     return jsonResponse({ error: "Sync failed", detail: result.error }, { status: 502, origin });
   }
+  // Pressing Sync should leave the graph in the same state the scheduled run
+  // would, facts included — otherwise what you get depends on which of the two
+  // brought the items in.
+  let facts = 0;
+  let considered = 0;
+  {
+    try {
+      ({ written: facts, read: considered } = await distillForUser(admin, conn.user_id));
+    } catch (err) {
+      // The items are stored and still marked undistilled; the next run takes
+      // them. A failure to conclude is not a failure to sync.
+      console.error("sync-source: distill failed", err);
+    }
+  }
+
   // Both numbers, so "the provider returned nothing" and "we fetched items but
   // stored none" are distinguishable in the UI instead of both reading as 0.
-  return jsonResponse({ synced: result.synced, fetched: result.fetched }, { origin });
+  return jsonResponse(
+    { synced: result.synced, fetched: result.fetched, facts, considered },
+    { origin },
+  );
 });

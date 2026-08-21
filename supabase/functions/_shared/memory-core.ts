@@ -17,8 +17,18 @@ export async function buildContextPack(
   const tokenBudget = Math.min(Math.max(opts.tokenBudget ?? 1500, 200), 8000);
   const charBudget = tokenBudget * CHARS_PER_TOKEN;
 
-  const [{ data: profile }, { data: sources }, { data: planStatus }] = await Promise.all([
+  const [{ data: profile }, { data: factRows }, { data: sources }, { data: planStatus }] = await Promise.all([
     admin.from("profiles").select("full_name, role, use_case, plan_tier").eq("id", userId).maybeSingle(),
+    // Distilled conclusions. Cheap enough to always include in full: a few
+    // dozen short statements against a budget the raw items would otherwise
+    // consume entirely.
+    admin
+      .from("memory_facts")
+      .select("statement, category, last_confirmed_at")
+      .eq("user_id", userId)
+      .is("superseded_at", null)
+      .order("last_confirmed_at", { ascending: false })
+      .limit(60),
     admin
       .from("source_connections")
       .select("provider, status, external_account_label, last_synced_at")
@@ -97,6 +107,15 @@ export async function buildContextPack(
     }
   }
 
+  // Facts lead. An assistant opening cold needs "who is this and how do they
+  // work" before it needs twenty commit messages, and until now the pack only
+  // ever offered the second — which is why it read as search results rather
+  // than as memory.
+  const knownFacts: Record<string, string[]> = {};
+  for (const f of factRows ?? []) {
+    (knownFacts[f.category] ??= []).push(f.statement);
+  }
+
   const pack = {
     profile: {
       name: profile?.full_name ?? null,
@@ -111,7 +130,10 @@ export async function buildContextPack(
       account: s.external_account_label,
       last_synced_at: s.last_synced_at,
     })),
+    // What is true about this person, grouped by kind.
+    known: knownFacts,
     entities: Array.from(entitySet).slice(0, 40),
+    // What it was drawn from, and everything not yet distilled.
     memory: grouped,
     stats: {
       items_returned: included,
