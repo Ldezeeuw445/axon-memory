@@ -44,6 +44,7 @@ const RADIUS = 2.4;  // how far each node stands off the axis
 // whatever the machine can manage. The nodes nearest the camera carry one; the
 // rest stay as points on the thread until you travel to them.
 const CARDS_IN_VIEW = 14;
+const CARDS_IN_VIEW_COMPACT = 7;
 
 /**
  * Oldest at the bottom, newest at the top.
@@ -79,20 +80,24 @@ function layout(memories, origin) {
   });
 }
 
-function MemoryCard({ memory, side, open, onToggle }) {
+function MemoryCard({ memory, side, open, onToggle, compact }) {
   const when = memory.occurred_at ? new Date(memory.occurred_at) : null;
   const label = (memory.detail || memory.source_type || 'memory').toUpperCase();
 
   return (
     <Html center={false} distanceFactor={13} zIndexRange={[30, 0]}
-      style={{ transform: `translate(${side > 0 ? '16px' : 'calc(-100% - 16px)'}, -50%)` }}>
+      style={{ transform: `translate(${side > 0 ? (compact ? '10px' : '16px') : `calc(-100% - ${compact ? 10 : 16}px)`}, -50%)` }}>
       <div
         role="button"
         tabIndex={0}
         onClick={onToggle}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onToggle(); }}
         style={{
-          width: open ? 320 : 244, padding: '12px 15px', borderRadius: 12,
+          /* A 244px card is most of a phone screen, and two of them facing each
+             other across the thread leave nothing between. */
+          width: compact ? (open ? 216 : 168) : (open ? 320 : 244),
+          padding: compact ? '9px 11px' : '12px 15px',
+          borderRadius: 12,
           transition: 'width 0.25s ease',
           background: 'linear-gradient(160deg, rgba(24,17,6,0.95), rgba(10,8,4,0.95))',
           border: `1px solid rgba(255,176,46,${open ? 0.55 : 0.24})`,
@@ -111,7 +116,7 @@ function MemoryCard({ memory, side, open, onToggle }) {
         {/* Collapsed shows two lines so the column stays scannable; opening
             one gives the whole thing without leaving the graph. */}
         <div style={{
-          fontSize: 13, lineHeight: 1.42, color: 'rgba(255,255,255,0.94)',
+          fontSize: compact ? 11.5 : 13, lineHeight: 1.4, color: 'rgba(255,255,255,0.94)',
           display: open ? 'block' : '-webkit-box',
           WebkitLineClamp: open ? 'none' : 2,
           WebkitBoxOrient: 'vertical',
@@ -129,7 +134,7 @@ function MemoryCard({ memory, side, open, onToggle }) {
   );
 }
 
-export default function MemorySky({ hub, memories = [], surfaceY = 0, riseRef = null }) {
+export default function MemorySky({ hub, memories = [], surfaceY = 0, riseRef = null, compact = false }) {
   const [openId, setOpenId] = useState(null);
   // How many cards exist in the DOM. Toggling three.js visibility does nothing
   // for Html, so the count is state and the cards are conditionally rendered.
@@ -201,7 +206,7 @@ export default function MemorySky({ hub, memories = [], surfaceY = 0, riseRef = 
         revealed
           .sort((a, b) => camera.position.distanceToSquared(nodes[a].position)
             - camera.position.distanceToSquared(nodes[b].position))
-          .slice(0, CARDS_IN_VIEW)
+          .slice(0, compact ? CARDS_IN_VIEW_COMPACT : CARDS_IN_VIEW)
           .forEach((i) => next.add(i));
       }
       // Compared as a key so an unchanged window costs no re-render.
@@ -236,6 +241,7 @@ export default function MemorySky({ hub, memories = [], surfaceY = 0, riseRef = 
               <MemoryCard
                 memory={memory}
                 side={side}
+                compact={compact}
                 open={openId === (memory.id ?? i)}
                 onToggle={() => setOpenId((cur) => (cur === (memory.id ?? i) ? null : (memory.id ?? i)))}
               />

@@ -85,11 +85,20 @@ export default function MemoryGraph({ asFacet }) {
       >
         
         {/* Overlay Toolbar */}
-        <div style={{ position: 'absolute', top: 20, left: 0, right: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, zIndex: 10, pointerEvents: 'none' }}>
-          <div style={{ pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(10,12,16,0.72)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 999, padding: '9px 16px', width: '320px', boxShadow: '0 8px 30px rgba(0,0,0,0.45)' }}>
+        {/* Centred, but a fixed 320 is wide enough on a phone to reach both the
+            logo on one side and Sign In on the other — all three ended up in the
+            same corner. Below the header line on small screens, and never wider
+            than the space actually left between them. */}
+        <div style={{
+          position: 'absolute', top: isMobile ? 78 : 20, left: 0, right: 0,
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
+          gap: 8, zIndex: 10, pointerEvents: 'none', padding: '0 16px',
+        }}>
+          <div style={{ pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(10,12,16,0.72)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 999, padding: '9px 16px', width: '100%', maxWidth: isMobile ? 'none' : 320, boxShadow: '0 8px 30px rgba(0,0,0,0.45)' }}>
             <Search size={13} color="var(--color-text-secondary)" />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search memories..."
-              style={{ background: 'none', border: 'none', outline: 'none', color: 'var(--color-text-primary)', fontSize: 13, width: '100%' }} />
+              /* 16px or iOS zooms the whole page in on focus. */
+              style={{ background: 'none', border: 'none', outline: 'none', color: 'var(--color-text-primary)', fontSize: isMobile ? 16 : 13, width: '100%', minWidth: 0 }} />
             {search && <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-secondary)', padding: 0, display: 'flex' }}><X size={12} /></button>}
           </div>
         </div>

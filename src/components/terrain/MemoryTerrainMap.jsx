@@ -219,7 +219,10 @@ export default function MemoryTerrainMap({
           quickly — everything else is already a drag or a pinch away. */}
       {aloft && (
         <div style={{
-          position: 'absolute', right: 18, top: '50%', transform: 'translateY(-50%)',
+          /* Clear of the bottom toolbar on a phone, where centring would put it
+             under the thumb rest rather than beside the thread. */
+          position: 'absolute', right: isMobile ? 10 : 18,
+          top: isMobile ? '38%' : '50%', transform: 'translateY(-50%)',
           display: 'flex', flexDirection: 'column', gap: 1, zIndex: 20,
           borderRadius: 11, overflow: 'hidden',
           border: '1px solid rgba(255,255,255,0.09)',
@@ -237,12 +240,20 @@ export default function MemoryTerrainMap({
               title={label}
               onClick={() => { jumpRef.current = end; }}
               style={{
-                width: 38, height: 34, display: 'grid', placeItems: 'center',
+                /* 44 square is the smallest reliable touch target; the old
+                   38x34 was tuned for a cursor. The colour shift was hover-only,
+                   so on a phone the control gave no sign it had been pressed. */
+                width: 44, height: 44, display: 'grid', placeItems: 'center',
                 background: 'transparent', border: 'none', cursor: 'pointer',
                 color: 'rgba(255,255,255,0.62)',
+                WebkitTapHighlightColor: 'transparent',
+                transition: 'color 0.15s ease, background 0.15s ease',
               }}
               onMouseEnter={(e) => { e.currentTarget.style.color = '#ffb02e'; }}
               onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.62)'; }}
+              onPointerDown={(e) => { e.currentTarget.style.color = '#ffb02e'; e.currentTarget.style.background = 'rgba(255,176,46,0.12)'; }}
+              onPointerUp={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.62)'; e.currentTarget.style.background = 'transparent'; }}
+              onPointerLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
             >
               <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
                 <path d={d} stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
@@ -313,6 +324,7 @@ export default function MemoryTerrainMap({
                camera leaves the ground. */
             showLeafLabels={showLeafLabels && !aloft}
             riseRef={diveRef}
+            compact={isMobile}
           />
         </RiseIn>
         <Stars radius={100} depth={50} count={isMobile ? 1200 : 3000} factor={3} saturation={0} fade speed={0.3} />
@@ -352,6 +364,7 @@ export default function MemoryTerrainMap({
             memories={leafData.hubId === selected.id ? leafData.items : []}
             surfaceY={engine.heightAt(selected.x, selected.z)}
             riseRef={diveRef}
+            compact={isMobile}
           />
         )}
         <OrbitControls
