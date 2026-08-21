@@ -17,22 +17,26 @@
  * what came first, and this is what built on it".
  */
 import { useMemo, useRef, useState } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 
 const GOLD = '#ffb02e';
 const GOLD_DIM = '#7a4f10';
 
-// A column has to stay legible from one viewpoint. Past roughly this many the
-// spacing collapses and it becomes a texture rather than a graph, so the rest
-// are counted rather than drawn.
-const MAX_NODES = 26;
+// Every memory a source holds gets a node. What has to give instead is the
+// spacing: a hundred and sixty at a fixed step would be a column three hundred
+// units tall that you could only ever see a slice of.
+const RISE = 3.4;        // clearance above the summit before the first node
+const STEP_MAX = 1.62;   // spacing for a handful of memories
+const COLUMN_HEIGHT = 46; // the tallest a column gets, however many it holds
+const TWIST = 0.78;      // radians of rotation per step at full spacing
+const RADIUS = 2.15;     // how far each node stands off the axis
 
-const RISE = 3.4;      // clearance above the summit before the first node
-const STEP = 1.62;     // vertical distance between consecutive memories
-const TWIST = 0.78;    // radians of rotation per step
-const RADIUS = 2.15;   // how far each node stands off the axis
+// Cards are DOM and cost real layout, and a hundred at once is unreadable
+// anyway. The nodes nearest whatever the viewer is looking at get one; the rest
+// stay as points on the thread until you move to them.
+const CARDS_IN_VIEW = 10;
 
 /**
  * Oldest at the bottom, newest at the top, on a slow helix.
@@ -43,16 +47,24 @@ const RADIUS = 2.15;   // how far each node stands off the axis
  * as it accumulates.
  */
 function layout(memories, origin) {
+  const n = memories.length;
+  // Compressed only as far as it has to be. A short column keeps generous
+  // spacing; a long one tightens until it fits, so the whole source is one
+  // object you can take in rather than a scroll you have to fly along.
+  const step = n > 1 ? Math.min(STEP_MAX, COLUMN_HEIGHT / (n - 1)) : STEP_MAX;
+  // The twist keeps pace with the spacing, or a compressed column would wind
+  // so fast it reads as noise.
+  const twist = TWIST * (step / STEP_MAX) * 3.2;
   return memories.map((m, i) => {
-    const t = memories.length > 1 ? i / (memories.length - 1) : 0;
-    const angle = i * TWIST;
+    const t = n > 1 ? i / (n - 1) : 0;
+    const angle = i * twist;
     const r = RADIUS * (0.72 + t * 0.5);
     return {
       memory: m,
       index: i,
       position: new THREE.Vector3(
         origin.x + Math.cos(angle) * r,
-        origin.y + RISE + i * STEP,
+        origin.y + RISE + i * step,
         origin.z + Math.sin(angle) * r,
       ),
       side: Math.cos(angle) >= 0 ? 1 : -1,
@@ -114,13 +126,17 @@ export default function MemorySky({ hub, memories = [], surfaceY = 0, riseRef = 
   const [openId, setOpenId] = useState(null);
   // How many cards exist in the DOM. Toggling three.js visibility does nothing
   // for Html, so the count is state and the cards are conditionally rendered.
-  const [cardCount, setCardCount] = useState(0);
+  // Which nodes currently carry a card. Held as a set of indices rather than a
+  // count, because the readable window follows the camera up the column instead
+  // of always starting at the bottom.
+  const [cardIds, setCardIds] = useState(() => new Set());
+  const { camera } = useThree();
   const lineMat = useRef(null);
   const nodeGroup = useRef(null);
-  const shownCards = useRef(-1);
+  const shownKey = useRef('');
 
-  const { nodes, lineGeo, hidden } = useMemo(() => {
-    if (!hub) return { nodes: [], lineGeo: new THREE.BufferGeometry(), hidden: 0 };
+  const { nodes, lineGeo } = useMemo(() => {
+    if (!hub) return { nodes: [], lineGeo: new THREE.BufferGeometry() };
 
     // Oldest first: the column is a timeline, and a timeline that runs newest-
     // first reads backwards no matter how it is drawn.
@@ -129,8 +145,7 @@ export default function MemorySky({ hub, memories = [], surfaceY = 0, riseRef = 
       const tb = b.occurred_at ? Date.parse(b.occurred_at) : 0;
       return ta - tb;
     });
-    const shown = ordered.slice(0, MAX_NODES);
-    const placed = layout(shown, new THREE.Vector3(hub.x, surfaceY, hub.z));
+    const placed = layout(ordered, new THREE.Vector3(hub.x, surfaceY, hub.z));
 
     // The beam from the summit to the first node, then each memory to the one
     // it follows. The line IS the claim that these build on each other.
@@ -146,7 +161,7 @@ export default function MemorySky({ hub, memories = [], surfaceY = 0, riseRef = 
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
 
-    return { nodes: placed, lineGeo: g, hidden: Math.max(0, ordered.length - shown.length) };
+    return { nodes: placed, lineGeo: g };
   }, [hub, memories, surfaceY]);
 
   useFrame(() => {
@@ -165,12 +180,28 @@ export default function MemorySky({ hub, memories = [], surfaceY = 0, riseRef = 
         g.scale.setScalar(0.4 + local * 0.6);
       });
 
-      // Cards are DOM. Only the count changes state, so a frame that reveals
-      // nothing new costs nothing.
-      const want = r > 0.25 ? Math.floor(THREE.MathUtils.clamp(reach - 0.6, 0, nodes.length)) : 0;
-      if (want !== shownCards.current) {
-        shownCards.current = want;
-        setCardCount(want);
+      // Cards are DOM, so only a handful exist at a time — the ones nearest
+      // the camera, among those the reveal has already reached. Look further up
+      // the column and the window follows; nothing is unreachable, and nothing
+      // is mounted that you cannot read.
+      let next = new Set();
+      if (r > 0.25) {
+        const revealed = [];
+        for (let i = 0; i < nodes.length; i++) {
+          if (reach - i < 0.4) break;
+          revealed.push(i);
+        }
+        revealed
+          .sort((a, b) => camera.position.distanceToSquared(nodes[a].position)
+            - camera.position.distanceToSquared(nodes[b].position))
+          .slice(0, CARDS_IN_VIEW)
+          .forEach((i) => next.add(i));
+      }
+      // Compared as a key so an unchanged window costs no re-render.
+      const key = [...next].sort((a, b) => a - b).join(',');
+      if (key !== shownKey.current) {
+        shownKey.current = key;
+        setCardIds(next);
       }
     }
   });
@@ -190,7 +221,7 @@ export default function MemorySky({ hub, memories = [], surfaceY = 0, riseRef = 
               <sphereGeometry args={[0.15, 16, 16]} />
               <meshBasicMaterial color={GOLD} toneMapped={false} transparent opacity={0} />
             </mesh>
-            {i < cardCount && (
+            {cardIds.has(i) && (
               <MemoryCard
                 memory={memory}
                 side={side}
@@ -202,13 +233,6 @@ export default function MemorySky({ hub, memories = [], surfaceY = 0, riseRef = 
         ))}
       </group>
 
-      {hidden > 0 && cardCount > 0 && (
-        <Html position={[hub.x, surfaceY + RISE + nodes.length * STEP + 1.4, hub.z]} center distanceFactor={13}>
-          <div style={{ fontSize: 11, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap' }}>
-            + {hidden} MORE
-          </div>
-        </Html>
-      )}
     </group>
   );
 }

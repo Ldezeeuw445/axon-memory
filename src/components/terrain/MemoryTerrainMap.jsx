@@ -298,7 +298,10 @@ export default function MemoryTerrainMap({
           <MemorySky
             key={selected.id}
             hub={selected}
-            memories={leavesByHub[selected.id] ?? leafData}
+            /* leafData is the full set for the focused hub; leavesByHub holds
+               a six-item preview per hub. Preferring the preview meant the
+               column showed six of a hundred and sixty-four. */
+            memories={leafData.length ? leafData : (leavesByHub[selected.id] ?? [])}
             surfaceY={engine.heightAt(selected.x, selected.z)}
             riseRef={diveRef}
           />

@@ -140,7 +140,11 @@ function useLeavesForHub(hubId) {
         .select('id, title, content, source_type, occurred_at')
         .eq('user_id', user.id)
         .order('occurred_at', { ascending: false })
-        .limit(8);
+        // Was 8. A summit whose label reads "164 memories" and then opens onto
+        // eight of them is telling two different stories. The column is meant
+        // to be the whole source; the ceiling is here only so a pathological
+        // account cannot pull an unbounded result set into the browser.
+        .limit(500);
 
       if (hubId !== 'axon-core' && REAL_SOURCE_IDS.includes(hubId)) {
         q = q.eq('source_type', hubId);
