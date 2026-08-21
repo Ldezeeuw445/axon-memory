@@ -130,7 +130,7 @@ Deno.serve(async (req: Request) => {
       // non-fatal
     }
 
-    await admin.from("source_connections").upsert(
+    const { error: saveErr } = await admin.from("source_connections").upsert(
       {
         user_id: userId,
         provider,
@@ -143,6 +143,10 @@ Deno.serve(async (req: Request) => {
       },
       { onConflict: "user_id,provider" },
     );
+    // Unchecked, this reported a successful connection for a row the database
+    // had refused — the app said connected and then showed Connect again, with
+    // nothing anywhere to explain it.
+    if (saveErr) throw new Error(`could_not_save_connection: ${saveErr.message}`);
 
     return redirectToApp(`/?facet=connections&connected=${provider}`);
   } catch (err) {
