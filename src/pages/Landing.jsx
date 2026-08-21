@@ -4,7 +4,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { AdaptiveDpr, Environment, Lightformer, PerformanceMonitor, Stars, Sparkles } from '@react-three/drei';
 import * as THREE from 'three';
 import AxonCore from '../components/AxonCore';
-import CorePortal from '../components/CorePortal';
+import CoreGateway from '../components/CoreGateway';
 import MemoryParticle from '../components/MemoryParticle';
 import FragmentPanel from '../components/FragmentPanel';
 import ConnectSourceModal from '../components/ConnectSourceModal';
@@ -31,48 +31,6 @@ const CORE_DIVE_EASE = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2
  * 2.0) exactly so the dive and the release are one motion, not two things
  * that happen to run near the same time.
  */
-function CoreCameraDolly({ open }) {
-  const { camera } = useThree();
-  const t = useRef(0);
-  const restPos = useRef(null);
-  const restFov = useRef(camera.fov);
-  if (restPos.current === null) restPos.current = camera.position.clone();
-
-  useFrame((state, dt) => {
-    const want = open ? 1 : 0;
-    // Matches CorePortal's own speed exactly (0.5 open / 1.3 close) — turn,
-    // release and dive are one motion now, not three things that happen to
-    // start together and then drift apart.
-    const speed = open ? 0.5 : 1.3;
-    t.current += (want - t.current) * Math.min(1, dt * speed * 2);
-    const e = CORE_DIVE_EASE(THREE.MathUtils.clamp(t.current, 0, 1));
-
-    // Travels past where the Core withdraws to (shell ends at z=-11) so
-    // that by full open the frustum has nothing left in it but the galaxy —
-    // step 5's "screen is fully and only the background" end state.
-    camera.position.z = THREE.MathUtils.lerp(restPos.current.z, -15, e);
-    camera.position.x = THREE.MathUtils.lerp(restPos.current.x, 0, e);
-    camera.position.y = THREE.MathUtils.lerp(restPos.current.y, 0, e);
-    camera.fov = THREE.MathUtils.lerp(restFov.current, 58, e);
-    camera.updateProjectionMatrix();
-    camera.lookAt(0, 0, THREE.MathUtils.lerp(0, -30, e));
-  });
-
-  return null;
-}
-
-function GalaxyBackground() {
-  return (
-    <>
-      <color attach="background" args={['#020203']} />
-      <Stars radius={100} depth={50} count={3000} factor={3} saturation={0} fade speed={0.3} />
-      {/* Volumetric deep blue nebula dust */}
-      <Sparkles count={400} scale={30} size={15} speed={0.1} opacity={0.03} color="#7f93b5" />
-      <Sparkles count={200} scale={40} size={25} speed={0.05} opacity={0.02} color="#93a5c0" />
-    </>
-  );
-}
-
 export default function Landing() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
@@ -103,6 +61,17 @@ export default function Landing() {
   // completely different visual language and dropped people out of the shell;
   // they now redirect here instead.
   const [activeFacet, setActiveFacet] = useState(requestedFacet);
+  // Aperture drives geometry inside AxonCore, so it is mirrored in a ref for
+  // the frame loop and in state only so React re-renders the prop. Progress
+  // stays a ref alone — it changes every frame and nothing renders from it.
+  const [aperture, setAperture] = useState(0);
+  const apertureRef = useRef(0);
+  const arrivalRef = useRef(0);
+  // The far side of the passage. Content must not exist before the camera has
+  // gone through — a panel appearing mid-flight turns the journey back into a
+  // page load with scenery.
+  const [arrived, setArrived] = useState(!!requestedFacet);
+  const arrivedRef = useRef(!!requestedFacet);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -231,11 +200,20 @@ export default function Landing() {
           )}
 
           {/* 3D SCENE */}
-          <CoreCameraDolly open={!!activeFacet} />
-          <CorePortal open={!!activeFacet} baseScale={isMobile ? 0.65 : 1}>
+          <CoreGateway
+            active={!!activeFacet}
+            baseScale={isMobile ? 0.65 : 1}
+            onApertureChange={(a) => { apertureRef.current = a; setAperture(a); }}
+            onProgress={(p) => {
+              arrivalRef.current = p;
+              // 0.86 of 11s is the moment the camera clears the aperture.
+              const through = p > 0.86;
+              if (through !== arrivedRef.current) { arrivedRef.current = through; setArrived(through); }
+            }}
+          >
             <AxonCore stage={stage} injectionPulseTime={injectionTrigger} experiencePulseTime={experienceTrigger} opening={!!activeFacet} />
             <Shockwave position={isMobile ? [0, 4, 8.5] : [3.5, 0, 8.5]} triggerTime={injectionTrigger} />
-          </CorePortal>
+          </CoreGateway>
 
           {/*
             Was <Environment preset="city" />, which fetches an HDR from a CDN —
@@ -409,9 +387,20 @@ export default function Landing() {
                   </FragmentPanel>
                 </>
               ) : (
+                activeFacet === 'graph' ? (
+                  /* No panel, no inset, no border: the terrain sits directly in
+                     the galaxy the camera just entered. A card around it would
+                     re-announce that this is a webpage, which is the one thing
+                     the passage exists to avoid. */
+                  <div style={{ position: 'absolute', inset: 0, pointerEvents: 'auto', opacity: arrived ? 1 : 0, transition: 'opacity 1.2s ease' }}>
+                    <MemoryGraph asFacet={true} />
+                  </div>
+                ) : (
                 <FragmentPanel
                   style={{
                     position: 'absolute',
+                    opacity: arrived ? 1 : 0,
+                    transition: 'opacity 1.2s ease',
                     top: '8%', bottom: '12%',
                     left: isMobile ? '5%' : '10%', right: isMobile ? '5%' : '10%',
                     pointerEvents: 'auto',
@@ -419,7 +408,7 @@ export default function Landing() {
                     // The terrain runs to the panel's edge; the reading facets
                     // keep their inset. The padding was what drew the inner
                     // rectangle that made it a box inside a box.
-                    padding: activeFacet === 'graph' ? '0' : '24px',
+                    padding: '24px',
                     overflow: 'hidden'
                   }}
                   delay={0.1}
@@ -431,7 +420,6 @@ export default function Landing() {
                       height; the graph fills it, the rest scroll on their own. */}
                   <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
                     {activeFacet === 'dashboard' && <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}><Dashboard asFacet={true} /></div>}
-                    {activeFacet === 'graph' && <MemoryGraph asFacet={true} />}
                     {activeFacet === 'connections' && <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}><ConnectionsFacet /></div>}
                     {activeFacet === 'billing' && (
                       <div style={{ textAlign: 'center', padding: '40px' }}>
@@ -457,6 +445,7 @@ export default function Landing() {
                     )}
                   </div>
                 </FragmentPanel>
+                )
               )}
             </motion.div>
           )}

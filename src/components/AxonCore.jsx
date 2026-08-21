@@ -10,7 +10,7 @@ const REST_EMISSIVE = new THREE.Color('#6d7f96');
 const REST_LIGHT = new THREE.Color('#c8d4e2');
 const REST_WIRE = new THREE.Color('#6f93c4');
 
-export default function AxonCore({ stage = 2, injectionPulseTime = 0, experiencePulseTime = 0, opening = false }) {
+export default function AxonCore({ stage = 2, injectionPulseTime = 0, experiencePulseTime = 0, opening = false, aperture = 0 }) {
   const groupRef = useRef();
   const mountTime = useRef(null);
   const innerCoreMaterialRef = useRef();
@@ -20,6 +20,7 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0, experience
   const cavityWireMaterialRef = useRef();
   const cavitySolidMaterialRef = useRef();
   const goldLightMaterialRef = useRef();
+  const occluderRef = useRef();
   const flashTime = useRef(0);
   const flashStart = useRef(0);
   const extractionTime = useRef(0);
@@ -34,7 +35,7 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0, experience
     cavityGeometry, goldLightGeometry, panelSideGeometry,
     basePositions, targetPositions,
     baseInnerPositions, targetInnerPositions,
-    wireLinks, hatchCentroids, count
+    wireLinks, hatchCentroids, count, aperturePlates
   } = useMemo(() => {
     // Detail 2 -> 3: ~4x the faces, reads as a genuinely faceted crystal up
     // close instead of a low-poly ball with a few dozen visible triangles.
@@ -129,6 +130,42 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0, experience
       }
     }
     
+    // The six plates that open the passage.
+    //
+    // They are not new geometry — they are the six existing faces whose
+    // centroids sit closest to local +Z, which is the side the camera looks at.
+    // Choosing them by direction rather than by index means the opening is a
+    // contiguous patch of the shell, so when they leave, what remains reads as
+    // a hole in the Core rather than six unrelated triangles going missing.
+    const plateCount = Math.floor(count / 3);
+    const axis = new THREE.Vector3(0, 0, 1);
+    const byAlignment = [];
+    for (let plate = 0; plate < plateCount; plate++) {
+      const i = plate * 3;
+      const c = new THREE.Vector3(
+        (basePositionsArr[i * 3] + basePositionsArr[(i + 1) * 3] + basePositionsArr[(i + 2) * 3]) / 3,
+        (basePositionsArr[i * 3 + 1] + basePositionsArr[(i + 1) * 3 + 1] + basePositionsArr[(i + 2) * 3 + 1]) / 3,
+        (basePositionsArr[i * 3 + 2] + basePositionsArr[(i + 1) * 3 + 2] + basePositionsArr[(i + 2) * 3 + 2]) / 3,
+      );
+      byAlignment.push({ plate, dot: c.clone().normalize().dot(axis), centroid: c });
+    }
+    byAlignment.sort((a, b) => b.dot - a.dot);
+
+    // Order is deliberately not the same as adjacency: the release reads as
+    // mechanical rather than as a ripple because neighbours do not follow each
+    // other in sequence.
+    const chosen = byAlignment.slice(0, 6);
+    const releaseOrder = [0, 3, 1, 5, 2, 4];
+    const apertureMap = new Map();
+    chosen.forEach((c, n) => {
+      apertureMap.set(c.plate, {
+        order: releaseOrder[n],
+        dir: c.centroid.clone().normalize(),
+        centroid: c.centroid,
+        spin: (n % 2 === 0 ? 1 : -1) * (0.10 + (n % 3) * 0.045),
+      });
+    });
+
     const outGeo = new THREE.BufferGeometry();
     outGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(basePositionsArr), 3));
     
@@ -252,6 +289,7 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0, experience
       baseInnerPositions: baseInnerPositionsArr, 
       targetInnerPositions: targetInnerPositionsArr,
       wireLinks: links,
+      aperturePlates: apertureMap,
       hatchCentroids: centroids,
       count
     };
@@ -290,9 +328,27 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0, experience
       // the release point faces the camera, and this inner ambient spin
       // would otherwise keep carrying that point away from camera again
       // right after, fighting the very turn CorePortal just made.
-      if (!opening) {
+      if (!opening && aperture <= 0) {
         groupRef.current.rotation.y += 0.0008;
         groupRef.current.rotation.x += 0.0004;
+      } else if (aperture > 0) {
+        // The plates were chosen around local +Z, so returning the shell to its
+        // unrotated orientation is what turns the opening to face the camera.
+        // Eased per-frame rather than set: a massive object settling, not a
+        // value snapping. The drift it has accumulated since load is exactly
+        // what it now has to undo, so the turn is different every time.
+        const k = 1 - Math.pow(0.06, delta);
+        groupRef.current.rotation.x = THREE.MathUtils.lerp(groupRef.current.rotation.x, 0, k);
+        groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, 0, k);
+        groupRef.current.rotation.z = THREE.MathUtils.lerp(groupRef.current.rotation.z, 0, k);
+      }
+
+      if (occluderRef.current) {
+        // Held at full size until the plates are well clear, then pulled in
+        // over the stretch where the camera is actually approaching.
+        const open = THREE.MathUtils.clamp((aperture - 0.55) / 0.45, 0, 1);
+        const shrink = 1 - open * 0.995;
+        occluderRef.current.scale.setScalar(shrink);
       }
 
       if (timeline >= 1.0) {
@@ -416,6 +472,36 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0, experience
         pIn = targetC + (pIn - cVal) * shrink;
       }
 
+      // Aperture release. Each plate has its own start time inside the shared
+      // 0..1, so they unlock one after another instead of the whole patch
+      // letting go at once — the difference between a structure opening and a
+      // panel falling off.
+      if (aperture > 0) {
+        const plate = aperturePlates.get(plateIdx);
+        if (plate) {
+          // Six overlapping windows across the release: plate n starts at
+          // n * 0.11 and takes 0.45 to travel, so the last one is still moving
+          // when the first has settled.
+          const local = THREE.MathUtils.clamp((aperture - plate.order * 0.11) / 0.45, 0, 1);
+          // easeInOutCubic: leaves slowly (it has mass), arrives slowly.
+          const e = local < 0.5 ? 4 * local * local * local : 1 - Math.pow(-2 * local + 2, 3) / 2;
+
+          const axisComp = i % 3 === 0 ? plate.dir.x : (i % 3 === 1 ? plate.dir.y : plate.dir.z);
+          const cComp = i % 3 === 0 ? plate.centroid.x : (i % 3 === 1 ? plate.centroid.y : plate.centroid.z);
+
+          // A few centimetres of unlock first, then a long drift outward and
+          // past the camera, so the plate leaves frame at the edge rather than
+          // vanishing.
+          const travel = e * e * 26 + e * 0.22;
+          const push = axisComp * travel;
+
+          // Slight independent turn about the plate's own centre.
+          const spun = 1 + Math.sin(e * Math.PI) * plate.spin;
+          p = cComp + (p - cComp) * spun + push;
+          pIn = cComp + (pIn - cComp) * spun + push;
+        }
+      }
+
       // If this is the first face (indices 0..8), detach it!
       if (i < 9 && stage >= 4) {
         const isX = i % 3 === 0;
@@ -515,7 +601,11 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0, experience
           />
         </mesh>
         
-        <mesh>
+        {/* The occluder that makes the shell read as solid. It has to give way
+            for the passage to be a passage — otherwise the plates open onto a
+            black wall. It contracts rather than fades, so the Core stays solid
+            right up to the rim of the opening. */}
+        <mesh ref={occluderRef}>
           <sphereGeometry args={[1.75, 32, 32]} />
           <meshBasicMaterial color="#000000" />
         </mesh>
