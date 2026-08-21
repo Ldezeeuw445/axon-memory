@@ -10,7 +10,7 @@ const REST_EMISSIVE = new THREE.Color('#6d7f96');
 const REST_LIGHT = new THREE.Color('#c8d4e2');
 const REST_WIRE = new THREE.Color('#6f93c4');
 
-export default function AxonCore({ stage = 2, injectionPulseTime = 0, experiencePulseTime = 0, opening = false, aperture = 0 }) {
+export default function AxonCore({ stage = 2, injectionPulseTime = 0, experiencePulseTime = 0, opening = false, apertureRef = null }) {
   const groupRef = useRef();
   const mountTime = useRef(null);
   const innerCoreMaterialRef = useRef();
@@ -296,6 +296,10 @@ export default function AxonCore({ stage = 2, injectionPulseTime = 0, experience
   }, []);
 
   useFrame((state, delta) => {
+    // Read per frame from a ref rather than taken as a prop: this changes every
+    // frame of the release, and as state it re-rendered the whole scene tree
+    // sixty times a second.
+    const aperture = apertureRef?.current ?? 0;
     if (mountTime.current === null) mountTime.current = state.clock.elapsedTime;
     const elapsed = state.clock.elapsedTime - mountTime.current;
     

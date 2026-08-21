@@ -23,23 +23,44 @@ const initAudio = () => {
   humOscillator.start();
 };
 
-export const startAmbientHum = () => {
+/**
+ * Sound is decoration; it must never be load-bearing.
+ *
+ * Every one of these calls initAudio() and then uses audioCtx unguarded. If the
+ * AudioContext cannot be created — autoplay policy, no output device, a browser
+ * that refuses outside a trusted gesture — the throw happens inside a click
+ * handler, before the setState calls that follow it. The button then does
+ * nothing at all, and the reason is inaudible by definition.
+ *
+ * Wrapped so a failure costs the tick and nothing else.
+ */
+function silently(fn) {
+  return (...args) => {
+    try {
+      return fn(...args);
+    } catch {
+      return undefined;
+    }
+  };
+}
+
+export const startAmbientHum = silently(() => {
   if (!audioCtx) initAudio();
   if (audioCtx.state === 'suspended') {
     audioCtx.resume();
   }
   // Fade in very slowly
   humGain.gain.setTargetAtTime(0.05, audioCtx.currentTime, 2);
-};
+});
 
-export const stopAmbientHum = () => {
+export const stopAmbientHum = silently(() => {
   if (humGain) {
     // Fade out very slowly
     humGain.gain.setTargetAtTime(0, audioCtx.currentTime, 2);
   }
-};
+});
 
-export const playGlassTick = (weight = 'light') => {
+export const playGlassTick = silently((weight = 'light') => {
   if (!audioCtx) initAudio();
   
   const tickOsc = audioCtx.createOscillator();
@@ -60,9 +81,9 @@ export const playGlassTick = (weight = 'light') => {
   
   tickOsc.start();
   tickOsc.stop(audioCtx.currentTime + 0.1);
-};
+});
 
-export const playAxonChord = () => {
+export const playAxonChord = silently(() => {
   if (!audioCtx) initAudio();
   // Two-note chord (e.g. A4 and E5)
   [440, 659.25].forEach(freq => {
@@ -82,4 +103,4 @@ export const playAxonChord = () => {
     osc.start();
     osc.stop(audioCtx.currentTime + 3);
   });
-};
+});

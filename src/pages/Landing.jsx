@@ -75,7 +75,6 @@ export default function Landing() {
   // Aperture drives geometry inside AxonCore, so it is mirrored in a ref for
   // the frame loop and in state only so React re-renders the prop. Progress
   // stays a ref alone — it changes every frame and nothing renders from it.
-  const [aperture, setAperture] = useState(0);
   const apertureRef = useRef(0);
   const arrivalRef = useRef(0);
   // The far side of the passage. Content must not exist before the camera has
@@ -214,7 +213,7 @@ export default function Landing() {
           <CoreGateway
             active={!!activeFacet}
             baseScale={isMobile ? 0.65 : 1}
-            onApertureChange={(a) => { apertureRef.current = a; setAperture(a); }}
+            apertureRef={apertureRef}
             onProgress={(p) => {
               arrivalRef.current = p;
               // 0.86 of 11s is the moment the camera clears the aperture.
@@ -222,7 +221,7 @@ export default function Landing() {
               if (through !== arrivedRef.current) { arrivedRef.current = through; setArrived(through); }
             }}
           >
-            <AxonCore stage={stage} injectionPulseTime={injectionTrigger} experiencePulseTime={experienceTrigger} opening={!!activeFacet} />
+            <AxonCore stage={stage} injectionPulseTime={injectionTrigger} experiencePulseTime={experienceTrigger} opening={!!activeFacet} apertureRef={apertureRef} />
             <Shockwave position={isMobile ? [0, 4, 8.5] : [3.5, 0, 8.5]} triggerTime={injectionTrigger} />
           </CoreGateway>
 

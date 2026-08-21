@@ -44,7 +44,7 @@ const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) 
  * return. `onProgress` reports 0..1 each frame so the shell can bring its
  * spatial content in as the camera arrives, instead of after a hard cut.
  */
-export default function CoreGateway({ active, children, onApertureChange, onProgress, baseScale = 1 }) {
+export default function CoreGateway({ active, children, apertureRef, onProgress, baseScale = 1 }) {
   const { camera } = useThree();
   const shell = useRef(null);
   // Already inside on mount means the viewer arrived by link — an OAuth
@@ -52,8 +52,8 @@ export default function CoreGateway({ active, children, onApertureChange, onProg
   // would make them sit out eleven seconds of cinema to find out whether their
   // connection worked. The journey is for people who chose to take it.
   const t = useRef(active ? GATEWAY_DURATION : 0);
+  if (apertureRef && apertureRef.current === 0 && active) apertureRef.current = 1;
   const restZ = useRef(null);
-  const lastAperture = useRef(0);
 
   useFrame((_, delta) => {
     if (restZ.current === null) restZ.current = camera.position.z;
@@ -66,11 +66,9 @@ export default function CoreGateway({ active, children, onApertureChange, onProg
     t.current = THREE.MathUtils.clamp(t.current + delta * dir, 0, GATEWAY_DURATION);
     const time = t.current;
 
-    const aperture = span(T.release, time);
-    if (Math.abs(aperture - lastAperture.current) > 0.001) {
-      lastAperture.current = aperture;
-      onApertureChange?.(aperture);
-    }
+    // Written straight into the ref AxonCore reads. No state, no re-render:
+    // this value moves every frame and only geometry consumes it.
+    if (apertureRef) apertureRef.current = span(T.release, time);
 
     // The Core is a fixed object in space for the whole sequence. It never
     // advances on the camera; only the camera moves. Keeping this at a constant
