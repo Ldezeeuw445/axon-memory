@@ -286,15 +286,23 @@ export default function MemoryTerrainMap({
           the dive to cross the surface — "per hub, without moving the
           camera" needs every hub's root standing on its own, all the time.
         */}
-        {engine.hubs.map((hub) => (
+        {/* One column, for the hub that was actually clicked.
+            Every hub used to mount its own, held back only by opacity and a
+            three.js `visible` flag — and drei's Html ignores both, because it
+            renders a real DOM element that has no idea an ancestor Object3D is
+            hidden. So nine sets of cards were live in the document at all
+            times, which is why memories from sources nobody opened were
+            hanging in the sky. Not rendering them is the only thing that
+            actually removes them. */}
+        {selected && (
           <MemorySky
-            key={hub.id}
-            hub={hub}
-            memories={leavesByHub[hub.id] ?? (hub.id === selected?.id ? leafData : [])}
-            surfaceY={engine.heightAt(hub.x, hub.z)}
-            riseRef={hub.id === selected?.id ? diveRef : null}
+            key={selected.id}
+            hub={selected}
+            memories={leavesByHub[selected.id] ?? leafData}
+            surfaceY={engine.heightAt(selected.x, selected.z)}
+            riseRef={diveRef}
           />
-        ))}
+        )}
         <OrbitControls
           ref={controlsRef}
           enablePan={false}

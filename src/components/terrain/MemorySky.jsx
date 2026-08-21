@@ -112,6 +112,9 @@ function MemoryCard({ memory, side, open, onToggle }) {
 
 export default function MemorySky({ hub, memories = [], surfaceY = 0, riseRef = null }) {
   const [openId, setOpenId] = useState(null);
+  // How many cards exist in the DOM. Toggling three.js visibility does nothing
+  // for Html, so the count is state and the cards are conditionally rendered.
+  const [cardCount, setCardCount] = useState(0);
   const lineMat = useRef(null);
   const nodeGroup = useRef(null);
   const shownCards = useRef(-1);
@@ -162,14 +165,12 @@ export default function MemorySky({ hub, memories = [], surfaceY = 0, riseRef = 
         g.scale.setScalar(0.4 + local * 0.6);
       });
 
-      // Cards are DOM, and toggling them every frame thrashes layout. Only the
-      // count of visible ones is tracked, and only changes to it touch the DOM.
-      const cards = Math.floor(THREE.MathUtils.clamp(reach - 0.6, 0, nodes.length));
-      if (cards !== shownCards.current) {
-        shownCards.current = cards;
-        nodeGroup.current.children.forEach((g, i) => {
-          if (g.children[1]) g.children[1].visible = r > 0.25 && i < cards;
-        });
+      // Cards are DOM. Only the count changes state, so a frame that reveals
+      // nothing new costs nothing.
+      const want = r > 0.25 ? Math.floor(THREE.MathUtils.clamp(reach - 0.6, 0, nodes.length)) : 0;
+      if (want !== shownCards.current) {
+        shownCards.current = want;
+        setCardCount(want);
       }
     }
   });
@@ -189,19 +190,19 @@ export default function MemorySky({ hub, memories = [], surfaceY = 0, riseRef = 
               <sphereGeometry args={[0.15, 16, 16]} />
               <meshBasicMaterial color={GOLD} toneMapped={false} transparent opacity={0} />
             </mesh>
-            <group visible={false}>
+            {i < cardCount && (
               <MemoryCard
                 memory={memory}
                 side={side}
                 open={openId === (memory.id ?? i)}
                 onToggle={() => setOpenId((cur) => (cur === (memory.id ?? i) ? null : (memory.id ?? i)))}
               />
-            </group>
+            )}
           </group>
         ))}
       </group>
 
-      {hidden > 0 && (
+      {hidden > 0 && cardCount > 0 && (
         <Html position={[hub.x, surfaceY + RISE + nodes.length * STEP + 1.4, hub.z]} center distanceFactor={13}>
           <div style={{ fontSize: 11, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap' }}>
             + {hidden} MORE
