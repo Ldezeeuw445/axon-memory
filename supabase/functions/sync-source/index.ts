@@ -7,7 +7,7 @@ import { handlePreflight, jsonResponse } from "../_shared/cors.ts";
 import { getUserFromRequest } from "../_shared/auth.ts";
 import { supabaseAdmin } from "../_shared/supabase-admin.ts";
 import { syncOneConnection } from "../_shared/source-sync.ts";
-import { distillForUser } from "../_shared/distill.ts";
+import { distillForUser, lastDistillError } from "../_shared/distill.ts";
 
 Deno.serve(async (req: Request) => {
   const preflight = handlePreflight(req);
@@ -58,7 +58,7 @@ Deno.serve(async (req: Request) => {
   // Both numbers, so "the provider returned nothing" and "we fetched items but
   // stored none" are distinguishable in the UI instead of both reading as 0.
   return jsonResponse(
-    { synced: result.synced, fetched: result.fetched, facts, considered },
+    { synced: result.synced, fetched: result.fetched, facts, considered, distill_error: lastDistillError() },
     { origin },
   );
 });

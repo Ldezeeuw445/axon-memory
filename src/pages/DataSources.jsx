@@ -116,8 +116,11 @@ export default function DataSources({ asFacet }) {
       // exactly like one that never reached the model.
       const facts = res?.facts ?? 0;
       const considered = res?.considered ?? 0;
+      const distillError = res?.distill_error;
       const distilled = considered > 0
-        ? ` Read ${considered} for facts${facts > 0 ? `, learned ${facts}.` : ' — none drawn.'}`
+        ? ` Read ${considered} for facts${
+            facts > 0 ? `, learned ${facts}.` : distillError ? ` — failed: ${distillError}` : ' — none drawn.'
+          }`
         : '';
       setBanner({
         type: synced > 0 ? 'success' : 'info',

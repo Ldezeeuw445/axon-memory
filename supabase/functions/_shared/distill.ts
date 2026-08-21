@@ -13,7 +13,10 @@
  */
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 
-const MODEL = "gemini-2.0-flash";
+// Model names are a moving target — gemini-2.0-flash was retired under us, and
+// the only reason that was findable is that the failure now reaches the UI
+// instead of a log. Whatever replaces this will announce itself the same way.
+const MODEL = "gemini-3.6-flash";
 const BATCH = 40;
 
 export type Fact = {
@@ -48,8 +51,7 @@ Categories, use exactly one per statement:
 - tool: languages, frameworks, services they use
 - decision: a choice they made, and the reason
 
-Return ONLY a JSON array, no prose and no code fence:
-[{"statement": "...", "category": "..."}]`;
+Return a JSON array of {statement, category}.`;
 
 /**
  * Ask the model for facts.
@@ -58,9 +60,18 @@ Return ONLY a JSON array, no prose and no code fence:
  * Collapsing those two into [] is what let a broken model call mark a batch as
  * read — the items were then skipped forever, with nothing to show for them.
  */
+let lastError: string | null = null;
+
+/** The most recent extraction failure, for surfacing rather than only logging. */
+export function lastDistillError(): string | null {
+  return lastError;
+}
+
 async function extractFacts(material: string): Promise<Fact[] | null> {
+  lastError = null;
   const apiKey = Deno.env.get("GEMINI_API_KEY");
   if (!apiKey) {
+    lastError = "GEMINI_API_KEY not set";
     console.error("distill: GEMINI_API_KEY not set");
     return null;
   }
@@ -73,12 +84,36 @@ async function extractFacts(material: string): Promise<Fact[] | null> {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [{ text: `${PROMPT}\n\n---\n\n${material}` }] }],
-          generationConfig: { temperature: 0.2, maxOutputTokens: 1200 },
+          generationConfig: {
+            temperature: 0.2,
+            // 1200 truncated the answer mid-string. Newer models spend part of
+            // this budget before they emit anything, so the cap has to cover
+            // the thinking as well as the output.
+            maxOutputTokens: 8000,
+            // Asking for JSON rather than parsing prose out of a code fence:
+            // the shape is guaranteed by the API instead of by hope.
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "ARRAY",
+              items: {
+                type: "OBJECT",
+                properties: {
+                  statement: { type: "STRING" },
+                  category: {
+                    type: "STRING",
+                    enum: ["identity", "project", "preference", "relationship", "tool", "decision"],
+                  },
+                },
+                required: ["statement", "category"],
+              },
+            },
+          },
         }),
       },
     );
     if (!res.ok) {
-      console.error(`distill: model returned ${res.status}: ${(await res.text()).slice(0, 300)}`);
+      lastError = `model ${res.status}: ${(await res.text()).slice(0, 200)}`;
+      console.error(`distill: ${lastError}`);
       return null;
     }
     const json = await res.json();
@@ -89,18 +124,27 @@ async function extractFacts(material: string): Promise<Fact[] | null> {
     const cleaned = text.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
     const parsed = JSON.parse(cleaned);
     if (!Array.isArray(parsed)) {
-      console.error(`distill: model did not return an array: ${cleaned.slice(0, 200)}`);
+      lastError = `not an array: ${cleaned.slice(0, 150)}`;
+      console.error(`distill: ${lastError}`);
       return null;
     }
 
-    return parsed
+    const kept = parsed
       .filter((f): f is Fact =>
         f && typeof f.statement === "string" &&
         f.statement.trim().length > 8 && f.statement.length < 400 &&
         typeof f.category === "string" && CATEGORIES.has(f.category))
       .slice(0, 12)
       .map((f) => ({ statement: f.statement.trim(), category: f.category }));
+
+    // "The model said nothing" and "the model said things I threw away" are
+    // different problems and were indistinguishable from the outside.
+    if (kept.length === 0) {
+      lastError = `model returned ${parsed.length}, kept 0 — ${cleaned.slice(0, 140)}`;
+    }
+    return kept;
   } catch (err) {
+    lastError = String(err instanceof Error ? err.message : err).slice(0, 200);
     console.error("distill: extraction failed", err);
     return null;
   }
