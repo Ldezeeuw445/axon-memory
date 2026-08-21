@@ -100,7 +100,14 @@ export default function CoreGateway({ active, children, apertureRef, onProgress,
     // to look back at what they just went through.
     camera.lookAt(0, 0, camera.position.z - 10);
 
-    onProgress?.(time / GATEWAY_DURATION);
+    // Reported as a fact about where the camera is, not as a fraction of the
+    // timeline. The Core's shell has a radius of about 2, so once the camera is
+    // past -4.5 it is behind the viewer with clearance — whatever the easing
+    // does, and whatever the timings get retuned to later. A hard-coded moment
+    // like "0.86 of the way through" silently stops being true the first time
+    // anyone touches the phase table.
+    const pastCore = camera.position.z < -4.5;
+    onProgress?.(time / GATEWAY_DURATION, pastCore);
   });
 
   return <group ref={shell} scale={baseScale}>{children}</group>;

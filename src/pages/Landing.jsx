@@ -82,6 +82,8 @@ export default function Landing() {
   // page load with scenery.
   const [arrived, setArrived] = useState(!!requestedFacet);
   const arrivedRef = useRef(!!requestedFacet);
+  const [facetMounted, setFacetMounted] = useState(!!requestedFacet);
+  const mountedRef = useRef(!!requestedFacet);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -214,10 +216,15 @@ export default function Landing() {
             active={!!activeFacet}
             baseScale={isMobile ? 0.65 : 1}
             apertureRef={apertureRef}
-            onProgress={(p) => {
+            onProgress={(p, through) => {
               arrivalRef.current = p;
-              // 0.86 of 11s is the moment the camera clears the aperture.
-              const through = p > 0.86;
+              // Mounted well before it is shown. Building the terrain is the
+              // most expensive thing in the sequence, and doing it at the
+              // moment of arrival put a stutter exactly where the motion had to
+              // be smoothest. It now happens mid-flight, behind the Core, where
+              // a dropped frame is invisible.
+              if (p > 0.4 && !mountedRef.current) { mountedRef.current = true; setFacetMounted(true); }
+              if (p === 0 && mountedRef.current) { mountedRef.current = false; setFacetMounted(false); }
               if (through !== arrivedRef.current) { arrivedRef.current = through; setArrived(through); }
             }}
           >
@@ -397,7 +404,7 @@ export default function Landing() {
                   </FragmentPanel>
                 </>
               ) : (
-                activeFacet === 'graph' ? (
+                !facetMounted ? null : activeFacet === 'graph' ? (
                   /* No panel, no inset, no border: the terrain sits directly in
                      the galaxy the camera just entered. A card around it would
                      re-announce that this is a webpage, which is the one thing
