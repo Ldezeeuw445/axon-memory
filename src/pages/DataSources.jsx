@@ -6,12 +6,14 @@ import { callFunction } from '../lib/functions';
 import { useAuth } from '../contexts/AuthContext';
 import { DATA_SOURCES } from '../lib/logos';
 
-// The 4 providers with a real OAuth backend (oauth-start / sync-source /
-// disconnect-source Edge Functions, source_connections table). Everything
-// else in DATA_SOURCES (linear, google_drive, apple_notes, obsidian) has no
-// backend support yet and is honestly shown as "Coming soon" rather than a
-// simulated connection.
-const REAL_PROVIDER_IDS = ['gmail', 'github', 'notion', 'slack'];
+// The providers with a real OAuth backend (oauth-start / sync-source /
+// disconnect-source Edge Functions, source_connections table). Everything else
+// in DATA_SOURCES (google_drive, apple_notes, obsidian) has no backend support
+// yet and is honestly shown as "Coming soon" rather than a simulated
+// connection. Apple Notes and Obsidian are local by nature — there is no server
+// to authorise against — so they need something running on the machine rather
+// than another OAuth flow.
+const REAL_PROVIDER_IDS = ['gmail', 'github', 'notion', 'slack', 'linear'];
 
 function timeAgo(iso) {
   if (!iso) return 'Never';

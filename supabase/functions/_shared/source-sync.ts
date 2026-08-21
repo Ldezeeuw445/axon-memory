@@ -197,6 +197,80 @@ async function syncGithub(token: string): Promise<MemoryDraft[]> {
   return drafts.slice(0, GITHUB_MAX_ITEMS);
 }
 
+/**
+ * Linear speaks GraphQL, so one request brings back issues with the fields that
+ * make them worth remembering — state, team, assignee, and the description.
+ *
+ * Ordered by last update rather than creation: an issue someone is still moving
+ * is more use to an assistant than an old one that happens to be newer on the
+ * clock.
+ */
+async function syncLinear(token: string): Promise<MemoryDraft[]> {
+  const query = `
+    query RecentIssues($first: Int!) {
+      issues(first: $first, orderBy: updatedAt) {
+        nodes {
+          id
+          identifier
+          title
+          description
+          url
+          updatedAt
+          priorityLabel
+          state { name type }
+          team { key name }
+          assignee { displayName }
+          labels(first: 5) { nodes { name } }
+        }
+      }
+    }`;
+
+  const res = await fetch("https://api.linear.app/graphql", {
+    method: "POST",
+    headers: {
+      // Linear takes the OAuth token bare, without a Bearer prefix.
+      Authorization: token,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ query, variables: { first: PAGE_SIZE * 2 } }),
+  });
+  if (!res.ok) throw new Error(`linear graphql failed: ${res.status}`);
+
+  const json = await res.json();
+  // GraphQL answers 200 with an errors array, so a failure here looks like
+  // success unless it is checked for explicitly.
+  if (json?.errors?.length) {
+    throw new Error(`linear: ${json.errors[0]?.message ?? "graphql error"}`);
+  }
+
+  const nodes = json?.data?.issues?.nodes ?? [];
+  return nodes.map((n: Record<string, any>) => {
+    const labels = (n.labels?.nodes ?? []).map((l: { name: string }) => l.name);
+    const parts = [
+      n.description,
+      n.state?.name && `Status: ${n.state.name}`,
+      n.assignee?.displayName && `Assigned to: ${n.assignee.displayName}`,
+      n.priorityLabel && `Priority: ${n.priorityLabel}`,
+      labels.length && `Labels: ${labels.join(", ")}`,
+    ].filter(Boolean);
+
+    return {
+      external_id: n.id,
+      title: `${n.identifier}: ${n.title}`,
+      content: parts.join("\n"),
+      content_type: "issue" as const,
+      occurred_at: n.updatedAt ?? new Date().toISOString(),
+      entities: labels,
+      metadata: {
+        url: n.url,
+        team: n.team?.key,
+        state: n.state?.name,
+        state_type: n.state?.type,
+      },
+    };
+  });
+}
+
 async function syncNotion(token: string): Promise<MemoryDraft[]> {
   const res = await fetch("https://api.notion.com/v1/search", {
     method: "POST",
@@ -284,6 +358,7 @@ export async function syncOneConnection(
       if (conn.provider === "github") return await syncGithub(t);
       if (conn.provider === "notion") return await syncNotion(t);
       if (conn.provider === "slack") return await syncSlack(t);
+      if (conn.provider === "linear") return await syncLinear(t);
       return [];
     };
 

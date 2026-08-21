@@ -116,6 +116,15 @@ Deno.serve(async (req: Request) => {
         label = tokens.team?.name ?? null;
       } else if (provider === "notion") {
         label = tokens.workspace_name ?? null;
+      } else if (provider === "linear") {
+        // Linear names the organisation, not the person — which is the useful
+        // label here, since that is what the issues belong to.
+        const r = await fetch("https://api.linear.app/graphql", {
+          method: "POST",
+          headers: { Authorization: accessToken, "Content-Type": "application/json" },
+          body: JSON.stringify({ query: "{ organization { name } }" }),
+        });
+        if (r.ok) label = (await r.json())?.data?.organization?.name ?? null;
       }
     } catch {
       // non-fatal

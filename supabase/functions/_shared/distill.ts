@@ -195,7 +195,26 @@ async function distillBatch(
     .map((it) => `[${it.source_type}] ${it.title ?? ""}\n${(it.content ?? "").slice(0, 900)}`)
     .join("\n\n---\n\n");
 
-  const facts = await extractFacts(material);
+  // What is already known goes in with the material. Deduplication happens on
+  // exact text, so without this the model restates the same thing in different
+  // words every run — "Uses Supabase for database operations" alongside "Uses
+  // Supabase for backend database services" — and a profile that should settle
+  // instead grows forever.
+  const { data: existing } = await admin
+    .from("memory_facts")
+    .select("statement")
+    .eq("user_id", userId)
+    .is("superseded_at", null)
+    .order("last_confirmed_at", { ascending: false })
+    .limit(80);
+
+  const known = (existing ?? []).map((f) => `- ${f.statement}`).join("\n");
+  const withKnown = known
+    ? `${material}\n\n---\n\nAlready known about this person. Do not restate any of these, ` +
+      `even in different words. Only add what is genuinely new:\n${known}`
+    : material;
+
+  const facts = await extractFacts(withKnown);
   const ids = items.map((it) => it.id);
 
   // A failed attempt leaves the batch untouched so the next run tries it again.

@@ -31,8 +31,8 @@ const MAPPED_SOURCES = [
   { id: 'grok', name: 'GROK', icon: AI_PROVIDERS.find((s) => s.id === 'grok')?.Logo, type: 'ai' },
 ];
 
-// The four providers with a real OAuth backend (source_connections).
-const REAL_SOURCE_IDS = ['gmail', 'github', 'notion', 'slack'];
+// The providers with a real OAuth backend (source_connections).
+const REAL_SOURCE_IDS = ['gmail', 'github', 'notion', 'slack', 'linear'];
 
 // An MCP client names itself when it registers (client_name), so a connected
 // adapter can be matched back to its summit. Without this the terrain had one

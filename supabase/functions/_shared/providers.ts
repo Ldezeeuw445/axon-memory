@@ -62,6 +62,28 @@ export const PROVIDERS: Record<
     clientSecret: Deno.env.get("GITHUB_OAUTH_CLIENT_SECRET") ?? "",
     scopes: "repo read:user",
   },
+  linear: {
+    authorizeUrl: (state) => {
+      const params = new URLSearchParams({
+        client_id: Deno.env.get("LINEAR_OAUTH_CLIENT_ID") ?? "",
+        redirect_uri: redirectUri(),
+        response_type: "code",
+        // Read-only. AXON is a memory layer; it has no reason to be able to
+        // change someone's issues, and asking for less is the difference
+        // between a connector people install and one they think twice about.
+        scope: "read",
+        // Linear only returns a refresh token when this is asked for.
+        prompt: "consent",
+        actor: "user",
+        state,
+      });
+      return `https://linear.app/oauth/authorize?${params}`;
+    },
+    tokenUrl: "https://api.linear.app/oauth/token",
+    clientId: Deno.env.get("LINEAR_OAUTH_CLIENT_ID") ?? "",
+    clientSecret: Deno.env.get("LINEAR_OAUTH_CLIENT_SECRET") ?? "",
+    scopes: "read",
+  },
   notion: {
     authorizeUrl: (state) => {
       const params = new URLSearchParams({
