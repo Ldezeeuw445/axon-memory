@@ -273,6 +273,7 @@ export default function MemoryTerrainMap({
                landscape — which is the clutter, not the depth. They fade as the
                camera leaves the ground. */
             showLeafLabels={showLeafLabels && !aloft}
+            riseRef={diveRef}
           />
         </RiseIn>
         <Stars radius={100} depth={50} count={isMobile ? 1200 : 3000} factor={3} saturation={0} fade speed={0.3} />

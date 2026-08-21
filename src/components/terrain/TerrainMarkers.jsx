@@ -5,7 +5,7 @@
  *
  * Ported unchanged from AXE CORE HQ.
  */
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Html, QuadraticBezierLine } from '@react-three/drei';
@@ -41,7 +41,7 @@ export function computeLeafRing(hub, leaves, engine) {
   });
 }
 
-function HubBeacon({ hub, engine, glowTex, hovered, selected, dimmed, onSelect, onHover }) {
+function HubBeacon({ hub, engine, glowTex, hovered, selected, dimmed, onSelect, onHover, labelFade = 1 }) {
   const peakY = useMemo(() => engine.heightAt(hub.x, hub.z), [hub, engine]);
   const beamH = 1.5 + hub.height * 0.4;
   const spriteRef = useRef(null);
@@ -119,7 +119,7 @@ function HubBeacon({ hub, engine, glowTex, hovered, selected, dimmed, onSelect, 
           position={[0, 2.6, 0]}
           distanceFactor={30}
           zIndexRange={[40, 0]}
-          style={{ pointerEvents: 'none', opacity: dimmed ? 0.25 : 1, transition: 'opacity 0.4s ease' }}
+          style={{ pointerEvents: 'none', opacity: (dimmed ? 0.25 : 1) * labelFade, transition: 'opacity 0.4s ease' }}
         >
           <div
             style={{
@@ -346,6 +346,32 @@ export function TerrainCameraRig({
   return null;
 }
 
+/**
+ * Takes the whole terrain layer out together as the camera climbs.
+ *
+ * Fading the ground but leaving every summit's icon, label and beam standing is
+ * what made the sky read as cluttered: you had left the landscape and it was
+ * still hanging there in front of the column. Materials are scaled from their
+ * own starting opacity, so nothing needs to know in advance what it was set to.
+ */
+function FadeWithRise({ riseRef, children }) {
+  const group = useRef(null);
+  useFrame(() => {
+    if (!group.current) return;
+    const r = riseRef?.current ?? 0;
+    const clear = 1 - r * r;
+    group.current.visible = clear > 0.012;
+    group.current.traverse((o) => {
+      const m = o.material;
+      if (!m || typeof m.opacity !== 'number') return;
+      if (o.userData.baseOpacity === undefined) o.userData.baseOpacity = m.opacity;
+      m.transparent = true;
+      m.opacity = o.userData.baseOpacity * clear;
+    });
+  });
+  return <group ref={group}>{children}</group>;
+}
+
 export default function TerrainMarkers({
   engine,
   selected,
@@ -355,10 +381,25 @@ export default function TerrainMarkers({
   onSelectHub,
   onSelectLeaf,
   showLeafLabels,
+  riseRef = null,
 }) {
   const glowTex = useMemo(() => makeGlowTexture(), []);
+  const [clear, setClear] = useState(1);
+
+  // Html labels are DOM and never see a material, so they follow the same curve
+  // through a state value — stepped, not per frame, so this does not re-render
+  // the tree sixty times a second.
+  useFrame(() => {
+    const r = riseRef?.current ?? 0;
+    const next = Math.round((1 - r * r) * 10) / 10;
+    if (next !== clear) setClear(next);
+  });
+
+  if (clear <= 0.001) return null;
+
   return (
-    <group>
+    <FadeWithRise riseRef={riseRef}>
+      <group>
       {engine.hubs
         .filter((hub) => !hub.decorative)
         .map((hub) => (
@@ -369,6 +410,7 @@ export default function TerrainMarkers({
             glowTex={glowTex}
             hovered={hoveredId === hub.id}
             selected={selected?.id === hub.id}
+            labelFade={clear}
             dimmed={!!selected && selected.id !== hub.id}
             onSelect={onSelectHub}
             onHover={onHover}
@@ -384,6 +426,7 @@ export default function TerrainMarkers({
           onSelectLeaf={onSelectLeaf}
         />
       )}
-    </group>
+      </group>
+    </FadeWithRise>
   );
 }
