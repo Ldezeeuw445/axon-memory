@@ -9,7 +9,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Html, QuadraticBezierLine } from '@react-three/drei';
-import { RISE as SKY_RISE, COLUMN_HEIGHT as SKY_COLUMN_HEIGHT } from './MemorySky';
+import { RISE as SKY_RISE, STEP as SKY_STEP } from './MemorySky';
 import { makeGlowTexture } from './terrainEngine';
 
 const beamVertex = `
@@ -329,9 +329,14 @@ export function TerrainCameraRig({
         // Aimed at the middle of the column rather than at a point below it, so
         // that when control is handed back, orbiting turns around the thing
         // being read instead of swinging it through frame.
+        // A column is now as tall as its source is large, so framing its centre
+        // would put a big source far enough away to be a smear. The arrival
+        // frames the oldest end instead — the thread reads bottom-up, so that
+        // is where it starts — close enough to read, and the viewer travels up
+        // it from there.
         const peakY = engine.heightAt(selected.x, selected.z);
-        const centreY = peakY + SKY_RISE + SKY_COLUMN_HEIGHT / 2;
-        const back = 44;
+        const centreY = peakY + SKY_RISE + SKY_STEP * 7;
+        const back = 26;
 
         camera.position.y = THREE.MathUtils.lerp(diveBase.current.camY, centreY, rise);
         camera.position.x = THREE.MathUtils.lerp(diveBase.current.camX, selected.x, rise);

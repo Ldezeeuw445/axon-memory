@@ -308,14 +308,19 @@ export default function MemoryTerrainMap({
         )}
         <OrbitControls
           ref={controlsRef}
-          enablePan={false}
+          /* Panning is off over the landscape, where it only loses you. Along a
+             column that runs the length of a source, it is the one control that
+             lets you travel from the first memory to the last. */
+          enablePan={aloft}
           enableDamping
           dampingFactor={0.08}
           /* On the ground these frame a landscape. Around the column they only
              get in the way: 5 is too far out to read a single node, and 58 is
              not enough to see a tall column whole. */
           minDistance={aloft ? 1.6 : 5}
-          maxDistance={aloft ? 120 : 58}
+          /* Far enough out to take in a long thread whole — the length of it is
+             how much is stored — and close enough in to read one card. */
+          maxDistance={aloft ? 420 : 58}
           /* On the ground this stops the camera dropping under the landscape.
              Around a column standing in open sky there is nothing to clip
              through, and the limit only prevents looking at it from below. */

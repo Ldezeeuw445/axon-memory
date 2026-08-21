@@ -24,54 +24,56 @@ import * as THREE from 'three';
 const GOLD = '#ffb02e';
 const GOLD_DIM = '#7a4f10';
 
-// Every memory a source holds gets a node. What has to give instead is the
-// spacing: a hundred and sixty at a fixed step would be a column three hundred
-// units tall that you could only ever see a slice of.
-// Well clear of the peaks. At 3.4 the first nodes sat in among the summits and
-// the column had to compete with the landscape it came out of; up here it
-// stands in open sky with nothing behind it, which is the whole point of going
-// up rather than down.
-export const RISE = 22;  // clearance above the summit before the first node
-const STEP_MAX = 1.62;   // spacing for a handful of memories
-export const COLUMN_HEIGHT = 46; // the tallest a column gets, however many it holds
-const TWIST = 0.78;      // radians of rotation per step at full spacing
-const RADIUS = 2.15;     // how far each node stands off the axis
+// Well clear of the peaks: lower down, the first nodes sat in among the summits
+// and the column competed with the landscape it came out of.
+export const RISE = 22;
+
+// Spacing is fixed, and a column is as long as its source is large. Squeezing a
+// hundred and sixty memories into a set height put the nodes 0.28 apart while a
+// card is many times that tall, so they stacked on each other and became
+// unreadable at exactly the scale where reading them is the point. A long
+// thread is not a problem to compress away — its length is the honest picture
+// of how much is stored.
+export const STEP = 1.62;
+
+const TWIST = 0.22;  // a slow lean for depth, not a spiral
+const RADIUS = 2.4;  // how far each node stands off the axis
 
 // Cards are DOM and cost real layout, and a hundred at once is unreadable
-// anyway. The nodes nearest whatever the viewer is looking at get one; the rest
-// stay as points on the thread until you move to them.
-const CARDS_IN_VIEW = 10;
+// whatever the machine can manage. The nodes nearest the camera carry one; the
+// rest stay as points on the thread until you travel to them.
+const CARDS_IN_VIEW = 14;
 
 /**
- * Oldest at the bottom, newest at the top, on a slow helix.
+ * Oldest at the bottom, newest at the top.
  *
- * A straight vertical line would overlap its own cards; a helix separates them
- * in depth while keeping a single readable direction of travel. The radius eases
- * outward slightly so the base reads tighter than the top — the thread widening
- * as it accumulates.
+ * Cards alternate strictly left and right by index, which is what keeps
+ * neighbours from colliding — the previous version took the side from the helix
+ * angle, so runs of consecutive cards landed on the same side, and those were
+ * exactly the ones close enough together to overlap.
  */
 function layout(memories, origin) {
   const n = memories.length;
-  // Compressed only as far as it has to be. A short column keeps generous
-  // spacing; a long one tightens until it fits, so the whole source is one
-  // object you can take in rather than a scroll you have to fly along.
-  const step = n > 1 ? Math.min(STEP_MAX, COLUMN_HEIGHT / (n - 1)) : STEP_MAX;
-  // The twist keeps pace with the spacing, or a compressed column would wind
-  // so fast it reads as noise.
-  const twist = TWIST * (step / STEP_MAX) * 3.2;
   return memories.map((m, i) => {
     const t = n > 1 ? i / (n - 1) : 0;
-    const angle = i * twist;
-    const r = RADIUS * (0.72 + t * 0.5);
+    // Sides alternate strictly by index, so no two neighbouring cards ever
+    // occupy the same half of the screen. Under the old helix the side came
+    // from the angle, which left runs of consecutive cards on one side —
+    // exactly the ones close enough together to collide.
+    const side = i % 2 === 0 ? 1 : -1;
+    // A slow lean rather than a spiral: enough to give the thread depth and
+    // keep it from reading as a flat list, not enough to wind out of frame.
+    const angle = i * TWIST;
+    const r = RADIUS * (0.85 + t * 0.3);
     return {
       memory: m,
       index: i,
       position: new THREE.Vector3(
-        origin.x + Math.cos(angle) * r,
-        origin.y + RISE + i * step,
+        origin.x + side * r,
+        origin.y + RISE + i * STEP,
         origin.z + Math.sin(angle) * r,
       ),
-      side: Math.cos(angle) >= 0 ? 1 : -1,
+      side,
     };
   });
 }
