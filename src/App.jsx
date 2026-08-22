@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Link, useLocation, Navigate } from 'react
 import { LayoutDashboard, Network, Plug, Zap, FileText, Settings as SettingsIcon, User, Database, LogOut } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import { isAppHost, APP_HOME } from './lib/host';
 
 import Landing from './pages/Landing';
 import Login from './pages/Login';
@@ -88,7 +89,14 @@ function AppShell() {
         <Sidebar />
         <main className="main-content">
           <Routes>
-            <Route path="/" element={<Landing />} />
+            {/* "/" means different things on the two domains this build
+                serves. On app.axon-memory.com the icon on someone's home
+                screen has to open the PRODUCT — landing on a marketing page
+                after tapping an installed app is the wrong answer. On the
+                apex it is the marketing page, which is the point of it.
+                ProtectedRoute sends you to /login from here if you are not
+                signed in, which is the correct next step either way. */}
+            <Route path="/" element={isAppHost() ? <Navigate to={APP_HOME} replace /> : <Landing />} />
             <Route path="/login" element={<Login />} />
             <Route
               path="/onboarding"
