@@ -2,7 +2,14 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover lets the app paint behind the status bar and the
+         gesture pill instead of sitting in letterboxes. The layout then has to
+         respect env(safe-area-inset-*), which index.css does. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- Standalone display on iOS; Android takes this from the manifest. -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="AXON" />
     <title>AXON — One memory layer. Every AI you use.</title>
     <meta name="description" content="AXON connects Gmail, GitHub, Notion, and Slack into one persistent, encrypted memory graph — then feeds ChatGPT, Claude, Gemini, and Cursor the exact context they need. For $5 a month." />
     <meta name="theme-color" content="#030305" />
