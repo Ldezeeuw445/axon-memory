@@ -2,10 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "axon-landing",
+      "name": "landing-banner",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--prefix", "landing", "--", "--port", "4321"],
-      "port": 4321
+      "runtimeArgs": ["--prefix", "landing", "run", "dev", "--", "--port", "5178", "--strictPort"],
+      "port": 5178
     }
   ]
 }
