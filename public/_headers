@@ -1,0 +1,11 @@
+# Hashed filenames can be cached hard and forever; the name changes when the
+# content does.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# index.html must not be, or a browser keeps pointing at the previous build's
+# assets after a deploy.
+/
+  Cache-Control: no-cache
+/index.html
+  Cache-Control: no-cache

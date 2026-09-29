@@ -5,10 +5,17 @@
 //   supabase secrets set SLACK_OAUTH_CLIENT_ID=... SLACK_OAUTH_CLIENT_SECRET=...
 export type Provider = "gmail" | "github" | "notion" | "slack";
 
-function redirectUri(provider: Provider) {
+export function redirectUri() {
   // Edge Functions are reachable at <project-url>/functions/v1/<fn-name>.
+  //
+  // Deliberately no query string. Every provider requires the redirect URI to
+  // match what is registered byte for byte, and a `?provider=` suffix meant
+  // four separate URIs to register, each an opportunity for a mismatch that
+  // surfaces only as a generic redirect_uri_mismatch. Which provider it is
+  // comes out of the signed `state` instead — that is also the safer source,
+  // since a query parameter is attacker-controllable and the state is not.
   const projectUrl = Deno.env.get("SUPABASE_URL")!;
-  return `${projectUrl}/functions/v1/oauth-callback?provider=${provider}`;
+  return `${projectUrl}/functions/v1/oauth-callback`;
 }
 
 export const PROVIDERS: Record<
@@ -26,7 +33,7 @@ export const PROVIDERS: Record<
     authorizeUrl: (state) => {
       const params = new URLSearchParams({
         client_id: Deno.env.get("GOOGLE_OAUTH_CLIENT_ID") ?? "",
-        redirect_uri: redirectUri("gmail"),
+        redirect_uri: redirectUri(),
         response_type: "code",
         access_type: "offline",
         prompt: "consent",
@@ -44,7 +51,7 @@ export const PROVIDERS: Record<
     authorizeUrl: (state) => {
       const params = new URLSearchParams({
         client_id: Deno.env.get("GITHUB_OAUTH_CLIENT_ID") ?? "",
-        redirect_uri: redirectUri("github"),
+        redirect_uri: redirectUri(),
         scope: "repo read:user",
         state,
       });
@@ -55,11 +62,33 @@ export const PROVIDERS: Record<
     clientSecret: Deno.env.get("GITHUB_OAUTH_CLIENT_SECRET") ?? "",
     scopes: "repo read:user",
   },
+  linear: {
+    authorizeUrl: (state) => {
+      const params = new URLSearchParams({
+        client_id: Deno.env.get("LINEAR_OAUTH_CLIENT_ID") ?? "",
+        redirect_uri: redirectUri(),
+        response_type: "code",
+        // Read-only. AXON is a memory layer; it has no reason to be able to
+        // change someone's issues, and asking for less is the difference
+        // between a connector people install and one they think twice about.
+        scope: "read",
+        // Linear only returns a refresh token when this is asked for.
+        prompt: "consent",
+        actor: "user",
+        state,
+      });
+      return `https://linear.app/oauth/authorize?${params}`;
+    },
+    tokenUrl: "https://api.linear.app/oauth/token",
+    clientId: Deno.env.get("LINEAR_OAUTH_CLIENT_ID") ?? "",
+    clientSecret: Deno.env.get("LINEAR_OAUTH_CLIENT_SECRET") ?? "",
+    scopes: "read",
+  },
   notion: {
     authorizeUrl: (state) => {
       const params = new URLSearchParams({
         client_id: Deno.env.get("NOTION_OAUTH_CLIENT_ID") ?? "",
-        redirect_uri: redirectUri("notion"),
+        redirect_uri: redirectUri(),
         response_type: "code",
         owner: "user",
         state,
@@ -75,8 +104,15 @@ export const PROVIDERS: Record<
     authorizeUrl: (state) => {
       const params = new URLSearchParams({
         client_id: Deno.env.get("SLACK_OAUTH_CLIENT_ID") ?? "",
-        redirect_uri: redirectUri("slack"),
-        scope: "channels:history,channels:read,groups:history,users:read,team:read",
+        redirect_uri: redirectUri(),
+        // source-sync.ts's conversations.list asks for BOTH public and
+        // private channels (types=public_channel,private_channel). Slack
+        // gates each channel type behind its own read scope — channels:read
+        // only covers the public_channel half of that request. groups:read
+        // was missing, so listing ever failed the moment a private channel
+        // was in scope, before sync got anywhere near groups:history (which
+        // only covers reading messages in a channel already listed).
+        scope: "channels:history,channels:read,groups:history,groups:read,users:read,team:read",
         user_scope: "",
         state,
       });
@@ -85,8 +121,7 @@ export const PROVIDERS: Record<
     tokenUrl: "https://slack.com/api/oauth.v2.access",
     clientId: Deno.env.get("SLACK_OAUTH_CLIENT_ID") ?? "",
     clientSecret: Deno.env.get("SLACK_OAUTH_CLIENT_SECRET") ?? "",
-    scopes: "channels:history,channels:read,groups:history,users:read,team:read",
+    scopes: "channels:history,channels:read,groups:history,groups:read,users:read,team:read",
   },
 };
 
-export { redirectUri };

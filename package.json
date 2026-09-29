@@ -12,11 +12,17 @@
     "smoke-test": "node scripts/smoke-test.mjs"
   },
   "dependencies": {
+    "@react-three/drei": "^10.7.8",
+    "@react-three/fiber": "^9.7.0",
+    "@react-three/postprocessing": "^3.0.5",
+    "@supabase/supabase-js": "^2.109.0",
+    "framer-motion": "^13.0.0",
     "lucide-react": "^1.27.0",
+    "postprocessing": "^6.39.4",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.18.2",
-    "@supabase/supabase-js": "^2.45.0"
+    "three": "^0.185.1"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",

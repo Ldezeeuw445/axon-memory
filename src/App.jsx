@@ -1,201 +1,85 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
-import { LayoutDashboard, Network, Plug, Zap, FileText, Settings as SettingsIcon, User, Database, LogOut } from 'lucide-react';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
-import { isAppHost, APP_HOME } from './lib/host';
+import { AuthProvider } from './contexts/AuthContext';
 
+import Splash from './pages/Splash';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Onboarding from './pages/Onboarding';
 import Dashboard from './pages/Dashboard';
-import MemoryGraph from './pages/MemoryGraph';
-import AIAdapters from './pages/AIAdapters';
 import DataSources from './pages/DataSources';
+import AIAdapters from './pages/AIAdapters';
+import ConnectionsFacet from './pages/ConnectionsFacet';
+import MemoryGraph from './pages/MemoryGraph';
+import Settings from './pages/Settings';
 import Subscription from './pages/Subscription';
-import BusinessDocs from './pages/BusinessDocs';
-import SettingsPage from './pages/Settings';
-import AdminAlerts from './pages/AdminAlerts';
 import ConnectAuthorize from './pages/ConnectAuthorize';
 import ConnectError from './pages/ConnectError';
+import BusinessDocs from './pages/BusinessDocs';
+import Privacy from './pages/Privacy';
+import Terms from './pages/Terms';
 import NotFound from './pages/NotFound';
-import './App.css';
 
-const PUBLIC_ROUTES = ['/', '/login'];
+/** Sends a legacy route into the shell, preserving any query the callback added. */
+function FacetRedirect({ facet }) {
+  const q = new URLSearchParams(window.location.search);
+  q.set('facet', facet);
+  return <Navigate to={`/?${q.toString()}`} replace />;
+}
 
-function Sidebar() {
-  const location = useLocation();
-  const { profile, signOut } = useAuth();
-
-  if (PUBLIC_ROUTES.includes(location.pathname) || location.pathname === '/onboarding' || location.pathname.startsWith('/connect/')) return null;
-
-  const links = [
-    { to: '/dashboard', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
-    { to: '/graph', icon: <Network size={20} />, label: 'Memory Graph' },
-    { to: '/sources', icon: <Database size={20} />, label: 'Data Sources' },
-    { to: '/adapters', icon: <Plug size={20} />, label: 'AI Adapters' },
-    { to: '/subscription', icon: <Zap size={20} />, label: 'Subscription' },
-    { to: '/docs', icon: <FileText size={20} />, label: 'Business Docs' },
-    { to: '/settings', icon: <SettingsIcon size={20} />, label: 'Settings' },
-  ];
-
-  const tierLabels = { starter: 'Starter', pro: 'Pro', ultra: 'Ultra', lifetime_founder: 'Lifetime' };
-  const planLabel = `${tierLabels[profile?.plan_tier] || 'Starter'} Plan`;
-
+function AppLayout() {
   return (
-    <div className="sidebar glass-card">
-      <div className="sidebar-logo">
-        <Link to="/dashboard" style={{ textDecoration: 'none' }}>
-          <h2 className="gradient-text">AXON</h2>
-        </Link>
-      </div>
-      <nav className="sidebar-nav">
-        {links.map((link) => (
-          <Link
-            key={link.to}
-            to={link.to}
-            className={`nav-link ${location.pathname === link.to ? 'active' : ''}`}
-          >
-            {link.icon}
-            <span>{link.label}</span>
-          </Link>
-        ))}
-      </nav>
-      <div className="sidebar-footer">
-        <div className="user-profile">
-          <div className="avatar"><User size={16} /></div>
-          <div className="user-info">
-            <span className="name">{profile?.full_name || profile?.email || 'Loading…'}</span>
-            <span className="plan gradient-text">{planLabel}</span>
-          </div>
-          <button
-            onClick={signOut}
-            title="Sign out"
-            style={{ background: 'none', border: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer', marginLeft: 'auto' }}
-          >
-            <LogOut size={16} />
-          </button>
+    <AuthProvider>
+      <BrowserRouter>
+        <div className="full-screen">
+          <ErrorBoundary>
+            <Routes>
+              {/* Public */}
+              <Route path="/" element={<Landing />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/docs" element={<BusinessDocs />} />
+
+              {/* MCP OAuth consent — reached from an external AI tool's
+                  browser, so it must stay reachable pre-auth; ProtectedRoute
+                  preserves the full path+query through a login round trip. */}
+              <Route path="/connect/authorize" element={<ProtectedRoute><ConnectAuthorize /></ProtectedRoute>} />
+              <Route path="/connect/error" element={<ConnectError />} />
+
+              {/* App (authenticated) */}
+              <Route path="/splash" element={<ProtectedRoute><Splash /></ProtectedRoute>} />
+              <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
+              {/* One surface only. These used to render a second, plainer copy of
+                  each screen outside the shell — different chrome, no Core — so
+                  landing on one meant leaving the app. They now open the shell
+                  on the matching facet, query string and all, which is what the
+                  OAuth callback relies on to bring people back inside. */}
+              <Route path="/dashboard" element={<FacetRedirect facet="dashboard" />} />
+              <Route path="/sources" element={<FacetRedirect facet="connections" />} />
+              <Route path="/adapters" element={<FacetRedirect facet="connections" />} />
+              <Route path="/connections" element={<FacetRedirect facet="connections" />} />
+              <Route path="/graph" element={<FacetRedirect facet="graph" />} />
+              <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+
+              {/* Billing */}
+              <Route path="/subscription" element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
+              <Route path="/billing/success" element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
+              <Route path="/billing/cancel" element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
+
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </ErrorBoundary>
         </div>
-      </div>
-    </div>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
 
-function AppShell() {
+export default function App() {
   return (
-    <>
-      <div className="grid-bg"></div>
-      <div className="app-container">
-        <Sidebar />
-        <main className="main-content">
-          <Routes>
-            {/* "/" means different things on the two domains this build
-                serves. On app.axon-memory.com the icon on someone's home
-                screen has to open the PRODUCT — landing on a marketing page
-                after tapping an installed app is the wrong answer. On the
-                apex it is the marketing page, which is the point of it.
-                ProtectedRoute sends you to /login from here if you are not
-                signed in, which is the correct next step either way. */}
-            <Route path="/" element={isAppHost() ? <Navigate to={APP_HOME} replace /> : <Landing />} />
-            <Route path="/login" element={<Login />} />
-            <Route
-              path="/onboarding"
-              element={
-                <ProtectedRoute>
-                  <Onboarding />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/graph"
-              element={
-                <ProtectedRoute>
-                  <MemoryGraph />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/sources"
-              element={
-                <ProtectedRoute>
-                  <DataSources />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/adapters"
-              element={
-                <ProtectedRoute>
-                  <AIAdapters />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/subscription"
-              element={
-                <ProtectedRoute>
-                  <Subscription />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/docs"
-              element={
-                <ProtectedRoute>
-                  <BusinessDocs />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/settings"
-              element={
-                <ProtectedRoute>
-                  <SettingsPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/connect/authorize"
-              element={
-                <ProtectedRoute>
-                  <ConnectAuthorize />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/alerts"
-              element={
-                <ProtectedRoute>
-                  <AdminAlerts />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="/connect/error" element={<ConnectError />} />
-            <Route path="/onboarding-redirect" element={<Navigate to="/onboarding" replace />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </main>
-      </div>
-    </>
+    <AppLayout />
   );
 }
-
-function App() {
-  return (
-    <BrowserRouter>
-      <AuthProvider>
-        <AppShell />
-      </AuthProvider>
-    </BrowserRouter>
-  );
-}
-
-export default App;

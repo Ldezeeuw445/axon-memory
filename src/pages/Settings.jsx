@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Lock, LogOut, Trash2, ShieldAlert, Save } from 'lucide-react';
-import { supabase } from '../lib/supabaseClient';
+import { supabase } from '../lib/supabase';
 import { callFunction } from '../lib/functions';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 
 function Field({ label, children }) {
   return (
@@ -20,7 +20,7 @@ const inputStyle = {
 };
 
 export default function Settings() {
-  const { user, profile, refreshProfile, signOut } = useAuth();
+  const { user, profile, refreshProfile, signOut, isDemo } = useAuth();
   const navigate = useNavigate();
 
   const [fullName, setFullName] = useState(profile?.full_name ?? '');
@@ -38,6 +38,7 @@ export default function Settings() {
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
+    if (isDemo) { setProfileMsg('Connect Supabase to save profile changes.'); return; }
     setSavingProfile(true);
     setProfileMsg(null);
     const { error } = await supabase.from('profiles').update({ full_name: fullName, role }).eq('id', user.id);
@@ -48,6 +49,7 @@ export default function Settings() {
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
+    if (isDemo) { setPwMsg('Connect Supabase to change your password.'); return; }
     setPwBusy(true);
     setPwMsg(null);
     const { error } = await supabase.auth.updateUser({ password: newPassword });
@@ -90,7 +92,7 @@ export default function Settings() {
             <input style={inputStyle} value={role} onChange={(e) => setRole(e.target.value)} placeholder="Founder, engineer, writer…" />
           </Field>
           {profileMsg && <p style={{ fontSize: 13, color: 'var(--color-neon-cyan)', marginBottom: 12 }}>{profileMsg}</p>}
-          <button type="submit" disabled={savingProfile} className="glow-btn" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button type="submit" disabled={savingProfile} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Save size={15} /> {savingProfile ? 'Saving…' : 'Save changes'}
           </button>
         </form>
@@ -105,7 +107,7 @@ export default function Settings() {
             <input type="password" minLength={6} required style={inputStyle} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="At least 6 characters" />
           </Field>
           {pwMsg && <p style={{ fontSize: 13, color: 'var(--color-neon-cyan)', marginBottom: 12 }}>{pwMsg}</p>}
-          <button type="submit" disabled={pwBusy} className="glow-btn">{pwBusy ? 'Updating…' : 'Update password'}</button>
+          <button type="submit" disabled={pwBusy} className="btn-primary">{pwBusy ? 'Updating…' : 'Update password'}</button>
         </form>
       </div>
 
@@ -113,7 +115,7 @@ export default function Settings() {
         <h3 style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
           <LogOut size={18} /> Session
         </h3>
-        <button onClick={() => signOut()} className="glow-btn" style={{ background: 'rgba(255,255,255,0.08)' }}>
+        <button onClick={() => signOut()} className="btn-secondary">
           Sign out
         </button>
       </div>
@@ -124,7 +126,7 @@ export default function Settings() {
         </h3>
         <p style={{ color: 'var(--color-text-secondary)', fontSize: 14, marginBottom: 16 }}>
           Deleting your account permanently erases your profile, connected sources, and every memory
-          Axon has stored for you. This cannot be undone.
+          AXON has stored for you. This cannot be undone.
         </p>
         <p style={{ fontSize: 13, marginBottom: 8 }}>Type <strong>DELETE</strong> to confirm:</p>
         <div style={{ display: 'flex', gap: 12 }}>
@@ -132,10 +134,10 @@ export default function Settings() {
           <button
             onClick={handleDelete}
             disabled={confirmDelete !== 'DELETE' || deleting}
-            className="glow-btn"
             style={{
+              display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 10, border: 'none', cursor: 'pointer',
               background: confirmDelete === 'DELETE' ? '#ff4d4d' : 'rgba(255,77,77,0.2)',
-              display: 'flex', alignItems: 'center', gap: 8,
+              color: '#fff',
               opacity: confirmDelete === 'DELETE' ? 1 : 0.5,
             }}
           >

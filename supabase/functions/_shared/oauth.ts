@@ -5,6 +5,28 @@
 import { sha256Hex } from "./crypto.ts";
 
 export const APP_URL = Deno.env.get("APP_URL") ?? "http://localhost:5173";
+
+/**
+ * The MCP gateway's own origin, derived from APP_URL:
+ * https://app.axon-memory.com -> https://mcp.axon-memory.com
+ *
+ * Lives here because it was written out three times — and the copy in
+ * mcp-server did `.replace("https://", "https://mcp.")`, which keeps the
+ * existing subdomain and yields https://mcp.app.axon-memory.com, a host that
+ * does not resolve. That string is what a 401 hands clients as the place to
+ * discover the OAuth flow, so the discovery leg was pointing into nothing.
+ *
+ * Localhost has no root domain to prefix, so dev is left alone.
+ */
+export function mcpOrigin(): string {
+  try {
+    const u = new URL(APP_URL);
+    if (!u.hostname.includes(".")) return APP_URL;
+    return `${u.protocol}//mcp.${u.hostname.split(".").slice(-2).join(".")}`;
+  } catch {
+    return APP_URL;
+  }
+}
 const CODE_TTL_MS = 5 * 60 * 1000; // authorization codes are short-lived
 
 export function randomToken(bytes = 32): string {

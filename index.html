@@ -2,34 +2,21 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <!-- viewport-fit=cover lets the app paint behind the status bar and the
-         gesture pill instead of sitting in letterboxes. The layout then has to
-         respect env(safe-area-inset-*), which index.css does. -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <!-- Standalone display on iOS; Android takes this from the manifest. -->
+    <!-- Favicon. The 1024px logo was being served as the tab icon, so every
+         visit pulled ~1.2 MB to draw 16 pixels; these are the real sizes. -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/ios/icon-180.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#000000" />
     <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="AXON" />
-    <title>AXON — One memory layer. Every AI you use.</title>
-    <meta name="description" content="AXON connects Gmail, GitHub, Notion, and Slack into one persistent, encrypted memory graph — then feeds ChatGPT, Claude, Gemini, and Cursor the exact context they need. For $5 a month." />
-    <meta name="theme-color" content="#030305" />
-
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-    <link rel="manifest" href="/manifest.webmanifest" />
-
-    <meta property="og:type" content="website" />
-    <meta property="og:title" content="AXON — One memory layer. Every AI you use." />
-    <meta property="og:description" content="A five-dollar-a-month memory layer that gives you one permanent, structured portrait of who you are — everywhere." />
-    <meta property="og:image" content="/icon-512.png" />
-    <meta property="og:url" content="https://www.axon-memory.com" />
-
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="AXON — One memory layer. Every AI you use." />
-    <meta name="twitter:description" content="A five-dollar-a-month memory layer that gives you one permanent, structured portrait of who you are — everywhere." />
-    <meta name="twitter:image" content="/icon-512.png" />
+    <meta name="description" content="AXON — The universal AI memory layer. Connect your AI tools and data sources once, benefit everywhere." />
+    <title>AXON — Universal AI Memory</title>
   </head>
   <body>
     <div id="root"></div>

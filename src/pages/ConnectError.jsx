@@ -20,7 +20,7 @@ export default function ConnectError() {
         <p style={{ color: 'var(--color-text-secondary)', fontSize: 14, marginBottom: 20 }}>
           {REASONS[reason] || REASONS.invalid_request}
         </p>
-        <Link to="/adapters" className="glow-btn" style={{ display: 'inline-block' }}>Back to AI Adapters</Link>
+        <Link to="/adapters" className="btn-primary" style={{ display: 'inline-block' }}>Back to AI Adapters</Link>
       </div>
     </div>
   );

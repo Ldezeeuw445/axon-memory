@@ -1,14 +1,22 @@
 // The actual "Approve" screen in the OAuth dance: an AI tool's browser lands
 // here (via mcp-oauth-authorize's redirect) with client/redirect/PKCE params
 // in the query string. This page shows the user exactly what's connecting
-// and what it can do, then calls mcp-oauth-consent with their normal Axon
+// and what it can do, then calls mcp-oauth-consent with their normal AXON
 // session — no API key ever touches the user's clipboard.
 import React, { useMemo, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { ShieldCheck, Brain, Plug, ArrowRight, Loader2, Sparkles } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 import { callFunction } from '../lib/functions';
-import { CLIENT_ICONS } from '../components/BrandIcons';
+import { AnthropicLogo, OpenAILogo, GeminiLogo, CursorLogo, PerplexityLogo } from '../lib/logos';
+
+const CLIENT_LOGOS = {
+  claude: AnthropicLogo,
+  chatgpt: OpenAILogo,
+  gemini: GeminiLogo,
+  cursor: CursorLogo,
+  perplexity: PerplexityLogo,
+};
 
 function detectClientSlug(clientId, clientName) {
   const s = `${clientId} ${clientName}`.toLowerCase();
@@ -23,7 +31,7 @@ function detectClientSlug(clientId, clientName) {
 export default function ConnectAuthorize() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [upgradeRequired, setUpgradeRequired] = useState(false);
@@ -39,7 +47,7 @@ export default function ConnectAuthorize() {
   }), [params]);
 
   const slug = detectClientSlug(req.client_id, req.client_name);
-  const ClientIcon = slug ? CLIENT_ICONS[slug] : null;
+  const ClientLogo = slug ? CLIENT_LOGOS[slug] : null;
 
   const scopes = req.scope.split(/\s+/).filter(Boolean);
   const scopeCopy = {
@@ -52,9 +60,7 @@ export default function ConnectAuthorize() {
     setError(null);
     setUpgradeRequired(false);
     try {
-      const res = await callFunction('mcp-oauth-consent', {
-        body: { ...req, decision },
-      });
+      const res = await callFunction('mcp-oauth-consent', { body: { ...req, decision } });
       window.location.href = res.redirect_to;
     } catch (err) {
       if (err.status === 402) {
@@ -81,7 +87,7 @@ export default function ConnectAuthorize() {
       <div className="glass-card" style={{ maxWidth: 460, width: '90%', padding: 36 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginBottom: 22 }}>
           <div style={{ width: 56, height: 56, borderRadius: 16, background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--color-border)' }}>
-            {ClientIcon ? <ClientIcon size={28} /> : <Plug size={26} />}
+            {ClientLogo ? <ClientLogo size={28} /> : <Plug size={26} color="var(--color-neon-cyan)" />}
           </div>
           <ArrowRight size={18} color="var(--color-text-secondary)" />
           <div style={{ width: 56, height: 56, borderRadius: 16, background: 'radial-gradient(circle, rgba(0,243,255,0.18) 0%, transparent 70%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -93,7 +99,7 @@ export default function ConnectAuthorize() {
           <strong>{req.client_name}</strong> wants to connect
         </h1>
         <p style={{ textAlign: 'center', color: 'var(--color-text-secondary)', fontSize: 14, marginBottom: 24 }}>
-          to your Axon Memory account{profile?.email ? ` (${profile.email})` : ''}.
+          to your AXON account{(profile?.email || user?.email) ? ` (${profile?.email || user?.email})` : ''}.
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
@@ -117,7 +123,7 @@ export default function ConnectAuthorize() {
             <p style={{ fontSize: 12.5, color: 'var(--color-text-secondary)', marginBottom: 10 }}>
               Connecting AI assistants (Claude, ChatGPT, Gemini, and more) is included on the Pro plan and above.
             </p>
-            <button className="glow-btn" style={{ width: '100%', fontSize: 13 }} onClick={() => navigate('/subscription')}>
+            <button className="btn-primary" style={{ width: '100%', fontSize: 13 }} onClick={() => navigate('/subscription')}>
               View plans
             </button>
           </div>
@@ -129,12 +135,13 @@ export default function ConnectAuthorize() {
           <button
             onClick={() => decide('deny')}
             disabled={busy}
-            style={{ flex: 1, padding: '12px 0', borderRadius: 10, border: '1px solid var(--color-border)', background: 'transparent', color: 'var(--color-text-secondary)', cursor: 'pointer' }}
+            className="btn-secondary"
+            style={{ flex: 1 }}
           >
             Cancel
           </button>
-          <button onClick={() => decide('approve')} disabled={busy} className="glow-btn" style={{ flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: busy ? 0.7 : 1 }}>
-            {busy ? <Loader2 size={16} className="spin" /> : <ShieldCheck size={16} />}
+          <button onClick={() => decide('approve')} disabled={busy} className="btn-primary" style={{ flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: busy ? 0.7 : 1 }}>
+            {busy ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <ShieldCheck size={16} />}
             {busy ? 'Connecting…' : `Approve for ${req.client_name}`}
           </button>
         </div>
@@ -143,6 +150,7 @@ export default function ConnectAuthorize() {
           You can revoke this connection any time from AI Adapters.
         </p>
       </div>
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

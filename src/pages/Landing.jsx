@@ -1,331 +1,607 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import {
-  Brain, ArrowRight, Mail, Briefcase, Database, MessageSquare,
-  ShieldCheck, Zap, Terminal, Check, ChevronDown, Lock, RefreshCw, KeyRound,
-} from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { AdaptiveDpr, Environment, Lightformer, PerformanceMonitor, Stars, Sparkles } from '@react-three/drei';
+import * as THREE from 'three';
+import AxonCore from '../components/AxonCore';
+import CoreGateway from '../components/CoreGateway';
+import MemoryParticle from '../components/MemoryParticle';
+import FragmentPanel from '../components/FragmentPanel';
+import ConnectSourceModal from '../components/ConnectSourceModal';
+import ExtractionPanel from '../components/ExtractionPanel';
+import Shockwave from '../components/Shockwave';
+import { startAmbientHum, playGlassTick, playAxonChord } from '../lib/audio';
+import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import Dashboard from './Dashboard';
+import MemoryGraph from './MemoryGraph';
+import ConnectionsFacet from './ConnectionsFacet';
+import { LayoutDashboard, Network, Link, CreditCard } from 'lucide-react';
+import { callFunction } from '../lib/functions';
 
-const LogoGithub = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.57.1.78-.25.78-.55 0-.27-.01-1.16-.02-2.11-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.34.96.1-.75.4-1.25.73-1.54-2.55-.29-5.23-1.28-5.23-5.68 0-1.25.45-2.28 1.19-3.08-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.8 1.19 1.83 1.19 3.08 0 4.41-2.69 5.38-5.25 5.67.41.36.78 1.06.78 2.15 0 1.55-.01 2.8-.01 3.18 0 .3.2.66.79.55A10.51 10.51 0 0 0 23.5 12C23.5 5.73 18.27.5 12 .5z" />
-  </svg>
-);
-const LogoOpenAI = () => (
-  <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.073z" />
-  </svg>
-);
-const LogoAnthropic = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M17.5 2L13.5 12h-3l-4-10H3l5.5 14h3l5.5-14z" />
-  </svg>
-);
-const LogoGemini = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12 0C12 6.62742 6.62742 12 0 12C6.62742 12 12 17.3726 12 24C12 17.3726 17.3726 12 24 12C17.3726 12 12 6.62742 12 0Z" />
-  </svg>
-);
 
-const SOURCES = [
-  { name: 'Gmail', icon: <Mail size={22} />, color: '#ea4335' },
-  { name: 'GitHub', icon: <Briefcase size={22} />, color: '#c9d1d9' },
-  { name: 'Notion', icon: <Database size={22} />, color: '#ffffff' },
-  { name: 'Slack', icon: <MessageSquare size={22} />, color: '#e01e5a' },
-];
-
-const DESTINATIONS = [
-  { name: 'ChatGPT', icon: <LogoOpenAI />, color: '#10a37f' },
-  { name: 'Claude', icon: <LogoAnthropic />, color: '#d97757' },
-  { name: 'Gemini', icon: <LogoGemini />, color: '#4285f4' },
-  { name: 'Cursor', icon: <Terminal size={26} />, color: '#00f3ff' },
-];
-
-const FAQS = [
-  {
-    q: 'What exactly does AXON send to an AI tool?',
-    a: 'A single JSON "context pack": your profile, a list of connected sources, extracted entities, and a token-budgeted set of relevant memory items grouped by type. You set the token budget per request — nothing more leaves AXON than you asked for.',
-  },
-  {
-    q: 'Can I see and delete what AXON has stored?',
-    a: 'Yes. Every synced item lives in your account and is queryable from the dashboard. Disconnecting a source stops future syncs immediately; deleting your account wipes everything, including encrypted tokens, in one action.',
-  },
-  {
-    q: 'Do you read my emails or just metadata?',
-    a: 'Gmail sync is read-only and scoped to gmail.readonly — AXON never sends, deletes, or modifies anything in a connected account. Same principle for GitHub, Notion, and Slack: read access to build memory, no write access to your source apps.',
-  },
-  {
-    q: 'What happens if I cancel?',
-    a: 'You keep read access to your existing memory graph and can export or delete it. Context-pack requests and new syncing stop until you resubscribe.',
-  },
-];
-
-function NavBar() {
+/**
+ * Choosing a facet used to release CorePortal's panel and withdraw the shell
+ * while the camera itself stayed bolted to [0,0,10] — the content in front
+ * of the viewer moved, but the viewer never went anywhere, so it read as
+ * watching a panel open rather than flying into the Core. This moves the
+ * camera through the gap the panel leaves, forward and past where the shell
+ * withdrew to. Mirrors CorePortal's own easing and open/close speed (1.25 /
+ * 2.0) exactly so the dive and the release are one motion, not two things
+ * that happen to run near the same time.
+ */
+function GalaxyBackground() {
   return (
-    <nav style={{
-      position: 'sticky', top: 0, zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '18px 6vw', backdropFilter: 'blur(14px)', background: 'rgba(3,3,5,0.7)', borderBottom: '1px solid var(--color-border)',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <Brain size={22} color="var(--color-neon-cyan)" />
-        <span className="gradient-text" style={{ fontSize: 20, fontWeight: 800, letterSpacing: 1 }}>AXON</span>
-      </div>
-      <div style={{ display: 'flex', gap: 28, alignItems: 'center' }}>
-        <a href="#how" style={{ color: 'var(--color-text-secondary)', fontSize: 14, textDecoration: 'none' }}>How it works</a>
-        <a href="#pricing" style={{ color: 'var(--color-text-secondary)', fontSize: 14, textDecoration: 'none' }}>Pricing</a>
-        <a href="#security" style={{ color: 'var(--color-text-secondary)', fontSize: 14, textDecoration: 'none' }}>Security</a>
-        <a href="#faq" style={{ color: 'var(--color-text-secondary)', fontSize: 14, textDecoration: 'none' }}>FAQ</a>
-        <Link to="/login" style={{ color: 'var(--color-text-primary)', fontSize: 14, textDecoration: 'none' }}>Sign in</Link>
-        <Link to="/login" className="glow-btn" style={{ padding: '9px 20px', fontSize: 14, textDecoration: 'none' }}>Get started</Link>
-      </div>
-    </nav>
-  );
-}
-
-function Section({ id, children, style }) {
-  return (
-    <section id={id} style={{ padding: '100px 6vw', maxWidth: 1200, margin: '0 auto', position: 'relative', ...style }}>
-      {children}
-    </section>
-  );
-}
-
-function ContextPackPreview() {
-  return (
-    <div style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid var(--color-border)', borderRadius: 14, overflow: 'hidden' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 18px', borderBottom: '1px solid var(--color-border)', background: 'rgba(255,255,255,0.02)' }}>
-        <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#ff5f56' }} />
-        <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#ffbd2e' }} />
-        <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#27c93f' }} />
-        <span style={{ marginLeft: 12, fontSize: 12, color: 'var(--color-text-secondary)', fontFamily: 'monospace' }}>
-          GET /functions/v1/context-pack?query=project+status
-        </span>
-      </div>
-      <pre style={{ margin: 0, padding: '20px 22px', fontSize: 13, lineHeight: 1.7, color: '#c9d1d9', overflowX: 'auto', fontFamily: 'monospace' }}>
-{`{
-  "profile": { "name": "You", "role": "Founder", "plan": "standard" },
-  "connected_sources": [
-    { "provider": "github", "status": "connected" },
-    { "provider": "notion", "status": "connected" }
-  ],
-  "entities": ["Axon Memory", "Q3 launch", "Stripe billing"],
-  "memory": {
-    "decision": [ { "title": "Went Supabase-only", "source": "notion" } ],
-    "code_change": [ { "title": "OAuth state now HMAC-signed", "source": "github" } ]
-  },
-  "stats": { "items_returned": 14, "approx_tokens": 812 }
-}`}
-      </pre>
-    </div>
-  );
-}
-
-function FaqItem({ q, a, open, onClick }) {
-  return (
-    <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
-      <button
-        onClick={onClick}
-        style={{
-          width: '100%', textAlign: 'left', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer',
-          padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 15, fontWeight: 600,
-        }}
-      >
-        {q}
-        <ChevronDown size={18} style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0, marginLeft: 12 }} />
-      </button>
-      {open && (
-        <p style={{ padding: '0 24px 20px', color: 'var(--color-text-secondary)', fontSize: 14, lineHeight: 1.7 }}>{a}</p>
-      )}
-    </div>
+    <>
+      <color attach="background" args={['#020203']} />
+      <Stars radius={100} depth={50} count={3000} factor={3} saturation={0} fade speed={0.3} />
+      {/* Volumetric deep blue nebula dust */}
+      <Sparkles count={400} scale={30} size={15} speed={0.1} opacity={0.03} color="#7f93b5" />
+      <Sparkles count={200} scale={40} size={25} speed={0.05} opacity={0.02} color="#93a5c0" />
+    </>
   );
 }
 
 export default function Landing() {
-  const [openFaq, setOpenFaq] = useState(0);
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+  const FACETS = ['dashboard', 'graph', 'connections', 'billing'];
+  const requestedFacet = (() => {
+    const f = new URLSearchParams(window.location.search).get('facet');
+    return FACETS.includes(f) ? f : null;
+  })();
+  const [stage, setStage] = useState(requestedFacet ? 3 : 0); 
+  // 0: Cold Open
+  // 1: The Void
+  // 2: Core Awakens
+  // 3: Experience (UI Fragments appear)
+  // 4: Extraction Phase (A panel morphs to screen)
+  // 5: Injection Phase (Panel compresses and shoots into space)
+  
+  const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
+  const [selectedApp, setSelectedApp] = useState(null);
+  const [injectedParticles, setInjectedParticles] = useState([]);
+  const [injectionTrigger, setInjectionTrigger] = useState(0);
+  const [experienceTrigger, setExperienceTrigger] = useState(0);
+  const [perfDpr, setPerfDpr] = useState(1.5);
+  const [showToast, setShowToast] = useState(false);
+  
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  // Openable straight onto a facet via ?facet=, so the app has exactly one
+  // surface. The standalone /dashboard, /sources and /graph routes carried a
+  // completely different visual language and dropped people out of the shell;
+  // they now redirect here instead.
+  const [activeFacet, setActiveFacet] = useState(requestedFacet);
+  // Aperture drives geometry inside AxonCore, so it is mirrored in a ref for
+  // the frame loop and in state only so React re-renders the prop. Progress
+  // stays a ref alone — it changes every frame and nothing renders from it.
+  const apertureRef = useRef(0);
+  const arrivalRef = useRef(0);
+  // The far side of the passage. Content must not exist before the camera has
+  // gone through — a panel appearing mid-flight turns the journey back into a
+  // page load with scenery.
+  const [arrived, setArrived] = useState(!!requestedFacet);
+  const arrivedRef = useRef(!!requestedFacet);
+  const [facetMounted, setFacetMounted] = useState(!!requestedFacet);
+  const mountedRef = useRef(!!requestedFacet);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  
+  const [typedText, setTypedText] = useState('');
+  const fullText = 'As I mentioned yesterday...';
+
+  useEffect(() => {
+    if (stage === 0) {
+      let i = 0;
+      const interval = setInterval(() => {
+        setTypedText(fullText.slice(0, i));
+        i++;
+        if (i > fullText.length) {
+          clearInterval(interval);
+          setTimeout(() => {
+            setTypedText('As I mentioned...');
+            setTimeout(() => setStage(1), 2000); 
+          }, 1500);
+        }
+      }, 100);
+      return () => clearInterval(interval);
+    }
+    
+    if (stage === 1) {
+      startAmbientHum();
+      setTimeout(() => setStage(2), 4000); 
+    }
+    
+    if (stage === 2) {
+      playAxonChord();
+    }
+  }, [stage]);
+
+  const handleExperienceClick = () => {
+    playGlassTick('medium');
+    setExperienceTrigger(Date.now());
+    setStage(3);
+  };
+
+  const handleConnectSourceClick = () => {
+    playGlassTick('light');
+    setIsConnectModalOpen(true);
+  };
+
+  const handleAppConnect = (appType) => {
+    playGlassTick('heavy');
+    setIsConnectModalOpen(false);
+    setSelectedApp(appType);
+    // Transition to the Extraction Shard animation
+    setStage(4);
+  };
+
+  const handleCompress = () => {
+    playGlassTick('heavy');
+    setStage(5);
+    setInjectionTrigger(Date.now());
+    
+    // Spawn a new injected particle
+    const newParticle = {
+      id: `injected-${Date.now()}`,
+      position: [(Math.random() - 0.5) * 8, (Math.random() - 0.5) * 8, (Math.random() - 0.5) * 8],
+      weight: 'heavy',
+      isNewInjection: true
+    };
+    setInjectedParticles(prev => [...prev, newParticle]);
+    
+    // Return to default UI state after the particle has flown in (1.5 seconds)
+    setTimeout(() => {
+      setStage(3);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 4000);
+    }, 1500);
+  };
+
+  const particlesData = React.useMemo(() => {
+    return Array.from({ length: 15 }).map((_, i) => ({
+      id: i,
+      position: [(Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12],
+      weight: i % 3 === 0 ? 'heavy' : 'light'
+    }));
+  }, []);
 
   return (
-    <div style={{ overflowX: 'hidden' }}>
-      <NavBar />
+    <div className="full-screen">
+      {/* The 3D Field */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+        <Canvas dpr={[0.75, perfDpr]} camera={{ position: [0, 0, 10], fov: 35 }}>
+          {/* Same trade as the terrain: full resolution while it is affordable,
+              stepped down only when frames actually slip. The transmission
+              material on the Core is the expensive part, and it scales with
+              pixel count. */}
+          <PerformanceMonitor
+            onDecline={() => setPerfDpr((d) => Math.max(0.75, d - 0.25))}
+            onIncline={() => setPerfDpr((d) => Math.min(1.75, d + 0.25))}
+          />
+          <AdaptiveDpr pixelated={false} />
+          <ambientLight intensity={0.1} />
+          <spotLight position={[0, 10, 5]} angle={0.3} penumbra={1} intensity={2} color="#ffffff" />
+          
+          <GalaxyBackground />
 
-      {/* Hero */}
-      <Section style={{ textAlign: 'center', paddingTop: '130px', paddingBottom: '60px' }}>
-        <div className="orb" style={{ width: 400, height: 400, background: 'var(--color-neon-cyan)', opacity: 0.12, top: -120, left: '10%' }} />
-        <div className="orb" style={{ width: 420, height: 420, background: 'var(--color-neon-purple)', opacity: 0.12, top: -80, right: '8%', animationDelay: '3s' }} />
-
-        <div className="reveal" style={{
-          display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 16px', borderRadius: 999,
-          border: '1px solid var(--color-border)', fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 28, position: 'relative',
-        }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-neon-cyan)' }} />
-          One memory layer. Every AI you use.
-        </div>
-
-        <h1 className="reveal" style={{ fontSize: 'clamp(38px, 6.4vw, 76px)', fontWeight: 800, lineHeight: 1.08, marginBottom: 26, position: 'relative', animationDelay: '0.05s' }}>
-          Stop re-explaining<br />
-          <span className="gradient-text">yourself to every AI.</span>
-        </h1>
-        <p className="reveal" style={{ fontSize: 20, color: 'var(--color-text-secondary)', maxWidth: 660, margin: '0 auto 44px', lineHeight: 1.6, position: 'relative', animationDelay: '0.1s' }}>
-          AXON connects Gmail, GitHub, Notion, and Slack into one persistent, encrypted memory graph —
-          then feeds ChatGPT, Claude, Gemini, and Cursor the exact context they need, on every prompt.
-          For $5 a month.
-        </p>
-        <div className="reveal" style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap', position: 'relative', animationDelay: '0.15s' }}>
-          <Link to="/login" className="glow-btn" style={{ padding: '15px 34px', fontSize: 16, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-            Start building your brain <ArrowRight size={18} />
-          </Link>
-          <a href="#how" className="glow-btn" style={{ padding: '15px 34px', fontSize: 16, background: 'transparent', border: '1px solid var(--color-border)', textDecoration: 'none' }}>
-            See how it works
-          </a>
-        </div>
-      </Section>
-
-      {/* Sources -> Brain -> Destinations */}
-      <Section>
-        <div className="glass-card" style={{ padding: '48px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 32 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center' }}>
-            <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>What you already use</span>
-            <div style={{ display: 'flex', gap: 16 }}>
-              {SOURCES.map((s) => (
-                <div key={s.name} title={s.name} style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: s.color }}>
-                  {s.icon}
-                </div>
+          {stage >= 1 && (
+            <>
+              {particlesData.map((data) => (
+                <MemoryParticle 
+                  key={data.id} 
+                  position={data.position} 
+                  weight={data.weight}
+                  stage={stage}
+                />
               ))}
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-            <div style={{
-              width: 76, height: 76, borderRadius: '50%', background: 'radial-gradient(circle, rgba(0,243,255,0.28) 0%, transparent 70%)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <Brain size={38} color="var(--color-neon-cyan)" />
-            </div>
-            <span className="gradient-text" style={{ fontSize: 13, fontWeight: 700 }}>AXON</span>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center' }}>
-            <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>Where it shows up</span>
-            <div style={{ display: 'flex', gap: 16 }}>
-              {DESTINATIONS.map((d) => (
-                <div key={d.name} title={d.name} style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: d.color }}>
-                  {d.icon}
-                </div>
+              {injectedParticles.map((data) => (
+                <MemoryParticle 
+                  key={data.id} 
+                  position={data.position} 
+                  weight={data.weight}
+                  stage={stage}
+                  isNewInjection={data.isNewInjection}
+                />
               ))}
+            </>
+          )}
+
+          {/* 3D SCENE */}
+          <CoreGateway
+            active={!!activeFacet}
+            baseScale={isMobile ? 0.65 : 1}
+            apertureRef={apertureRef}
+            onProgress={(p, through) => {
+              arrivalRef.current = p;
+              // Mounted well before it is shown. Building the terrain is the
+              // most expensive thing in the sequence, and doing it at the
+              // moment of arrival put a stutter exactly where the motion had to
+              // be smoothest. It now happens mid-flight, behind the Core, where
+              // a dropped frame is invisible.
+              if (p > 0.4 && !mountedRef.current) { mountedRef.current = true; setFacetMounted(true); }
+              if (p === 0 && mountedRef.current) { mountedRef.current = false; setFacetMounted(false); }
+              if (through !== arrivedRef.current) { arrivedRef.current = through; setArrived(through); }
+            }}
+          >
+            <AxonCore stage={stage} injectionPulseTime={injectionTrigger} experiencePulseTime={experienceTrigger} opening={!!activeFacet} apertureRef={apertureRef} />
+            <Shockwave position={isMobile ? [0, 4, 8.5] : [3.5, 0, 8.5]} triggerTime={injectionTrigger} />
+          </CoreGateway>
+
+          {/*
+            Was <Environment preset="city" />, which fetches an HDR from a CDN —
+            and that URL now 404s, so the Core was refracting an empty
+            environment. A transmission material with nothing around it reads
+            as dull grey plastic no matter how its own parameters are tuned.
+
+            Built here instead: no network dependency, and a studio shaped for
+            a dark premium product rather than a generic street. The narrow
+            strips matter most — they are what sweep across the facets as the
+            Core turns, and sharp moving highlights are what the eye reads as
+            polished mineral.
+          */}
+          <Environment resolution={256}>
+            <Lightformer form="rect" intensity={9} position={[0, 8, 2]} rotation={[Math.PI / 2, 0, 0]} scale={[14, 10, 1]} color="#dfe9ff" />
+            <Lightformer form="rect" intensity={5.2} position={[-8, 2, -6]} scale={[12, 9, 1]} color="#9fb6e0" />
+            <Lightformer form="rect" intensity={2.8} position={[8, -1, 5]} scale={[9, 7, 1]} color="#6d7f9e" />
+            <Lightformer form="rect" intensity={16} position={[-3.2, 4, 4]} scale={[0.35, 7, 1]} color="#ffffff" />
+            <Lightformer form="rect" intensity={11} position={[3.6, -2, 3.5]} scale={[0.3, 6, 1]} color="#cfe2ff" />
+            <Lightformer form="circle" intensity={2.2} position={[0, -6, 1]} scale={[7, 7, 1]} color="#2a3a5c" />
+            <Lightformer form="rect" intensity={4.5} position={[-7, -3, 3]} scale={[11, 9, 1]} color="#8d9bb8" />
+            <Lightformer form="rect" intensity={2.6} position={[0, 0, -9]} scale={[13, 11, 1]} color="#6c7893" />
+            <Lightformer form="rect" intensity={3.2} position={[-6, 5, 1]} scale={[8, 7, 1]} color="#aab6cc" />
+          </Environment>
+        </Canvas>
+      </div>
+
+      {/* The 2D Narrative Layer */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+        
+        {/* Logo */}
+        <div style={{ position: 'absolute', top: 24, left: 32, zIndex: 200, pointerEvents: 'none', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <img src="/axon_logo.png" alt="AXON" style={{ width: 42, height: 42, borderRadius: 10 }} />
+          <span className="title-text" style={{ fontSize: 16, letterSpacing: '2px', fontWeight: 'bold' }}>AXON</span>
+        </div>
+
+        {/* Auth Overlay */}
+        <div style={{ position: 'absolute', top: 24, right: 32, zIndex: 200 }}>
+          {user ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <span style={{ color: 'var(--color-text-secondary)', fontSize: 13 }}>
+                {user.user_metadata?.full_name || user.email}
+              </span>
+              {/* Matches Sign In. It was the one square, flat control left in a
+                  header of pill-shaped glass, which is what made it read as
+                  older than everything around it. */}
+              <button
+                onClick={signOut}
+                style={{
+                  padding: '8px 18px',
+                  fontSize: 12,
+                  letterSpacing: '0.08em',
+                  fontWeight: 500,
+                  color: 'rgba(255,255,255,0.72)',
+                  background: 'linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02))',
+                  border: '1px solid rgba(255,255,255,0.11)',
+                  borderRadius: 999,
+                  cursor: 'pointer',
+                  backdropFilter: 'blur(14px)',
+                  WebkitBackdropFilter: 'blur(14px)',
+                  boxShadow: '0 6px 22px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.09)',
+                  transition: 'background 0.25s ease, border-color 0.25s ease, color 0.25s ease',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.13), rgba(255,255,255,0.05))'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; e.currentTarget.style.color = 'rgba(255,255,255,0.92)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02))'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.11)'; e.currentTarget.style.color = 'rgba(255,255,255,0.72)'; }}
+              >
+                Sign Out
+              </button>
             </div>
-          </div>
+          ) : (
+            <button
+              onClick={() => navigate('/login')}
+              style={{
+                padding: '9px 22px',
+                fontSize: 12.5,
+                letterSpacing: '0.08em',
+                fontWeight: 500,
+                color: 'rgba(255,255,255,0.92)',
+                background: 'linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.03))',
+                border: '1px solid rgba(255,255,255,0.14)',
+                borderRadius: 999,
+                cursor: 'pointer',
+                backdropFilter: 'blur(14px)',
+                WebkitBackdropFilter: 'blur(14px)',
+                boxShadow: '0 6px 22px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.12)',
+                transition: 'background 0.25s ease, border-color 0.25s ease',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.15), rgba(255,255,255,0.06))'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.24)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.03))'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.14)'; }}
+            >
+              Sign In
+            </button>
+          )}
         </div>
-      </Section>
 
-      {/* How it works */}
-      <Section id="how">
-        <h2 style={{ fontSize: 36, fontWeight: 800, textAlign: 'center', marginBottom: 12 }}>How it works</h2>
-        <p style={{ textAlign: 'center', color: 'var(--color-text-secondary)', marginBottom: 56, fontSize: 16 }}>
-          Three steps. No copy-pasting context ever again.
-        </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 24, marginBottom: 64 }}>
-          {[
-            { icon: <Database size={28} color="var(--color-neon-cyan)" />, title: 'Connect your sources', body: 'OAuth into Gmail, GitHub, Notion, and Slack. AXON encrypts every token at rest and pulls in structured memory items on a schedule you control.' },
-            { icon: <Brain size={28} color="var(--color-neon-purple)" />, title: 'AXON builds your graph', body: 'Entities, projects, decisions, and relationships get extracted automatically and organized into a queryable, token-budgeted memory graph.' },
-            { icon: <Zap size={28} color="var(--color-neon-cyan)" />, title: 'Every AI gets context', body: 'A single authenticated GET returns a context pack sized to fit any prompt — drop it into ChatGPT, Claude, Gemini, Cursor, or any tool that can call an API.' },
-          ].map((s, i) => (
-            <div key={i} className="glass-card" style={{ padding: 32 }}>
-              <div style={{ marginBottom: 16 }}>{s.icon}</div>
-              <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 10 }}>{s.title}</h3>
-              <p style={{ color: 'var(--color-text-secondary)', fontSize: 14, lineHeight: 1.6 }}>{s.body}</p>
-            </div>
-          ))}
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 1fr) minmax(280px, 1.3fr)', gap: 40, alignItems: 'center' }}>
-          <div>
-            <p style={{ fontSize: 13, color: 'var(--color-neon-cyan)', fontWeight: 700, letterSpacing: 1, marginBottom: 12 }}>THE ENDPOINT</p>
-            <h3 style={{ fontSize: 26, fontWeight: 800, marginBottom: 16, lineHeight: 1.3 }}>
-              One request. Every AI tool speaks HTTP.
-            </h3>
-            <p style={{ color: 'var(--color-text-secondary)', fontSize: 15, lineHeight: 1.7 }}>
-              This is a real response shape from AXON's <code style={{ background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: 4 }}>context-pack</code> endpoint —
-              not a mockup. Your personal API key authenticates the request; the token budget you pass in controls exactly how much comes back.
-            </p>
-          </div>
-          <ContextPackPreview />
-        </div>
-      </Section>
-
-      {/* Security */}
-      <Section id="security">
-        <div className="glass-card" style={{ padding: '48px 40px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
-            <ShieldCheck size={28} color="#25c2a0" />
-            <h2 style={{ fontSize: 28, fontWeight: 800 }}>Your memory. Encrypted. Yours alone.</h2>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 28 }}>
-            {[
-              { icon: <Lock size={18} />, t: 'OAuth tokens are AES-encrypted at rest — never stored in plaintext.' },
-              { icon: <ShieldCheck size={18} />, t: 'Row-level security in Postgres means your data is only ever queryable by you.' },
-              { icon: <KeyRound size={18} />, t: 'API keys are hashed, scoped per-tool, and revocable instantly.' },
-              { icon: <RefreshCw size={18} />, t: 'Every context pack is token-budgeted — you control exactly how much leaves AXON per request.' },
-            ].map((row, i) => (
-              <div key={i} style={{ display: 'flex', gap: 12 }}>
-                <span style={{ color: '#25c2a0', flexShrink: 0, marginTop: 2 }}>{row.icon}</span>
-                <span style={{ fontSize: 14, color: 'var(--color-text-secondary)', lineHeight: 1.6 }}>{row.t}</span>
+        <AnimatePresence mode="wait">
+          {stage === 0 && (
+            <motion.div 
+              key="cold-open"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1.5 }}
+              style={{ width: '400px', fontSize: '18px', color: 'rgba(255,255,255,0.92)', textShadow: '0 1px 12px rgba(0,0,0,0.9)' }}
+            >
+              <div style={{ padding: '24px', borderLeft: '1px solid rgba(255,255,255,0.1)' }}>
+                {typedText}
+                <motion.span 
+                  animate={{ opacity: [1, 0] }} 
+                  transition={{ repeat: Infinity, duration: 0.8 }}
+                >
+                  |
+                </motion.span>
               </div>
+            </motion.div>
+          )}
+
+          {stage === 1 && (
+            <motion.div
+              key="void"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 2 }}
+              style={{ position: 'absolute', bottom: '10%', textAlign: 'center', width: '100%' }}
+            >
+              <p className="title-text" style={{ fontSize: '14px', letterSpacing: '1px', opacity: 0.5 }}>
+                Every piece of context, scattered.
+              </p>
+            </motion.div>
+          )}
+
+          {stage === 2 && (
+            <motion.div
+              key="core"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ delay: 2, duration: 2 }}
+              style={{ position: 'absolute', bottom: '15%', textAlign: 'center', width: '100%' }}
+            >
+              <p className="title-text" style={{ fontSize: '14px', letterSpacing: '2px', color: 'var(--color-text-secondary)' }}>
+                ONE MEMORY. EVERY APP.
+              </p>
+              <motion.button 
+                className="glass-surface"
+                whileHover={{ scale: 1.02 }}
+                onClick={handleExperienceClick}
+                style={{ 
+                  marginTop: '32px', 
+                  padding: '12px 32px', 
+                  color: 'white', 
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  border: '1px solid rgba(255,255,255,0.1)'
+                }}
+              >
+                Experience AXON
+              </motion.button>
+            </motion.div>
+          )}
+
+          {stage === 3 && (
+            <motion.div
+              key="ui-layer"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 1 }}
+              style={{ width: '100%', height: '100%', position: 'absolute', pointerEvents: 'none', zIndex: 10 }}
+            >
+              {!activeFacet ? (
+                <>
+                  <FragmentPanel 
+                    style={isMobile ? { position: 'absolute', top: '8%', left: '5%', right: '5%', pointerEvents: 'auto' } : { position: 'absolute', top: '26%', left: '15%', pointerEvents: 'auto' }} 
+                    delay={0.2}
+                  >
+                    <div style={{ marginBottom: '24px' }}>
+                      <h3 className="title-text" style={{ fontSize: '18px', color: 'white', marginBottom: '16px' }}>Neural Link</h3>
+                      <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', lineHeight: '1.6' }}>
+                        Connection established. <br/>Memory threads are stable.
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <button className="glass-button" onClick={() => setActiveFacet('connections')}>
+                        + Connect Source
+                      </button>
+                      <button className="glass-button" onClick={() => setActiveFacet('graph')}>
+                        View Constellation
+                      </button>
+                    </div>
+                  </FragmentPanel>
+    
+                  <FragmentPanel 
+                    style={isMobile ? { position: 'absolute', bottom: '15%', left: '5%', right: '5%', pointerEvents: 'auto' } : { position: 'absolute', bottom: '9%', right: '5%', pointerEvents: 'auto' }} 
+                    delay={0.4}
+                  >
+                    <h3 className="title-text" style={{ fontSize: '18px', color: 'white', marginBottom: '16px' }}>Active Thread</h3>
+                    <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', lineHeight: '1.6', fontStyle: 'italic' }}>
+                      "As I mentioned yesterday, the architecture needs to reflect the physical reality of a memory. It cannot be confined to a grid."
+                    </p>
+                    <div style={{ marginTop: '24px', fontSize: '12px', color: 'rgba(255, 255, 255, 0.4)' }}>
+                      Source: Brainstorm Session • 14:02
+                    </div>
+                  </FragmentPanel>
+                </>
+              ) : (
+                !facetMounted ? null : activeFacet === 'graph' ? (
+                  /* No panel, no inset, no border: the terrain sits directly in
+                     the galaxy the camera just entered. A card around it would
+                     re-announce that this is a webpage, which is the one thing
+                     the passage exists to avoid. */
+                  <div style={{ position: 'absolute', inset: 0, pointerEvents: 'auto', opacity: arrived ? 1 : 0, transition: 'opacity 1.2s ease' }}>
+                    <MemoryGraph asFacet={true} />
+                  </div>
+                ) : (
+                <FragmentPanel
+                  style={{
+                    position: 'absolute',
+                    opacity: arrived ? 1 : 0,
+                    transition: 'opacity 1.2s ease',
+                    top: '8%', bottom: '12%',
+                    left: isMobile ? '5%' : '10%', right: isMobile ? '5%' : '10%',
+                    pointerEvents: 'auto',
+                    display: 'flex', flexDirection: 'column',
+                    // The terrain runs to the panel's edge; the reading facets
+                    // keep their inset. The padding was what drew the inner
+                    // rectangle that made it a box inside a box.
+                    padding: '24px',
+                    overflow: 'hidden'
+                  }}
+                  delay={0.1}
+                >
+                  {/* A height:100% child inside an `overflow:auto` box resolves
+                      against content height, not the box — so the terrain canvas
+                      collapsed to nothing and the panel rendered black. This is a
+                      flex column with min-height 0 so children can be given real
+                      height; the graph fills it, the rest scroll on their own. */}
+                  <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                    {activeFacet === 'dashboard' && <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}><Dashboard asFacet={true} /></div>}
+                    {activeFacet === 'connections' && <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}><ConnectionsFacet /></div>}
+                    {activeFacet === 'billing' && (
+                      <div style={{ textAlign: 'center', padding: '40px' }}>
+                        <h2 style={{ fontSize: '24px', marginBottom: '16px' }}>AXON Pro</h2>
+                        <p style={{ color: 'var(--color-text-secondary)', marginBottom: '32px' }}>
+                          Unlock unlimited adapters, memory nodes & data sources.
+                        </p>
+                        <button 
+                          className="btn-primary" 
+                          onClick={async () => {
+                            try {
+                              const data = await callFunction('stripe-checkout', { method: 'POST', body: { tier: 'pro' } });
+                              if (data?.url) window.location.href = data.url;
+                              else alert('Stripe is not fully configured yet!');
+                            } catch {
+                              navigate('/subscription');
+                            }
+                          }}
+                        >
+                          Upgrade to Pro
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </FragmentPanel>
+                )
+              )}
+            </motion.div>
+          )}
+
+          {stage === 4 && (
+            <ExtractionPanel 
+              appType={selectedApp} 
+              onCompress={handleCompress} 
+              isMobile={isMobile}
+            />
+          )}
+
+        </AnimatePresence>
+
+        {/* Dock Navigation */}
+        {user && stage >= 3 && (
+          <motion.div
+            initial={{ y: 50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.5, duration: 0.8 }}
+            style={{
+              position: 'absolute',
+              bottom: '24px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              padding: '8px 16px',
+              background: 'rgba(10, 12, 16, 0.7)',
+              backdropFilter: 'blur(24px)',
+              WebkitBackdropFilter: 'blur(24px)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '24px',
+              zIndex: 100
+            }}
+          >
+            {[
+              { id: 'dashboard', icon: <LayoutDashboard size={18} />, label: 'Dashboard' },
+              { id: 'graph', icon: <Network size={18} />, label: 'Memory Graph' },
+              { id: 'connections', icon: <Link size={18} />, label: 'Connections' },
+              { id: 'billing', icon: <CreditCard size={18} />, label: 'Pro' }
+            ].map(item => (
+              <button
+                key={item.id}
+                onClick={() => setActiveFacet(activeFacet === item.id ? null : item.id)}
+                style={{
+                  background: activeFacet === item.id ? 'rgba(0,243,255,0.15)' : 'transparent',
+                  color: activeFacet === item.id ? 'var(--color-neon-cyan)' : 'var(--color-text-secondary)',
+                  border: 'none',
+                  borderRadius: '16px',
+                  padding: '10px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.2s',
+                  boxShadow: activeFacet === item.id ? 'inset 0 0 0 1px rgba(0,243,255,0.3)' : 'none'
+                }}
+                title={item.label}
+              >
+                {item.icon}
+              </button>
             ))}
-          </div>
-        </div>
-      </Section>
+          </motion.div>
+        )}
 
-      {/* Pricing */}
-      <Section id="pricing" style={{ textAlign: 'center' }}>
-        <h2 style={{ fontSize: 36, fontWeight: 800, marginBottom: 12 }}>Simple, permanent pricing</h2>
-        <p style={{ color: 'var(--color-text-secondary)', marginBottom: 48 }}>No per-token billing. No surprise invoices.</p>
-        <div className="glass-card" style={{ maxWidth: 420, margin: '0 auto', padding: 40, border: '1px solid var(--color-neon-cyan)', boxShadow: '0 0 40px rgba(0,243,255,0.08)' }}>
-          <p style={{ fontSize: 14, color: 'var(--color-neon-cyan)', fontWeight: 700, marginBottom: 8, letterSpacing: 1 }}>AXON STANDARD</p>
-          <div style={{ marginBottom: 24 }}>
-            <span style={{ fontSize: 56, fontWeight: 800 }}>$5</span>
-            <span style={{ color: 'var(--color-text-secondary)' }}>/month</span>
-          </div>
-          <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 32, textAlign: 'left' }}>
-            {['Unlimited structured memories', 'Gmail, GitHub, Notion, Slack sync', 'Context packs for any AI tool', 'Personal, revocable API keys'].map((f) => (
-              <li key={f} style={{ display: 'flex', gap: 8, fontSize: 14 }}><Check size={16} color="var(--color-neon-cyan)" /> {f}</li>
-            ))}
-          </ul>
-          <Link to="/login" className="glow-btn" style={{ width: '100%', display: 'block', textDecoration: 'none' }}>
-            Start Building Your Brain
-          </Link>
-        </div>
-      </Section>
+        {/* TOAST NOTIFICATION */}
+        <AnimatePresence>
+          {showToast && (
+            <motion.div
+              initial={{ opacity: 0, y: -20, x: isMobile ? '-50%' : 0 }}
+              animate={{ opacity: 1, y: 0, x: isMobile ? '-50%' : 0 }}
+              exit={{ opacity: 0, y: -20, x: isMobile ? '-50%' : 0 }}
+              className="glass-surface"
+              style={{
+                position: 'fixed',
+                top: isMobile ? '20px' : '32px',
+                right: isMobile ? 'auto' : '32px',
+                left: isMobile ? '50%' : 'auto',
+                background: 'rgba(196, 214, 60, 0.15)', // hex color glassmorphism
+                backdropFilter: 'blur(20px)',
+                border: 'none', // Removed outline as requested
+                padding: '12px 32px',
+                borderRadius: '0px',
+                color: '#C4D63C',
+                fontSize: '11px',
+                fontWeight: 'normal', // sleek, not too thick
+                letterSpacing: '4px',
+                pointerEvents: 'none',
+                boxShadow: '0 4px 30px rgba(196, 214, 60, 0.2)',
+                whiteSpace: 'nowrap',
+                transform: isMobile ? 'translateX(-50%)' : 'none'
+              }}
+            >
+              DATA THREADED
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-      {/* FAQ */}
-      <Section id="faq">
-        <h2 style={{ fontSize: 36, fontWeight: 800, textAlign: 'center', marginBottom: 48 }}>Questions worth answering upfront</h2>
-        <div style={{ maxWidth: 760, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {FAQS.map((f, i) => (
-            <FaqItem key={i} q={f.q} a={f.a} open={openFaq === i} onClick={() => setOpenFaq(openFaq === i ? -1 : i)} />
-          ))}
-        </div>
-      </Section>
-
-      {/* Final CTA */}
-      <Section style={{ textAlign: 'center', paddingTop: 40, paddingBottom: 120 }}>
-        <div className="glass-card" style={{ padding: '64px 32px', position: 'relative', overflow: 'hidden' }}>
-          <div className="orb" style={{ width: 300, height: 300, background: 'var(--color-neon-purple)', opacity: 0.15, top: -60, left: '50%', transform: 'translateX(-50%)' }} />
-          <h2 style={{ fontSize: 32, fontWeight: 800, marginBottom: 16, position: 'relative' }}>Your memory shouldn't reset every time you switch tabs.</h2>
-          <p style={{ color: 'var(--color-text-secondary)', marginBottom: 32, fontSize: 16, position: 'relative' }}>Five dollars a month. Four sources. Every AI you already use.</p>
-          <Link to="/login" className="glow-btn" style={{ padding: '15px 40px', fontSize: 16, textDecoration: 'none', position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-            Start Building Your Brain <ArrowRight size={18} />
-          </Link>
-        </div>
-      </Section>
-
-      {/* Footer */}
-      <footer style={{ borderTop: '1px solid var(--color-border)', padding: '32px 6vw', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Brain size={18} color="var(--color-neon-cyan)" />
-          <span style={{ fontSize: 14, color: 'var(--color-text-secondary)' }}>© {new Date().getFullYear()} Axon Memory</span>
-        </div>
-        <a href="https://github.com/Ldezeeuw445/axon-memory" target="_blank" rel="noreferrer" style={{ color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none', fontSize: 14 }}>
-          <LogoGithub /> GitHub
-        </a>
-      </footer>
+        <ConnectSourceModal 
+          isOpen={isConnectModalOpen} 
+          onClose={() => setIsConnectModalOpen(false)} 
+          onConnect={handleAppConnect} 
+        />
+      </div>
     </div>
   );
 }
