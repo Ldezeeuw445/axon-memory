@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './contexts/AuthContext';
+import { isAppHost, APP_HOME } from './lib/host';
 
 import Splash from './pages/Splash';
 import Landing from './pages/Landing';
@@ -20,6 +21,7 @@ import ConnectError from './pages/ConnectError';
 import BusinessDocs from './pages/BusinessDocs';
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
+import AdminAlerts from './pages/AdminAlerts';
 import NotFound from './pages/NotFound';
 
 /** Sends a legacy route into the shell, preserving any query the callback added. */
@@ -27,6 +29,19 @@ function FacetRedirect({ facet }) {
   const q = new URLSearchParams(window.location.search);
   q.set('facet', facet);
   return <Navigate to={`/?${q.toString()}`} replace />;
+}
+
+/**
+ * "/" is the cinematic landing on the marketing domain, and the product on
+ * app.axon-memory.com (home-screen icon / installed PWA). A facet query means
+ * we are already inside the shell — do not bounce again.
+ */
+function HomeRoute() {
+  const facet = new URLSearchParams(window.location.search).get('facet');
+  if (isAppHost() && !facet) {
+    return <Navigate to={APP_HOME} replace />;
+  }
+  return <Landing />;
 }
 
 function AppLayout() {
@@ -37,7 +52,7 @@ function AppLayout() {
           <ErrorBoundary>
             <Routes>
               {/* Public */}
-              <Route path="/" element={<Landing />} />
+              <Route path="/" element={<HomeRoute />} />
               <Route path="/login" element={<Login />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/terms" element={<Terms />} />
@@ -63,6 +78,7 @@ function AppLayout() {
               <Route path="/connections" element={<FacetRedirect facet="connections" />} />
               <Route path="/graph" element={<FacetRedirect facet="graph" />} />
               <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+              <Route path="/admin/alerts" element={<ProtectedRoute><AdminAlerts /></ProtectedRoute>} />
 
               {/* Billing */}
               <Route path="/subscription" element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
