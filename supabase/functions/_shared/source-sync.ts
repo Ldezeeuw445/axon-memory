@@ -5,10 +5,16 @@
 // Keeping this in one place means "manual sync" and "automatic sync" can
 // never drift apart or duplicate/dedupe differently.
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
-import { decryptToken } from "./crypto.ts";
+import { decryptToken, encryptToken } from "./crypto.ts";
+import { PROVIDERS } from "./providers.ts";
 import { embedAndStore } from "./embeddings.ts";
 
 const PAGE_SIZE = 20;
+// GitHub is the one source where a single page is far too small: a repository
+// list plus its recent commits is the point, not a slice of it.
+const REPO_LIMIT = 10;
+const COMMITS_PER_REPO = 10;
+const GITHUB_MAX_ITEMS = 200;
 
 export type MemoryDraft = {
   external_id: string;
@@ -25,7 +31,40 @@ export type SourceConnectionRow = {
   user_id: string;
   provider: string;
   access_token_encrypted: string | null;
+  refresh_token_encrypted?: string | null;
 };
+
+/**
+ * Google's access tokens last about an hour. The refresh token was stored at
+ * connect time and then never used, so every Gmail sync after the first one
+ * failed with a 401, flipped the connection to "error", and made a perfectly
+ * good connection render as if it had never been made.
+ */
+function isAuthFailure(message: string): boolean {
+  return /\b401\b|\b403\b|invalid_auth|invalid_credentials|token_expired|not_authed/i.test(message);
+}
+
+async function refreshAccessToken(provider: string, refreshToken: string): Promise<string> {
+  const cfg = PROVIDERS[provider];
+  if (!cfg) throw new Error(`no provider config for ${provider}`);
+
+  const res = await fetch(cfg.tokenUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+      client_id: cfg.clientId,
+      client_secret: cfg.clientSecret,
+    }),
+  });
+
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json?.access_token) {
+    throw new Error(`refresh failed for ${provider}: ${json?.error ?? res.status}`);
+  }
+  return json.access_token as string;
+}
 
 async function syncGmail(token: string): Promise<MemoryDraft[]> {
   const listRes = await fetch(
@@ -58,55 +97,178 @@ async function syncGmail(token: string): Promise<MemoryDraft[]> {
 }
 
 async function syncGithub(token: string): Promise<MemoryDraft[]> {
-  const meRes = await fetch("https://api.github.com/user", {
-    headers: { Authorization: `Bearer ${token}`, "User-Agent": "axon-memory" },
-  });
+  const gh = (path: string) =>
+    fetch(`https://api.github.com${path}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "User-Agent": "axon-memory",
+        Accept: "application/vnd.github+json",
+      },
+    });
+
+  const meRes = await gh("/user");
   if (!meRes.ok) throw new Error(`github /user failed: ${meRes.status}`);
   const me = await meRes.json();
 
-  const evRes = await fetch(
-    `https://api.github.com/users/${me.login}/events?per_page=${PAGE_SIZE}`,
-    { headers: { Authorization: `Bearer ${token}`, "User-Agent": "axon-memory" } },
-  );
-  if (!evRes.ok) throw new Error(`github events failed: ${evRes.status}`);
-  const events = await evRes.json();
-
   const drafts: MemoryDraft[] = [];
-  for (const ev of events) {
-    if (ev.type === "PushEvent") {
-      for (const c of ev.payload?.commits ?? []) {
-        drafts.push({
+  const seen = new Set<string>();
+  const push = (d: MemoryDraft) => {
+    if (seen.has(d.external_id)) return;
+    seen.add(d.external_id);
+    drafts.push(d);
+  };
+
+  // The events feed alone was the whole GitHub sync, and it is a poor source
+  // of memory: it only covers recent activity, drops anything older than about
+  // 90 days, and returns almost nothing for someone whose work sits in private
+  // repos. It stays for pull requests and issues, but the repositories
+  // themselves are now the primary source.
+  const reposRes = await gh(`/user/repos?sort=pushed&per_page=${REPO_LIMIT}&affiliation=owner,collaborator,organization_member`);
+  if (reposRes.ok) {
+    const repos = await reposRes.json();
+    for (const repo of repos) {
+      push({
+        external_id: `repo-${repo.id}`,
+        title: repo.full_name,
+        content: [repo.description, repo.language && `Language: ${repo.language}`, repo.private ? "Private" : "Public"]
+          .filter(Boolean).join("\n"),
+        content_type: "issue",
+        occurred_at: repo.pushed_at ?? repo.updated_at ?? new Date().toISOString(),
+        metadata: { repo: repo.full_name, url: repo.html_url, stars: repo.stargazers_count },
+      });
+
+      const commitsRes = await gh(`/repos/${repo.full_name}/commits?author=${me.login}&per_page=${COMMITS_PER_REPO}`);
+      if (!commitsRes.ok) continue;
+      const commits = await commitsRes.json();
+      if (!Array.isArray(commits)) continue;
+      for (const c of commits) {
+        const msg = c.commit?.message ?? "";
+        push({
           external_id: c.sha,
-          title: `${ev.repo?.name}: ${c.message?.split("\n")[0]}`,
-          content: c.message ?? "",
+          title: `${repo.full_name}: ${msg.split("\n")[0]}`,
+          content: msg,
           content_type: "commit",
-          occurred_at: ev.created_at,
-          metadata: { repo: ev.repo?.name },
+          occurred_at: c.commit?.author?.date ?? repo.pushed_at ?? new Date().toISOString(),
+          metadata: { repo: repo.full_name, url: c.html_url },
         });
       }
-    } else if (ev.type === "PullRequestEvent") {
-      const pr = ev.payload?.pull_request;
-      drafts.push({
-        external_id: `pr-${pr?.id}`,
-        title: `${ev.repo?.name} PR #${pr?.number}: ${pr?.title}`,
-        content: pr?.body ?? "",
-        content_type: "pull_request",
-        occurred_at: ev.created_at,
-        metadata: { repo: ev.repo?.name, url: pr?.html_url },
-      });
-    } else if (ev.type === "IssuesEvent") {
-      const issue = ev.payload?.issue;
-      drafts.push({
-        external_id: `issue-${issue?.id}`,
-        title: `${ev.repo?.name} #${issue?.number}: ${issue?.title}`,
-        content: issue?.body ?? "",
-        content_type: "issue",
-        occurred_at: ev.created_at,
-        metadata: { repo: ev.repo?.name, url: issue?.html_url },
-      });
     }
   }
-  return drafts.slice(0, PAGE_SIZE);
+
+  const evRes = await gh(`/users/${me.login}/events?per_page=${PAGE_SIZE}`);
+  if (evRes.ok) {
+    const events = await evRes.json();
+    for (const ev of Array.isArray(events) ? events : []) {
+      if (ev.type === "PushEvent") {
+        for (const c of ev.payload?.commits ?? []) {
+          push({
+            external_id: c.sha,
+            title: `${ev.repo?.name}: ${c.message?.split("\n")[0]}`,
+            content: c.message ?? "",
+            content_type: "commit",
+            occurred_at: ev.created_at,
+            metadata: { repo: ev.repo?.name },
+          });
+        }
+      } else if (ev.type === "PullRequestEvent") {
+        const pr = ev.payload?.pull_request;
+        push({
+          external_id: `pr-${pr?.id}`,
+          title: `${ev.repo?.name} PR #${pr?.number}: ${pr?.title}`,
+          content: pr?.body ?? "",
+          content_type: "pull_request",
+          occurred_at: ev.created_at,
+          metadata: { repo: ev.repo?.name, url: pr?.html_url },
+        });
+      } else if (ev.type === "IssuesEvent") {
+        const issue = ev.payload?.issue;
+        push({
+          external_id: `issue-${issue?.id}`,
+          title: `${ev.repo?.name} #${issue?.number}: ${issue?.title}`,
+          content: issue?.body ?? "",
+          content_type: "issue",
+          occurred_at: ev.created_at,
+          metadata: { repo: ev.repo?.name, url: issue?.html_url },
+        });
+      }
+    }
+  }
+
+  return drafts.slice(0, GITHUB_MAX_ITEMS);
+}
+
+/**
+ * Linear speaks GraphQL, so one request brings back issues with the fields that
+ * make them worth remembering — state, team, assignee, and the description.
+ *
+ * Ordered by last update rather than creation: an issue someone is still moving
+ * is more use to an assistant than an old one that happens to be newer on the
+ * clock.
+ */
+async function syncLinear(token: string): Promise<MemoryDraft[]> {
+  const query = `
+    query RecentIssues($first: Int!) {
+      issues(first: $first, orderBy: updatedAt) {
+        nodes {
+          id
+          identifier
+          title
+          description
+          url
+          updatedAt
+          priorityLabel
+          state { name type }
+          team { key name }
+          assignee { displayName }
+          labels(first: 5) { nodes { name } }
+        }
+      }
+    }`;
+
+  const res = await fetch("https://api.linear.app/graphql", {
+    method: "POST",
+    headers: {
+      // Linear takes the OAuth token bare, without a Bearer prefix.
+      Authorization: token,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ query, variables: { first: PAGE_SIZE * 2 } }),
+  });
+  if (!res.ok) throw new Error(`linear graphql failed: ${res.status}`);
+
+  const json = await res.json();
+  // GraphQL answers 200 with an errors array, so a failure here looks like
+  // success unless it is checked for explicitly.
+  if (json?.errors?.length) {
+    throw new Error(`linear: ${json.errors[0]?.message ?? "graphql error"}`);
+  }
+
+  const nodes = json?.data?.issues?.nodes ?? [];
+  return nodes.map((n: Record<string, any>) => {
+    const labels = (n.labels?.nodes ?? []).map((l: { name: string }) => l.name);
+    const parts = [
+      n.description,
+      n.state?.name && `Status: ${n.state.name}`,
+      n.assignee?.displayName && `Assigned to: ${n.assignee.displayName}`,
+      n.priorityLabel && `Priority: ${n.priorityLabel}`,
+      labels.length && `Labels: ${labels.join(", ")}`,
+    ].filter(Boolean);
+
+    return {
+      external_id: n.id,
+      title: `${n.identifier}: ${n.title}`,
+      content: parts.join("\n"),
+      content_type: "issue" as const,
+      occurred_at: n.updatedAt ?? new Date().toISOString(),
+      entities: labels,
+      metadata: {
+        url: n.url,
+        team: n.team?.key,
+        state: n.state?.name,
+        state_type: n.state?.type,
+      },
+    };
+  });
 }
 
 async function syncNotion(token: string): Promise<MemoryDraft[]> {
@@ -182,15 +344,41 @@ async function syncSlack(token: string): Promise<MemoryDraft[]> {
 export async function syncOneConnection(
   admin: SupabaseClient,
   conn: SourceConnectionRow,
-): Promise<{ ok: true; synced: number } | { ok: false; error: string }> {
+): Promise<{ ok: true; fetched: number; synced: number } | { ok: false; error: string }> {
   try {
-    const accessToken = await decryptToken(conn.access_token_encrypted ?? "");
+    let accessToken = await decryptToken(conn.access_token_encrypted ?? "");
     let drafts: MemoryDraft[] = [];
+    // Counted separately from drafts: "how many the provider gave us" and "how
+    // many are now actually in the database" are different questions, and
+    // collapsing them is what hid this failure.
+    let stored = 0;
 
-    if (conn.provider === "gmail") drafts = await syncGmail(accessToken);
-    else if (conn.provider === "github") drafts = await syncGithub(accessToken);
-    else if (conn.provider === "notion") drafts = await syncNotion(accessToken);
-    else if (conn.provider === "slack") drafts = await syncSlack(accessToken);
+    const run = async (t: string): Promise<MemoryDraft[]> => {
+      if (conn.provider === "gmail") return await syncGmail(t);
+      if (conn.provider === "github") return await syncGithub(t);
+      if (conn.provider === "notion") return await syncNotion(t);
+      if (conn.provider === "slack") return await syncSlack(t);
+      if (conn.provider === "linear") return await syncLinear(t);
+      return [];
+    };
+
+    try {
+      drafts = await run(accessToken);
+    } catch (err) {
+      const message = String(err instanceof Error ? err.message : err);
+      // One retry, and only for the case a refresh can actually fix. Anything
+      // else — a revoked grant, a missing scope — must still surface as an
+      // error rather than be retried into a confusing second failure.
+      if (!isAuthFailure(message) || !conn.refresh_token_encrypted) throw err;
+
+      const refreshToken = await decryptToken(conn.refresh_token_encrypted);
+      accessToken = await refreshAccessToken(conn.provider, refreshToken);
+      await admin
+        .from("source_connections")
+        .update({ access_token_encrypted: await encryptToken(accessToken) })
+        .eq("id", conn.id);
+      drafts = await run(accessToken);
+    }
 
     if (drafts.length > 0) {
       const rows = drafts.map((d) => ({
@@ -209,10 +397,18 @@ export async function syncOneConnection(
       // Postgres only returns the rows it actually inserted, so `inserted`
       // here is exactly "what's genuinely new this sync" — already-seen items
       // are silently skipped and never re-embedded.
-      const { data: inserted } = await admin
+      const { data: inserted, error: upsertErr } = await admin
         .from("memory_items")
         .upsert(rows, { onConflict: "user_id,source_connection_id,external_id", ignoreDuplicates: true })
         .select("id, title, content");
+
+      // This error used to be discarded. A failed write left `inserted` null,
+      // embedded nothing, and still reported ok with synced = drafts.length —
+      // so a sync that stored zero items announced itself as a success and
+      // cleared last_error on the way out. Undiagnosable from the outside.
+      if (upsertErr) throw new Error(`memory_items upsert failed: ${upsertErr.message}`);
+
+      stored = inserted?.length ?? 0;
 
       if (inserted && inserted.length > 0) {
         // Best-effort, same as manual remember: a failed embedding never
@@ -230,7 +426,7 @@ export async function syncOneConnection(
       .update({ status: "connected", last_synced_at: new Date().toISOString(), last_error: null })
       .eq("id", conn.id);
 
-    return { ok: true, synced: drafts.length };
+    return { ok: true, fetched: drafts.length, synced: stored };
   } catch (err) {
     const message = String(err instanceof Error ? err.message : err);
     console.error(`syncOneConnection error [${conn.provider} / ${conn.id}]`, message);

@@ -4,8 +4,8 @@
 // require a frontend redeploy) and exposes both raw status and a
 // `useFeatureFlag('has_axon_ai')`-style helper for gating UI.
 import { useCallback, useEffect, useState } from 'react';
-import { supabase } from '../lib/supabaseClient';
-import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 
 const EMPTY_STATUS = {
   plan_tier: 'starter',

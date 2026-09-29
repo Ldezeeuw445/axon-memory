@@ -1,133 +1,163 @@
-import React, { useEffect, useState } from 'react';
-import { Check, Sparkles } from 'lucide-react';
-import { callFunction } from '../lib/functions';
-import { useAuth } from '../context/AuthContext';
+import React, { useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import { CheckCircle, Zap, Shield, Cpu, Plug, Smartphone, Crown, AlertTriangle } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 import { usePlan } from '../hooks/usePlan';
+import { callFunction } from '../lib/functions';
 import { PLAN_CATALOG } from '../lib/planCatalog';
 
-const TIER_RANK = { starter: 0, pro: 1, ultra: 2, lifetime_founder: 3 };
-
-function PlanCard({ plan, currentTier, busyTier, onSelect }) {
-  const isCurrent = currentTier === plan.tier;
-  const isDowngrade = plan.tier !== 'lifetime_founder' && TIER_RANK[plan.tier] < TIER_RANK[currentTier] && currentTier !== 'starter';
-
-  return (
-    <div
-      className="glass-card"
-      style={{
-        flex: 1,
-        minWidth: 260,
-        border: plan.recommended ? '1px solid var(--color-neon-cyan)' : '1px solid var(--color-border)',
-        position: 'relative',
-        padding: 30,
-        display: 'flex',
-        flexDirection: 'column',
-      }}
-    >
-      {plan.recommended && (
-        <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: 'var(--color-accent-gradient)', padding: '4px 14px', borderRadius: 12, fontSize: 11.5, fontWeight: 700, letterSpacing: 0.5, display: 'flex', alignItems: 'center', gap: 4 }}>
-          <Sparkles size={12} /> MOST POPULAR
-        </div>
-      )}
-      <h3 style={{ fontSize: 21, marginBottom: 2 }}>{plan.name}</h3>
-      <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 18, minHeight: 34 }}>{plan.tagline}</p>
-      <div style={{ marginBottom: 22 }}>
-        <span style={{ fontSize: 38, fontWeight: 800 }}>{plan.price}</span>
-        <span style={{ color: 'var(--color-text-secondary)', fontSize: 13 }}> {plan.period}</span>
-      </div>
-      <ul style={{ listStyle: 'none', marginBottom: 26, display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
-        {plan.features.map((f, i) => (
-          <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13.5 }}>
-            <Check size={15} color="var(--color-neon-cyan)" style={{ marginTop: 2, flexShrink: 0 }} /> {f}
-          </li>
-        ))}
-      </ul>
-      <button
-        onClick={() => onSelect(plan.tier)}
-        disabled={isCurrent || busyTier === plan.tier}
-        className="glow-btn"
-        style={{
-          width: '100%',
-          background: plan.recommended ? 'var(--color-accent-gradient)' : 'rgba(255,255,255,0.1)',
-          opacity: isCurrent ? 0.6 : 1,
-        }}
-      >
-        {busyTier === plan.tier ? 'Redirecting…' : isCurrent ? 'Current plan' : isDowngrade ? `Switch to ${plan.name}` : plan.cta}
-      </button>
-    </div>
-  );
-}
+const ICONS = { starter: Shield, pro: Crown, ultra: Zap, lifetime_founder: Crown };
 
 export default function Subscription() {
-  const { refreshProfile } = useAuth();
+  const { isDemo } = useAuth();
   const plan = usePlan();
-  const [busyTier, setBusyTier] = useState(null);
-  const [portalBusy, setPortalBusy] = useState(false);
+  const location = useLocation();
+  const [loadingTier, setLoadingTier] = useState(null);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('checkout') === 'success' || params.get('session_id')) {
-      refreshProfile();
-      plan.refresh();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const params = new URLSearchParams(location.search);
+  const justUpgraded = params.get('session_id');
+  const cancelled = location.pathname.endsWith('/cancel');
 
-  const startCheckout = async (tier) => {
+  const currentTier = plan.status?.plan_tier || 'starter';
+
+  const handleSubscribe = async (tier) => {
+    if (isDemo) { setError('Connect Supabase to enable real billing.'); return; }
+    setLoadingTier(tier);
     setError(null);
-    setBusyTier(tier);
     try {
       const { url } = await callFunction('stripe-checkout', { body: { tier } });
       window.location.href = url;
     } catch (err) {
       setError(err.message);
-      setBusyTier(null);
+      setLoadingTier(null);
     }
   };
 
-  const openPortal = async () => {
-    setPortalBusy(true);
+  const handleManageBilling = async () => {
+    setLoadingTier('portal');
     try {
       const { url } = await callFunction('stripe-portal');
       window.location.href = url;
     } catch (err) {
       setError(err.message);
-      setPortalBusy(false);
+      setLoadingTier(null);
     }
   };
 
-  const hasBilling = Boolean(plan.stripe_subscription_id) || plan.plan_tier === 'lifetime_founder';
-
   return (
     <div className="page-container">
-      <header className="page-header" style={{ textAlign: 'center', maxWidth: 800, margin: '0 auto 40px auto' }}>
-        <h1 className="page-title">Pick the memory layer that fits you</h1>
-        <p className="page-subtitle" style={{ fontSize: 17, lineHeight: 1.6 }}>
-          Every plan gives you one permanent, structured memory. Higher tiers unlock connecting more of the AI
-          assistants you already use — all reading and writing the exact same brain.
-        </p>
+      <header className="page-header">
+        <h1 className="page-title">Subscription</h1>
+        <p className="page-subtitle">Simple, transparent pricing. Cancel anytime.</p>
       </header>
 
-      {!plan.loading && (
-        <div className="glass-card" style={{ maxWidth: 720, margin: '0 auto 32px', textAlign: 'center', padding: 18 }}>
-          <p style={{ marginBottom: hasBilling ? 12 : 0, fontSize: 14 }}>
-            You're on the <strong className="gradient-text">{plan.plan_tier?.replace('_', ' ').toUpperCase()}</strong> plan
-            {plan.plan_expires_at && ` · renews ${new Date(plan.plan_expires_at).toLocaleDateString()}`}.
-          </p>
-          {hasBilling && plan.plan_tier !== 'lifetime_founder' && (
-            <button onClick={openPortal} disabled={portalBusy} className="glow-btn" style={{ background: 'rgba(255,255,255,0.08)', fontSize: 13 }}>
-              {portalBusy ? 'Opening…' : 'Manage billing'}
-            </button>
-          )}
+      {justUpgraded && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(37,194,160,0.1)', border: '1px solid rgba(37,194,160,0.3)', borderRadius: '12px', padding: '14px 18px', marginBottom: '24px' }}>
+          <CheckCircle size={20} color="#25c2a0" />
+          <div>
+            <p style={{ fontWeight: 700, color: '#25c2a0' }}>Payment received — thank you! 🎉</p>
+            <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>Your plan updates within a few seconds as Stripe confirms the subscription.</p>
+          </div>
         </div>
       )}
 
-      {error && <p style={{ color: '#ff6b6b', textAlign: 'center', marginBottom: 20 }}>{error}</p>}
+      {cancelled && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(255,200,50,0.08)', border: '1px solid rgba(255,200,50,0.25)', borderRadius: '12px', padding: '14px 18px', marginBottom: '24px' }}>
+          <AlertTriangle size={20} color="#ffc832" />
+          <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)' }}>Checkout was cancelled. You're still on your current plan.</p>
+        </div>
+      )}
 
-      <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', justifyContent: 'center', maxWidth: 1180, margin: '0 auto' }}>
-        {PLAN_CATALOG.map((p) => (
-          <PlanCard key={p.tier} plan={p} currentTier={plan.plan_tier} busyTier={busyTier} onSelect={startCheckout} />
+      {error && (
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', background: 'rgba(255,80,80,0.08)', border: '1px solid rgba(255,80,80,0.25)', borderRadius: '12px', padding: '14px 18px', marginBottom: '24px' }}>
+          <AlertTriangle size={16} color="#ff6b6b" style={{ marginTop: '2px', flexShrink: 0 }} />
+          <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>{error}</div>
+        </div>
+      )}
+
+      <div className="pricing-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px', maxWidth: '1200px' }}>
+        {PLAN_CATALOG.map((p) => {
+          const Icon = ICONS[p.tier] || Shield;
+          const isCurrent = currentTier === p.tier;
+          const isOneTime = p.tier === 'lifetime_founder';
+          return (
+            <div key={p.tier} className="glass-card" style={{
+              position: 'relative',
+              border: p.recommended ? '1px solid rgba(0,243,255,0.3)' : undefined,
+              boxShadow: p.recommended ? '0 0 30px rgba(0,243,255,0.08)' : undefined,
+            }}>
+              {(isCurrent || p.recommended) && (
+                <div style={{
+                  position: 'absolute', top: '-1px', left: '20px',
+                  background: isCurrent ? 'rgba(255,255,255,0.15)' : 'linear-gradient(90deg, var(--color-neon-cyan), var(--color-neon-purple))',
+                  padding: '3px 10px', borderRadius: '0 0 8px 8px', fontSize: '11px', fontWeight: 800,
+                  color: isCurrent ? 'var(--color-text-secondary)' : '#000',
+                }}>
+                  {isCurrent ? 'CURRENT PLAN' : 'RECOMMENDED'}
+                </div>
+              )}
+              <div style={{ marginTop: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Icon size={20} color="var(--color-neon-cyan)" />
+                  <h2 style={{ fontSize: '20px', fontWeight: 800 }} className={p.recommended ? 'gradient-text' : ''}>{p.name}</h2>
+                </div>
+                <div style={{ margin: '12px 0 4px' }}>
+                  <span style={{ fontSize: '32px', fontWeight: 800 }}>{p.price}</span>
+                  <span style={{ color: 'var(--color-text-secondary)', fontSize: '13px' }}> {p.period}</span>
+                </div>
+                <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px', marginBottom: '20px' }}>{p.tagline}</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', marginBottom: '22px' }}>
+                  {p.features.map((f) => (
+                    <div key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '13px' }}>
+                      <CheckCircle size={14} color="var(--color-neon-cyan)" style={{ flexShrink: 0, marginTop: 2 }} />
+                      {f}
+                    </div>
+                  ))}
+                </div>
+                {isCurrent ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '11px', background: 'rgba(37,194,160,0.1)', borderRadius: '10px', color: '#25c2a0', fontWeight: 700, justifyContent: 'center' }}>
+                    <CheckCircle size={16} /> Active
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => handleSubscribe(p.tier)}
+                    disabled={loadingTier !== null}
+                    className="btn-primary"
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '14px', padding: '12px' }}
+                  >
+                    <Zap size={16} />
+                    {loadingTier === p.tier ? 'Redirecting…' : p.cta}
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {currentTier !== 'starter' && (
+        <div style={{ marginTop: '20px' }}>
+          <button onClick={handleManageBilling} disabled={loadingTier !== null} className="btn-secondary">
+            {loadingTier === 'portal' ? 'Opening…' : 'Manage billing & invoices'}
+          </button>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginTop: '32px' }}>
+        {[
+          { icon: <Shield size={20} />, label: 'Encrypted storage', desc: 'API keys & memory data AES-encrypted at rest' },
+          { icon: <Cpu size={20} />, label: 'Token savings', desc: 'Compressed context reduces your AI API costs' },
+          { icon: <Plug size={20} />, label: 'OAuth adapters', desc: 'Gmail, GitHub, Notion, Slack, Claude, ChatGPT & more' },
+          { icon: <Smartphone size={20} />, label: 'Desktop app', desc: 'AXON Core desktop shell — launching soon' },
+        ].map(({ icon, label, desc }) => (
+          <div key={label} className="glass-card" style={{ flex: '1 1 180px', display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+            <div style={{ color: 'var(--color-neon-cyan)', flexShrink: 0, marginTop: '2px' }}>{icon}</div>
+            <div>
+              <p style={{ fontWeight: 700, fontSize: '14px', marginBottom: '4px' }}>{label}</p>
+              <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>{desc}</p>
+            </div>
+          </div>
         ))}
       </div>
 

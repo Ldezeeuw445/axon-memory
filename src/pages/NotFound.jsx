@@ -19,7 +19,7 @@ export default function NotFound() {
           The page you're looking for was never ingested — or it's been forgotten.
           Let's get you back to something that is remembered.
         </p>
-        <Link to="/dashboard" className="glow-btn" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
+        <Link to="/dashboard" className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
           <ArrowLeft size={16} /> Back to Dashboard
         </Link>
       </div>
