@@ -5,7 +5,8 @@
 // uses — the app owner pastes this one URL into the GPT/Extension builder
 // once; end users then get a normal "Sign in with Axon Memory" button and
 // never see a token. Same api_keys table underneath, same shared memory.
-import { handlePreflight } from "../_shared/cors.ts";
+// Public: a schema document, fetched by whoever is wiring an integration.
+import { handlePublicPreflight as handlePreflight } from "../_shared/cors.ts";
 import { mcpOrigin } from "../_shared/oauth.ts";
 
 Deno.serve((req: Request) => {

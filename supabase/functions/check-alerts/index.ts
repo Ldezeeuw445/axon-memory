@@ -17,6 +17,9 @@ const BATCH_LIMIT = 20;
 
 function severityEmoji(alertType: string): string {
   if (alertType.startsWith("embedding_cost_cap")) return "\u{1F6A8}"; // 🚨
+  // A source that has been down for a day is a customer whose product is not
+  // working, which is a different kind of urgent from a cost cap.
+  if (alertType === "source_stuck") return "\u{1F50C}"; // 🔌
   return "⚠️"; // ⚠️
 }
 

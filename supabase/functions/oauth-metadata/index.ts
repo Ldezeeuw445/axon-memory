@@ -8,7 +8,8 @@
 // This is what lets any spec-compliant MCP/OAuth client (Claude included)
 // auto-discover the whole flow from a single pasted URL — no manual
 // client_id/secret typing required, no raw API token copy-pasting.
-import { handlePreflight, jsonResponse } from "../_shared/cors.ts";
+// Public: OAuth discovery is meant to be readable by any client.
+import { handlePublicPreflight as handlePreflight, publicJsonResponse as jsonResponse } from "../_shared/cors.ts";
 import { APP_URL, mcpOrigin } from "../_shared/oauth.ts";
 
 Deno.serve((req: Request) => {

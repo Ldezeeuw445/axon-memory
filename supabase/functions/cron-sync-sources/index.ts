@@ -18,6 +18,12 @@ const BATCH_LIMIT = 100;
 // bounded no matter how many accounts exist; the ordering below is what makes
 // sure the ones skipped this time go first next time.
 const DISTILL_USERS_PER_RUN = 8;
+// A source that has failed once is a provider hiccup and the retry above is the
+// whole answer. A source that has been failing for a day is somebody's product
+// quietly not working, and they are not going to tell us — the first outside
+// account sat broken for a week on the seven-day Gmail expiry and it was found
+// by reading the database. So a day is where a retry stops being a retry.
+const STALE_ERROR_HOURS = 24;
 
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
@@ -37,7 +43,11 @@ Deno.serve(async (req: Request) => {
   // user to notice and click "Sync now" themselves).
   const { data: connections, error } = await admin
     .from("source_connections")
-    .select("id, user_id, provider, access_token_encrypted, refresh_token_encrypted, status")
+    // last_synced_at is load-bearing, not decoration: the GitHub sync reads it to
+    // decide between reaching back and asking for the gap. Left out, every
+    // scheduled run would page through a hundred commits per repo, every half
+    // hour, forever.
+    .select("id, user_id, provider, access_token_encrypted, refresh_token_encrypted, status, last_synced_at")
     .in("status", ["connected", "error"])
     // Longest-unsynced first. Without an order Postgres returns whatever it
     // likes, and with more connections than the limit that tends to be the
@@ -56,6 +66,7 @@ Deno.serve(async (req: Request) => {
     synced_items: 0,
     failed: 0,
     distilled: { users: 0, facts: 0 },
+    stale_errors: 0,
     errors: [] as Array<{ id: string; provider: string; error: string }>,
   };
   // Everyone whose sync ran. Gating this on "brought something new" meant the
@@ -96,5 +107,68 @@ Deno.serve(async (req: Request) => {
     }
   }
 
+  // Anything that has been failing for longer than a retry could plausibly fix.
+  //
+  // This is the direction the product had nothing in: the app now tells the
+  // person what broke and gives them an address, and this tells us before they
+  // reach it. Same alert machinery the distiller already uses, so it delivers
+  // wherever that delivers.
+  //
+  // Deduped on the day, because a half-hourly cron would otherwise raise the
+  // same alert forty-eight times before anybody read the first one.
+  results.stale_errors = await raiseStaleErrors(admin);
+
   return jsonResponse(results);
 });
+
+/**
+ * One alert per broken connection per day. Returns how many were raised.
+ *
+ * Counts and provider names only — never the account's material, and never the
+ * provider's raw error text, which on an OAuth failure can carry a token
+ * fragment. The user id goes in metadata, where support can find it.
+ */
+async function raiseStaleErrors(admin: ReturnType<typeof supabaseAdmin>): Promise<number> {
+  const cutoff = new Date(Date.now() - STALE_ERROR_HOURS * 3600e3).toISOString();
+
+  const { data: broken, error } = await admin
+    .from("source_connections")
+    .select("id, user_id, provider, last_synced_at")
+    .eq("status", "error")
+    .or(`last_synced_at.lt.${cutoff},last_synced_at.is.null`)
+    .limit(50);
+
+  if (error) {
+    console.error("cron-sync-sources: could not look for stale errors", error.message);
+    return 0;
+  }
+  if (!broken?.length) return 0;
+
+  const since = new Date(Date.now() - 24 * 3600e3).toISOString();
+  const { data: already } = await admin
+    .from("system_alerts")
+    .select("metadata")
+    .eq("alert_type", "source_stuck")
+    .gte("created_at", since);
+
+  const seen = new Set((already ?? []).map((a) => (a.metadata as { connection_id?: string })?.connection_id));
+
+  const fresh = broken.filter((c) => !seen.has(c.id));
+  if (!fresh.length) return 0;
+
+  const { error: insertError } = await admin.from("system_alerts").insert(
+    fresh.map((c) => ({
+      alert_type: "source_stuck",
+      message: `${c.provider} has been failing for more than ${STALE_ERROR_HOURS} hours on one account.`,
+      metadata: { connection_id: c.id, user_id: c.user_id, provider: c.provider, last_synced_at: c.last_synced_at },
+    })),
+  );
+
+  if (insertError) {
+    console.error("cron-sync-sources: could not raise stale-error alerts", insertError.message);
+    return 0;
+  }
+
+  console.log(`cron-sync-sources: ${fresh.length} source(s) stuck for over ${STALE_ERROR_HOURS}h`);
+  return fresh.length;
+}

@@ -25,7 +25,7 @@ export type Fact = {
 };
 
 const CATEGORIES = new Set([
-  "identity", "project", "preference", "relationship", "tool", "decision",
+  "identity", "building", "preference", "relationship", "tool", "decision",
 ]);
 
 const PROMPT = `You are building a long-term memory profile of one person from raw material
@@ -42,10 +42,15 @@ Rules:
 - No more than 12 statements. Fewer is fine. An empty list is fine.
 - Never include credentials, tokens, passwords, card or account numbers, or anything
   that reads like a secret, even if it appears in the material.
+- Receiving mail from a company is not evidence of using it. A newsletter, a statement,
+  a receipt or an account notice proves that somebody has this person's address, and
+  nothing more — mailing lists outlive the relationships that started them by years.
+  Write "uses X" only where the material shows them actually doing something with it.
+  A monthly statement reading "no transactions" is evidence against use, not for it.
 
 Categories, use exactly one per statement:
 - identity: who they are, their role, how they work
-- project: what they are building, and what it is for
+- building: what they are building, and what it is for
 - preference: how they like things done
 - relationship: who they work with
 - tool: languages, frameworks, services they use
@@ -101,7 +106,7 @@ async function extractFacts(material: string): Promise<Fact[] | null> {
                   statement: { type: "STRING" },
                   category: {
                     type: "STRING",
-                    enum: ["identity", "project", "preference", "relationship", "tool", "decision"],
+                    enum: ["identity", "building", "preference", "relationship", "tool", "decision"],
                   },
                 },
                 required: ["statement", "category"],
@@ -151,6 +156,25 @@ async function extractFacts(material: string): Promise<Fact[] | null> {
 }
 
 /**
+ * Raise one alert per failed run. Best-effort by design: an alert that threw
+ * would take the distiller down with it, and the batch is already safe.
+ *
+ * The user id goes in metadata, never the material — an alert lands in Slack,
+ * and nothing about somebody's memories belongs there.
+ */
+async function raiseDistillAlert(admin: SupabaseClient, userId: string, reason: string | null) {
+  try {
+    await admin.from("system_alerts").insert({
+      alert_type: "distill_failed",
+      message: `Distillation failed for one account: ${reason ?? "no reason recorded"}`,
+      metadata: { user_id: userId, model: MODEL },
+    });
+  } catch (err) {
+    console.error("distill: could not raise alert", err);
+  }
+}
+
+/**
  * Read one batch of undistilled items for a user and store what they imply.
  * Returns what happened, so a caller can log it without inspecting the database.
  */
@@ -182,9 +206,19 @@ async function distillBatch(
 ): Promise<{ read: number; written: number; failed?: boolean }> {
   const { data: items, error } = await admin
     .from("memory_items")
-    .select("id, title, content, source_type, occurred_at")
+    .select("id, title, content, source_type, occurred_at, project_id")
     .eq("user_id", userId)
     .is("distilled_at", null)
+    // A retired memory must not be turned into a durable fact — that would
+    // outlive the retirement and reintroduce the thing that was withdrawn.
+    .is("retired_at", null)
+    // Grouped by project before date, so a batch is usually all one project and
+    // the conclusion drawn from it can be filed under that project. Sorting by
+    // date alone mixed four codebases into every batch, and a fact drawn from a
+    // mixed batch has to be filed as applying everywhere — which is how forty
+    // decisions about a trading app ended up answering a question about a
+    // memory layer. Costs nothing: same query, same batch size, same model call.
+    .order("project_id", { ascending: true, nullsFirst: false })
     .order("occurred_at", { ascending: false })
     .limit(BATCH);
 
@@ -217,10 +251,28 @@ async function distillBatch(
   const facts = await extractFacts(withKnown);
   const ids = items.map((it) => it.id);
 
+  /* Which project this batch was about.
+   *
+   * One if they all agree, and null otherwise — null meaning "everywhere",
+   * which is the same thing it means on a memory item. Guessing which of two
+   * projects a mixed batch meant would be worse than saying it applies to
+   * both: a wrong scope hides a conclusion from the place it belongs, and a
+   * missing one only shows it somewhere extra. */
+  const projects = new Set(items.map((it) => it.project_id).filter(Boolean));
+  const batchProject = projects.size === 1 ? [...projects][0] : null;
+
   // A failed attempt leaves the batch untouched so the next run tries it again.
   // Marking it read would quietly retire material that was never actually
   // considered.
-  if (facts === null) return { read: items.length, written: 0, failed: true };
+  if (facts === null) {
+    // And it says so out loud. Leaving the batch for the next run is the right
+    // repair, but it is also perfectly silent: a model key that stopped working
+    // would retry every half hour forever while the profile quietly stopped
+    // growing, and nothing would say why. check-alerts forwards these within
+    // five minutes.
+    await raiseDistillAlert(admin, userId, lastError);
+    return { read: items.length, written: 0, failed: true };
+  }
 
   if (facts.length > 0) {
     // A conclusion drawn twice is one fact confirmed twice, not two rows. The
@@ -234,6 +286,7 @@ async function distillBatch(
           statement: f.statement,
           category: f.category,
           source_item_ids: ids,
+          project_id: batchProject,
           derived_by: MODEL,
           last_confirmed_at: new Date().toISOString(),
         })),
