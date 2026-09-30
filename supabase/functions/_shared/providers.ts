@@ -3,7 +3,15 @@
 //   supabase secrets set GITHUB_OAUTH_CLIENT_ID=... GITHUB_OAUTH_CLIENT_SECRET=...
 //   supabase secrets set NOTION_OAUTH_CLIENT_ID=... NOTION_OAUTH_CLIENT_SECRET=...
 //   supabase secrets set SLACK_OAUTH_CLIENT_ID=... SLACK_OAUTH_CLIENT_SECRET=...
-export type Provider = "gmail" | "github" | "notion" | "slack";
+export type Provider =
+  | "gmail"
+  | "outlook"
+  | "github"
+  | "notion"
+  | "slack"
+  | "linear"
+  | "google_drive"
+  | "supabase";
 
 export function redirectUri() {
   // Edge Functions are reachable at <project-url>/functions/v1/<fn-name>.
@@ -36,7 +44,13 @@ export const PROVIDERS: Record<
         redirect_uri: redirectUri(),
         response_type: "code",
         access_type: "offline",
-        prompt: "consent",
+        // "select_account" as well as "consent". With consent alone Google
+        // silently reuses whichever account the browser is already signed into,
+        // so someone with a work and a personal address could connect the first
+        // one and then be handed the same one again when they tried to add the
+        // second — the flow completed, nothing changed, and there was no way to
+        // tell why.
+        prompt: "consent select_account",
         scope: "https://www.googleapis.com/auth/gmail.readonly openid email",
         state,
       });
@@ -123,5 +137,114 @@ export const PROVIDERS: Record<
     clientSecret: Deno.env.get("SLACK_OAUTH_CLIENT_SECRET") ?? "",
     scopes: "channels:history,channels:read,groups:history,groups:read,users:read,team:read",
   },
+  outlook: {
+    authorizeUrl: (state) => {
+      const params = new URLSearchParams({
+        client_id: Deno.env.get("MICROSOFT_OAUTH_CLIENT_ID") ?? "",
+        redirect_uri: redirectUri(),
+        response_type: "code",
+        response_mode: "query",
+        // offline_access is what makes Microsoft return a refresh token; its
+        // access tokens last an hour, the same trap Gmail already walked into.
+        scope: "offline_access openid email Mail.Read User.Read",
+        // Same reason as Gmail: without it a second mailbox cannot be added.
+        prompt: "select_account",
+        state,
+      });
+      return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params}`;
+    },
+    tokenUrl: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+    clientId: Deno.env.get("MICROSOFT_OAUTH_CLIENT_ID") ?? "",
+    clientSecret: Deno.env.get("MICROSOFT_OAUTH_CLIENT_SECRET") ?? "",
+    scopes: "Mail.Read User.Read",
+  },
+  google_drive: {
+    authorizeUrl: (state) => {
+      const params = new URLSearchParams({
+        client_id: Deno.env.get("GOOGLE_OAUTH_CLIENT_ID") ?? "",
+        redirect_uri: redirectUri(),
+        response_type: "code",
+        access_type: "offline",
+        prompt: "consent select_account",
+        // drive.readonly is the whole drive; drive.metadata.readonly would
+        // list files without ever being able to read one, which for a memory
+        // layer is a connector that stores filenames and nothing else.
+        scope: "https://www.googleapis.com/auth/drive.readonly openid email",
+        state,
+      });
+      return `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+    },
+    tokenUrl: "https://oauth2.googleapis.com/token",
+    clientId: Deno.env.get("GOOGLE_OAUTH_CLIENT_ID") ?? "",
+    clientSecret: Deno.env.get("GOOGLE_OAUTH_CLIENT_SECRET") ?? "",
+    scopes: "drive.readonly",
+  },
+  /* SUPA_ and not SUPABASE_, because the platform reserves every name starting
+     with SUPABASE_ and refuses to store it — "Env name cannot start with
+     SUPABASE_, skipping". So the original names could never be set, on any
+     deployment, and this connector was unreachable by construction rather than
+     by anybody forgetting to configure it. */
+  supabase: {
+    authorizeUrl: (state) => {
+      const params = new URLSearchParams({
+        client_id: Deno.env.get("SUPA_OAUTH_CLIENT_ID") ?? "",
+        redirect_uri: redirectUri(),
+        response_type: "code",
+        state,
+      });
+      return `https://api.supabase.com/v1/oauth/authorize?${params}`;
+    },
+    tokenUrl: "https://api.supabase.com/v1/oauth/token",
+    clientId: Deno.env.get("SUPA_OAUTH_CLIENT_ID") ?? "",
+    clientSecret: Deno.env.get("SUPA_OAUTH_CLIENT_SECRET") ?? "",
+    scopes: "",
+  },
 };
+
+/**
+ * Whether this deployment can actually start this provider's flow.
+ *
+ * A provider whose client id was never configured produced a consent URL with
+ * an empty client_id, sent the browser to the provider, and came back with the
+ * provider's own generic error page — which reads to a person as "this app is
+ * broken", not "this connector has not been set up here". Checked before the
+ * redirect, the answer is one honest sentence instead.
+ */
+/**
+ * Which of the permissions we asked for did not come back.
+ *
+ * ## Why a substring test was wrong
+ *
+ * The first version asked whether the granted string contained the needed one.
+ * That works for a single scope and quietly fails for every provider that
+ * grants more than one, because no two of them agree on a separator or a
+ * spelling:
+ *
+ * - GitHub is asked for `repo read:user` and answers `repo,read:user`.
+ * - Slack answers with the same names in whatever order it likes.
+ * - Google answers `https://www.googleapis.com/auth/gmail.readonly`.
+ * - Microsoft answers `https://graph.microsoft.com/Mail.Read`.
+ *
+ * So `"repo,read:user".includes("repo read:user")` is false, and a person who
+ * ticked every box was told they had declined one. Comparing scope by scope
+ * instead, and letting a full URL match its own last segment, is the whole fix.
+ *
+ * Returns the missing names, or null when everything asked for was granted.
+ * A provider that returns no scope at all tells us nothing, and nothing is not
+ * evidence of refusal.
+ */
+export function missingScopes(granted: string | null, needed: string | null): string | null {
+  if (!granted || !needed) return null;
+  const split = (s: string) => s.split(/[\s,]+/).map((x) => x.trim()).filter(Boolean);
+  const have = split(granted);
+  const missing = split(needed).filter(
+    (want) => !have.some((got) => got === want || got.endsWith(`/${want}`)),
+  );
+  return missing.length ? missing.join(", ") : null;
+}
+
+export function isProviderConfigured(provider: Provider): boolean {
+  const cfg = PROVIDERS[provider];
+  return Boolean(cfg?.clientId && cfg?.clientSecret);
+}
 

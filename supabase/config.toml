@@ -32,9 +32,14 @@ verify_jwt = false
 [functions.stripe-webhook]
 verify_jwt = false
 
+# Checkout still requires a logged-in user, but it validates the JWT itself
+# via auth.getUser() rather than the platform gateway — matches live.
+[functions.stripe-checkout]
+verify_jwt = false
+
 # --- MCP / OAuth connector layer ---
 # These accept EITHER no auth (public discovery/registration) or a custom
-# Axon Bearer token (manually-created OR OAuth-issued) instead of a Supabase
+# AXON Bearer token (manually-created OR OAuth-issued) instead of a Supabase
 # JWT, so platform-level JWT verification must be off; each function does
 # its own auth via _shared/mcp-auth.ts or _shared/auth.ts internally.
 [functions.oauth-metadata]
@@ -79,3 +84,11 @@ verify_jwt = false
 # list-alerts DOES use a real Supabase JWT (a logged-in user's session) —
 # platform-level verification stays on (default) and the function itself
 # additionally checks the caller's email against OWNER_EMAIL.
+
+# Public landing-page beacons: no session, no JWT. Auth is intentionally
+# off; the functions clamp/validate the body instead of trusting it.
+[functions.film-watch]
+verify_jwt = false
+
+[functions.notify-me]
+verify_jwt = false

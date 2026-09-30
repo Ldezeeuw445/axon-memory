@@ -3,7 +3,8 @@
 // with zero manual setup on Axon's side: Claude calls this itself the first
 // time a user adds the connector, gets back a client_id, and the rest of
 // the OAuth dance (authorize -> approve -> token) just works.
-import { handlePreflight, jsonResponse } from "../_shared/cors.ts";
+// Public: dynamic client registration, by definition from unknown clients.
+import { handlePublicPreflight as handlePreflight, publicJsonResponse as jsonResponse } from "../_shared/cors.ts";
 import { supabaseAdmin } from "../_shared/supabase-admin.ts";
 import { randomClientId, randomToken } from "../_shared/oauth.ts";
 import { sha256Hex } from "../_shared/crypto.ts";

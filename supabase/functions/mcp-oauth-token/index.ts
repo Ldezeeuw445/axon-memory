@@ -5,7 +5,8 @@
 // mcp-server, and the `remember` endpoint all authenticate it identically —
 // this is precisely why Claude/ChatGPT/Gemini connected this way all read
 // and write the *same* memory as everything else in the account.
-import { handlePreflight, jsonResponse } from "../_shared/cors.ts";
+// Public: a standard OAuth token endpoint, called by clients we never see.
+import { handlePublicPreflight as handlePreflight, publicJsonResponse as jsonResponse } from "../_shared/cors.ts";
 import { supabaseAdmin } from "../_shared/supabase-admin.ts";
 import { verifyPkce, KNOWN_CLIENT_NAMES } from "../_shared/oauth.ts";
 import { newApiKey, sha256Hex } from "../_shared/crypto.ts";

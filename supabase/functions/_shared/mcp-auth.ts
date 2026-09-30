@@ -11,6 +11,16 @@ export type ResolvedKey = {
   apiKeyId: string;
   scope: string | null;
   clientLabel: string | null;
+  /**
+   * Whether this key was registered by an assistant going through OAuth.
+   *
+   * It decides whether clientLabel is worth anything as a source name. For an
+   * OAuth client the name is what the client registered under — "Claude" — and
+   * that is exactly the summit it should land on. For a personal key it is the
+   * name of the KEY, which is "Key 1", and filing memories under a summit
+   * called KEY 1 is worse than filing them as anonymous.
+   */
+  viaOauthClient: boolean;
 };
 
 export function bearerFromRequest(req: Request): string | null {
@@ -41,5 +51,40 @@ export async function resolveBearerToken(req: Request): Promise<ResolvedKey | nu
     apiKeyId: data.id,
     scope: data.scope,
     clientLabel: data.name,
+    viaOauthClient: !!data.oauth_client_id,
   };
+}
+
+/**
+ * What to file a memory under, when a client writes one.
+ *
+ * Three sources, in the order they can be trusted to be meaningful:
+ *
+ * 1. What the caller called itself. A tool naming itself is the only party
+ *    that actually knows, and it is the whole point of letting an unlisted app
+ *    keep its own key — "AXE Core" becomes axe-core and gets its own summit.
+ *    Trimmed and capped: it is slugged downstream but a label also reaches a
+ *    summit name, and a label is whatever a client felt like sending.
+ *
+ * 2. The registered client name, but only for a key an assistant obtained
+ *    through OAuth. There the name is what the client registered under, so
+ *    "Claude" lands on Claude's summit. For a personal key the same field is
+ *    the name of the KEY — "Key 1" — which as a summit would be worse than
+ *    filing the memory as anonymous.
+ *
+ * 3. Nothing, which memory-core stores as "manual": no one said where this
+ *    came from, and the map says so.
+ *
+ * A caller can name itself anything, including "Claude". That is self-labelling
+ * inside one account, by someone holding that account's own key — mislabelling
+ * their own map at worst. It is not a way to reach anybody else's.
+ */
+export function sourceLabelFor(
+  body: { source_label?: unknown },
+  resolved: { clientLabel: string | null; viaOauthClient: boolean },
+): string | null {
+  const claimed = typeof body?.source_label === "string" ? body.source_label.trim() : "";
+  if (claimed) return claimed.slice(0, 64);
+  if (resolved.viaOauthClient && resolved.clientLabel) return resolved.clientLabel;
+  return null;
 }

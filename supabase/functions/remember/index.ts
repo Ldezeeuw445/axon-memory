@@ -4,9 +4,10 @@
 // isn't a full MCP client but can make an HTTP call. Writes to the exact
 // same `memory_items` table mcp-server's `remember` tool and the rest of
 // the app use — same shared-memory guarantee, different transport.
-import { handlePreflight, jsonResponse } from "../_shared/cors.ts";
+// Public: the plain REST write path, called by tools with a personal key.
+import { handlePublicPreflight as handlePreflight, publicJsonResponse as jsonResponse } from "../_shared/cors.ts";
 import { supabaseAdmin } from "../_shared/supabase-admin.ts";
-import { resolveBearerToken } from "../_shared/mcp-auth.ts";
+import { resolveBearerToken, sourceLabelFor } from "../_shared/mcp-auth.ts";
 import { rememberMemory } from "../_shared/memory-core.ts";
 
 Deno.serve(async (req: Request) => {
@@ -30,7 +31,11 @@ Deno.serve(async (req: Request) => {
       content: body.content,
       title: typeof body.title === "string" ? body.title : null,
       tags: Array.isArray(body.tags) ? body.tags.filter((t: unknown) => typeof t === "string") : [],
-      source_label: resolved.clientLabel ?? "API",
+      source_label: sourceLabelFor(body, resolved),
+      // Optional, and by key: a caller says "trading-os", not a uuid it would
+      // have had to look up. Omitted files the memory as general.
+      project: typeof body.project === "string" ? body.project : null,
+      api_key_id: resolved.apiKeyId ?? null,
     });
     return jsonResponse({ ok: true, id: saved.id, created_at: saved.created_at }, { origin });
   } catch (err) {
