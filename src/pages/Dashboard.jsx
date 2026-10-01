@@ -39,7 +39,7 @@ const BREAKDOWN_COLORS = [
   'rgba(255,255,255,0.3)',
 ];
 
-function StatCard({ title, value, icon, desc }) {
+function StatCard({ title, value, icon, desc, gradient }) {
   return (
     <div className="glass-card" style={{ flex: '1 1 160px', minWidth: '0' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
