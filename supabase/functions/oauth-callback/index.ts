@@ -208,6 +208,13 @@ Deno.serve(async (req: Request) => {
       access_token_encrypted: await encryptToken(accessToken),
       refresh_token_encrypted: refreshToken ? await encryptToken(refreshToken) : null,
       token_expires_at: expiresIn ? new Date(Date.now() + expiresIn * 1000).toISOString() : null,
+      // A8-1: a (re)connect starts a fresh record. A missing scope is itself a
+      // failure the person can see; otherwise the failure streak is over.
+      consecutive_failures: scopeMissing ? 1 : 0,
+      last_error_at: scopeMissing ? new Date().toISOString() : null,
+      // What the provider actually granted, so the connector card can show it.
+      // Only when the provider reports it — never overwrite with a guess.
+      ...(granted ? { scopes: granted.split(/[\s,]+/).map((x) => x.trim()).filter(Boolean) } : {}),
     };
 
     // Matched on the account, not on the provider, so authorising a second
@@ -313,7 +320,7 @@ Deno.serve(async (req: Request) => {
       try {
         const { data: fresh } = await admin
           .from("source_connections")
-          .select("id, user_id, provider, access_token_encrypted, refresh_token_encrypted, status, last_synced_at")
+          .select("id, user_id, provider, access_token_encrypted, refresh_token_encrypted, status, last_synced_at, consecutive_failures")
           .eq("id", saved.id)
           .maybeSingle();
         if (!fresh) return;

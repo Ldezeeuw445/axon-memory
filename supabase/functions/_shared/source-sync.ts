@@ -7,6 +7,7 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { decryptToken, encryptToken } from "./crypto.ts";
 import { PROVIDERS } from "./providers.ts";
+import { isSupportedProvider } from "./connectors.ts";
 import { embedAndStore } from "./embeddings.ts";
 
 const PAGE_SIZE = 20;
@@ -83,6 +84,9 @@ export type SourceConnectionRow = {
   /** When this connection last completed. Null means it has never run, which
    *  is what tells the GitHub sync to reach back rather than ask for the gap. */
   last_synced_at?: string | null;
+  status?: string | null;
+  /** Failed runs since the last success (A8-1). Read so a failure can add one. */
+  consecutive_failures?: number | null;
 };
 
 /**
@@ -1002,7 +1006,19 @@ export async function syncOneConnection(
   admin: SupabaseClient,
   conn: SourceConnectionRow,
 ): Promise<{ ok: true; fetched: number; synced: number } | { ok: false; error: string }> {
+  // A8-1: "last tried" is recorded before anything can fail, so a run that
+  // dies half way is still visible as an attempt rather than as silence.
+  await admin
+    .from("source_connections")
+    .update({ last_attempt_at: new Date().toISOString() })
+    .eq("id", conn.id);
   try {
+    // A provider with no sync used to fall through to `return []` and then be
+    // marked connected with a fresh last_synced_at — a successful sync of
+    // nothing, which is exactly the lie spec §20 forbids.
+    if (!isSupportedProvider(conn.provider)) {
+      throw new Error(`unsupported: ${conn.provider} sync is not available yet`);
+    }
     let accessToken = await decryptToken(conn.access_token_encrypted ?? "");
     let drafts: MemoryDraft[] = [];
     // Counted separately from drafts: "how many the provider gave us" and "how
@@ -1127,7 +1143,15 @@ export async function syncOneConnection(
 
     await admin
       .from("source_connections")
-      .update({ status: "connected", last_synced_at: new Date().toISOString(), last_error: null })
+      .update({
+        status: "connected",
+        last_synced_at: new Date().toISOString(),
+        last_error: null,
+        last_error_at: null,
+        consecutive_failures: 0,
+        last_fetched_count: drafts.length,
+        last_stored_count: stored,
+      })
       .eq("id", conn.id);
 
     return { ok: true, fetched: drafts.length, synced: stored };
@@ -1137,7 +1161,12 @@ export async function syncOneConnection(
     const wasHealthy = conn.status !== "error";
     await admin
       .from("source_connections")
-      .update({ status: "error", last_error: message })
+      .update({
+        status: "error",
+        last_error: message,
+        last_error_at: new Date().toISOString(),
+        consecutive_failures: Math.max(0, conn.consecutive_failures ?? 0) + 1,
+      })
       .eq("id", conn.id);
 
     /* A distiller failure has raised an alert since August; a sync failure only
