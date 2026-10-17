@@ -4,8 +4,9 @@
 // which is *why* three different AI chats connected to the same Axon
 // account see identical context: there is only ever one underlying store.
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
-import { embedAndStore, embedQuery } from "./embeddings.ts";
-import { adapterKeyFromLabel, slugFromLabel } from "./adapters.ts";
+import { embedQuery } from "./embeddings.ts";
+import { adapterKeyFromLabel } from "./adapters.ts";
+import { capture, type CaptureChannel, type CaptureOutcome } from "./capture.ts";
 import { openWorkForPack, standingRulesForPack } from "./workspace.ts";
 import { inferenceOf, RECALL_LEGEND, traceMemory, type TraceMaps } from "./recall.ts";
 
@@ -633,6 +634,19 @@ async function recordRecalls(
   }
 }
 
+export class CaptureFailed extends Error {
+  constructor(public outcome: Extract<CaptureOutcome, { ok: false }>) {
+    super(outcome.error);
+  }
+}
+
+/**
+ * Every write of a new memory goes through the A2-1 capture pipeline
+ * (_shared/capture.ts): normalize -> classify -> dedupe -> store -> link ->
+ * index, recorded in capture_events. Kept under this name because three
+ * transports and the supersede tool already call it. Throws CaptureFailed
+ * (with the outcome: stage, retryable, capture_id) instead of a bare Error.
+ */
 export async function rememberMemory(
   admin: SupabaseClient,
   userId: string,
@@ -640,69 +654,36 @@ export async function rememberMemory(
     content: string;
     title?: string | null;
     tags?: string[];
-    /** null is a value the callers genuinely produce: sourceLabelFor returns
-     *  it when nothing claimed a label and no OAuth client name was available.
-     *  Every read below is falsy-guarded, so null and absent behave the same —
-     *  the type said otherwise and both call sites were quietly wrong. */
+    /** null when nothing claimed a label and no OAuth client name was available. */
     source_label?: string | null;
     /** Which project this is about. Omitted means it applies across all of them. */
     project?: string | null;
-    /** The registered client doing the writing, so two of the same assistant
-        can be told apart on the landscape. resolveBearerToken already knows
-        it; before this it was thrown away. */
+    /** The registered client doing the writing. */
     api_key_id?: string | null;
+    facets?: string[] | null;
+    idempotency_key?: string | null;
+    occurred_at?: string | null;
+    /** Which door it came through; defaults to "api". */
+    channel?: CaptureChannel;
   },
 ) {
-  if (!input.content || !input.content.trim()) {
-    throw new Error("content is required");
-  }
-  const row = {
-    user_id: userId,
-    project_id: await resolveProjectId(admin, userId, input.project),
-    source_connection_id: null,
-    source_type: "manual" as const,
-    content_type: "note" as const,
-    external_id: null,
-    title: input.title?.trim() || null,
-    content: input.content.trim(),
-    entities: input.tags ?? [],
-    metadata: input.source_label ? { remembered_via: input.source_label } : {},
-    // Resolved once, here, where adapters.ts is already the authority. The
-    // label stays in metadata because an unrecognised client should still be
-    // nameable; the key is what the terrain and the facts view group by.
-    // 'other' falls back to source_type, mirroring originKeyOfMemory on the
-    // frontend, so an unknown client lands on the summit it was stored under
-    // rather than on one nobody can see.
-    // An app that says who it is keeps its own name.
-    //
-    // An unrecognised label used to collapse into "manual" together with
-    // everything that sent no name at all, so a client could identify itself
-    // perfectly and still be filed as anonymous. "manual" now means only what
-    // it says: nothing told us where this came from.
-    //
-    // This is also what makes a private app private. A summit is drawn where
-    // an account has memories, so somebody's own tool appears on their map and
-    // on nobody else's — no allowlist to maintain and no per-user setting to
-    // get wrong.
-    origin_key: (() => {
-      if (!input.source_label) return "manual";
-      const key = adapterKeyFromLabel(input.source_label);
-      if (key !== "other") return key;
-      return slugFromLabel(input.source_label) ?? "manual";
-    })(),
-    api_key_id: input.api_key_id ?? null,
-    occurred_at: new Date().toISOString(),
-  };
-  const { data, error } = await admin.from("memory_items").insert(row).select("id, created_at").single();
-  if (error) throw new Error(error.message);
-
-  // Best-effort — never let embedding failure block the save. The caller
-  // already has their confirmation by the time this runs.
-  embedAndStore(admin, userId, data.id, row.title, row.content).catch((err) =>
-    console.error("rememberMemory: embedAndStore failed", err),
-  );
-
-  return data;
+  const outcome = await capture(admin, {
+    userId,
+    channel: input.channel ?? "api",
+    apiKeyId: input.api_key_id ?? null,
+    clientLabel: input.source_label ?? null,
+  }, {
+    content: input.content,
+    title: input.title,
+    tags: input.tags,
+    facets: input.facets,
+    project: input.project,
+    source_label: input.source_label ?? null,
+    idempotency_key: input.idempotency_key,
+    occurred_at: input.occurred_at,
+  });
+  if (!outcome.ok) throw new CaptureFailed(outcome);
+  return outcome;
 }
 
 export async function listSourcesForUser(admin: SupabaseClient, userId: string) {

@@ -1,43 +1,70 @@
-// POST /remember  { content, title?, tags? }
+// POST /remember  { content, title?, tags?, project?, facets?, idempotency_key?, occurred_at? }
+// GET  /remember?status          -> capture health + captures needing attention
+// POST /remember { retry_capture_id }  -> retry one failed / index-pending capture
 // Plain REST write path (Bearer <axon token>). Used directly by ChatGPT
 // Custom GPT Actions (via openapi-actions' schema) and by anything that
-// isn't a full MCP client but can make an HTTP call. Writes to the exact
-// same `memory_items` table mcp-server's `remember` tool and the rest of
-// the app use — same shared-memory guarantee, different transport.
+// isn't a full MCP client but can make an HTTP call. Same A2-1 capture
+// pipeline as mcp-server's `remember` tool: one capture_events row per
+// attempt, idempotent on idempotency_key (body or Idempotency-Key header).
 // Public: the plain REST write path, called by tools with a personal key.
 import { handlePublicPreflight as handlePreflight, publicJsonResponse as jsonResponse } from "../_shared/cors.ts";
 import { supabaseAdmin } from "../_shared/supabase-admin.ts";
 import { resolveBearerToken, sourceLabelFor } from "../_shared/mcp-auth.ts";
-import { rememberMemory } from "../_shared/memory-core.ts";
+import { capture, captureStatus, type CaptureChannel, retryCapture } from "../_shared/capture.ts";
+
+const writes = (scope: string | null | undefined) => !scope || !scope.trim() || scope.split(/\s+/).includes("memory.write");
 
 Deno.serve(async (req: Request) => {
   const preflight = handlePreflight(req);
   if (preflight) return preflight;
   const origin = req.headers.get("origin");
 
-  if (req.method !== "POST") return jsonResponse({ error: "POST only" }, { status: 405, origin });
-
   const resolved = await resolveBearerToken(req);
   if (!resolved) return jsonResponse({ error: "unauthorized" }, { status: 401, origin });
+  const admin = supabaseAdmin();
+  const url = new URL(req.url);
+
+  if (req.method === "GET" && url.searchParams.has("status")) {
+    return jsonResponse(await captureStatus(admin, resolved.userId, Number(url.searchParams.get("limit")) || 10), { origin });
+  }
+  if (req.method !== "POST") return jsonResponse({ error: "POST only" }, { status: 405, origin });
+  if (!writes(resolved.scope)) return jsonResponse({ error: "read-only token (no memory.write scope)" }, { status: 403, origin });
 
   const body = await req.json().catch(() => ({}));
-  if (!body?.content || typeof body.content !== "string") {
-    return jsonResponse({ error: "content (string) is required" }, { status: 400, origin });
-  }
 
   try {
-    const admin = supabaseAdmin();
-    const saved = await rememberMemory(admin, resolved.userId, {
-      content: body.content,
-      title: typeof body.title === "string" ? body.title : null,
-      tags: Array.isArray(body.tags) ? body.tags.filter((t: unknown) => typeof t === "string") : [],
+    if (typeof body?.retry_capture_id === "string") {
+      const r = await retryCapture(admin, resolved.userId, body.retry_capture_id);
+      return r.ok
+        ? jsonResponse({ ok: true, id: r.id, created_at: r.created_at, status: r.status, index: r.index, capture_id: r.capture_id }, { origin })
+        : jsonResponse({ ok: false, error: r.error, code: r.code, stage: r.stage, retryable: r.retryable, capture_id: r.capture_id }, { status: r.http, origin });
+    }
+
+    // "offline" when a client says it is flushing a queue; otherwise plain REST.
+    const channel: CaptureChannel = body?.channel === "offline" ? "offline" : body?.channel === "app" ? "app" : "rest";
+    const r = await capture(admin, {
+      userId: resolved.userId,
+      channel,
+      apiKeyId: resolved.apiKeyId ?? null,
+      clientLabel: sourceLabelFor(body, resolved),
+    }, {
+      content: body?.content,
+      title: body?.title,
+      tags: body?.tags,
+      facets: body?.facets,
+      // Optional, and by key: a caller says "trading-os", not a uuid.
+      project: body?.project,
       source_label: sourceLabelFor(body, resolved),
-      // Optional, and by key: a caller says "trading-os", not a uuid it would
-      // have had to look up. Omitted files the memory as general.
-      project: typeof body.project === "string" ? body.project : null,
-      api_key_id: resolved.apiKeyId ?? null,
+      idempotency_key: body?.idempotency_key ?? req.headers.get("idempotency-key") ?? undefined,
+      occurred_at: body?.occurred_at,
     });
-    return jsonResponse({ ok: true, id: saved.id, created_at: saved.created_at }, { origin });
+    if (r.ok) {
+      return jsonResponse({ ok: true, id: r.id, created_at: r.created_at, status: r.status, index: r.index, capture_id: r.capture_id }, { origin });
+    }
+    return jsonResponse(
+      { ok: false, error: r.error, code: r.code, stage: r.stage, retryable: r.retryable, capture_id: r.capture_id },
+      { status: r.http, origin },
+    );
   } catch (err) {
     return jsonResponse({ error: err instanceof Error ? err.message : "server_error" }, { status: 500, origin });
   }

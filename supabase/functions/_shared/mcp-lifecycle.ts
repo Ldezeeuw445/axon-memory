@@ -126,6 +126,11 @@ export async function handleLifecycleTool(
     return { text: `Unknown lifecycle tool: ${toolName}`, isError: true };
   } catch (err) {
     if (err instanceof LifecycleError) return { text: err.message, isError: true };
+    // A replacement that could not be captured (CaptureFailed from the A2-1
+    // pipeline) is reported, not thrown: nothing was superseded.
+    if (err instanceof Error && (err as { outcome?: unknown }).outcome) {
+      return { text: `Not superseded: the new memory could not be saved (${err.message}).`, isError: true };
+    }
     throw err;
   }
 }

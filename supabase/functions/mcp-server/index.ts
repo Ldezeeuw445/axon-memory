@@ -23,7 +23,8 @@ import { sourceLabelFor, resolveBearerToken } from "../_shared/mcp-auth.ts";
 import { buildContextPack, rememberMemory, listSourcesForUser, resolveProjectId } from "../_shared/memory-core.ts";
 import { addCatch, addPhase, addTask, listTasks, markTask, listWork, claimWork, completeWork } from "../_shared/workspace.ts";
 import { mcpOrigin } from "../_shared/oauth.ts";
-import { handleLifecycleTool, LIFECYCLE_TOOL_NAMES, lifecycleTools, TOOL_ALIASES } from "../_shared/mcp-lifecycle.ts";
+import { canWrite, handleLifecycleTool, LIFECYCLE_TOOL_NAMES, lifecycleTools, TOOL_ALIASES } from "../_shared/mcp-lifecycle.ts";
+import { capture, captureStatus, describeOutcome, retryCapture } from "../_shared/capture.ts";
 
 const SERVER_INFO = { name: "axon-memory", version: "1.0.0" };
 const PROTOCOL_VERSION = "2025-06-18";
@@ -71,6 +72,12 @@ const TOOLS = [
           description:
             "Which project this is about, e.g. \"trading-os\". Omit for something true across all of them — a preference, an identity fact, how this person likes to work. Call list_projects to see the keys.",
         },
+        facets: { type: "array", items: { type: "string" }, description: "Optional lenses, e.g. [\"trading\"]." },
+        idempotency_key: {
+          type: "string",
+          description: "Optional, 8-200 chars. Resending with the same key never stores twice; a failed attempt is retried instead. Use one per queued capture when working offline.",
+        },
+        occurred_at: { type: "string", description: "Optional ISO 8601 time the thing happened, when it was queued earlier." },
       },
       required: ["content"],
     },
@@ -100,6 +107,17 @@ const TOOLS = [
       },
       required: ["state"],
     },
+  },
+  {
+    name: "capture_status",
+    description:
+      "Show how saving to Axon Memory has gone for this account in the last 24 hours (success rate, failures by stage, index backlog) and list captures that failed or are still pending, with their capture_id. Call when a save reported an error, or when the person asks whether something was saved.",
+    inputSchema: { type: "object", properties: { limit: { type: "number", description: "How many open captures to list (default 10, max 50)." } } },
+  },
+  {
+    name: "retry_capture",
+    description: "Retry one failed or index-pending capture by its capture_id (from an error message or capture_status). Never stores the same capture twice.",
+    inputSchema: { type: "object", properties: { capture_id: { type: "string" } }, required: ["capture_id"] },
   },
   {
     name: "list_projects",
@@ -422,20 +440,43 @@ Deno.serve(async (req: Request) => {
       }
 
       if (toolName === "remember") {
-        const saved = await rememberMemory(admin, resolved.userId, {
-          content: args.content as string,
-          title: (args.title as string) ?? null,
-          tags: (args.tags as string[]) ?? [],
+        // A2-1 capture pipeline: one capture_events row per attempt; failures say
+        // which stage and whether they can be retried.
+        const outcome = await capture(admin, {
+          userId: resolved.userId,
+          channel: "mcp",
+          apiKeyId: resolved.apiKeyId ?? null,
+          clientLabel: sourceLabelFor(args, resolved),
+        }, {
+          content: args.content,
+          title: args.title,
+          tags: args.tags,
+          facets: args.facets,
+          project: args.project,
           source_label: sourceLabelFor(args, resolved),
-          project: (args.project as string) ?? null,
-          api_key_id: resolved.apiKeyId ?? null,
+          idempotency_key: args.idempotency_key,
+          occurred_at: args.occurred_at,
         });
-        return json(
-          rpcResult(id, {
-            content: [{ type: "text", text: `Saved to Axon Memory (id: ${saved.id}). This is now visible to every AI assistant connected to this account.` }],
-          }),
-          cors,
-        );
+        return json(rpcResult(id, {
+          content: [{ type: "text", text: describeOutcome(outcome) }],
+          ...(outcome.ok ? {} : { isError: true }),
+        }), cors);
+      }
+
+      if (toolName === "capture_status") {
+        const status = await captureStatus(admin, resolved.userId, typeof args.limit === "number" ? args.limit : 10);
+        return json(rpcResult(id, { content: [{ type: "text", text: JSON.stringify(status) }] }), cors);
+      }
+
+      if (toolName === "retry_capture") {
+        if (!canWrite(resolved.scope)) {
+          return json(rpcResult(id, { content: [{ type: "text", text: "This connection was granted read-only access (no memory.write scope)." }], isError: true }), cors);
+        }
+        const outcome = await retryCapture(admin, resolved.userId, String(args.capture_id ?? ""));
+        return json(rpcResult(id, {
+          content: [{ type: "text", text: describeOutcome(outcome) + (outcome.ok ? "" : ` [${outcome.code}]`) }],
+          ...(outcome.ok ? {} : { isError: true }),
+        }), cors);
       }
 
       if (toolName === "set_thread") {
@@ -593,6 +634,7 @@ Deno.serve(async (req: Request) => {
       if (toolName && LIFECYCLE_TOOL_NAMES.has(toolName)) {
         const out = await handleLifecycleTool(admin, resolved, toolName, args, (content, project) =>
           rememberMemory(admin, resolved.userId, {
+            channel: "mcp",
             content,
             source_label: sourceLabelFor(args, resolved),
             project,
