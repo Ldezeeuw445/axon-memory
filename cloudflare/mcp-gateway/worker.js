@@ -31,6 +31,13 @@ export default {
       }
     }
 
+    // Versioned public API (A7-1): /v1/... -> api-v1 function, path and query kept.
+    if (url.pathname === "/v1" || url.pathname.startsWith("/v1/")) {
+      const targetUrl = new URL(SUPABASE_FUNCTIONS_BASE + "/api-v1" + url.pathname);
+      targetUrl.search = url.search;
+      return proxy(request, targetUrl);
+    }
+
     // Everything else (the MCP root "/" and any sub-path) -> mcp-server,
     // which is the Streamable HTTP JSON-RPC endpoint itself.
     if (url.pathname === "/" || url.pathname === "") {

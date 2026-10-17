@@ -55,6 +55,13 @@ values ('${failedCaptureId}', '${id}', 'offline', 'failed', 'store', 'simulated 
   const expiredKey = `axon_live_${randomBytes(24).toString('hex')}`;
   const a = fx.a;
   a.oauth = { clientId, redirectUri, verifier, code, plainVerifier, plainCode, legacyKey, expiredKey };
+  // SDK integration (A7-1): a thread to scope by and a read-only personal key.
+  a.threadKey = `sdk-${tag}`;
+  a.readOnlyKey = `axon_live_${randomBytes(24).toString('hex')}`;
+  sql += `insert into public.projects (user_id, key, name) values ('${a.id}', '${a.threadKey}', 'SDK test ${tag}');
+insert into public.api_keys (user_id, name, key_prefix, key_hash, scope)
+values ('${a.id}', 'rls-test read-only', '${a.readOnlyKey.slice(0, 14)}', '${sha(a.readOnlyKey)}', 'memory.read');
+`;
   sql += `insert into public.oauth_clients (client_id, client_name, redirect_uris, is_public, created_via)
 values ('${clientId}', 'rls-test oauth ${tag}', array['${redirectUri}'], true, 'manual');
 insert into public.oauth_authorization_codes (code_hash, client_id, user_id, redirect_uri, code_challenge, code_challenge_method, scope, expires_at)

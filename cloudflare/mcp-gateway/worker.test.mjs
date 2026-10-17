@@ -31,3 +31,11 @@ test("unknown paths are 404 and never proxied", async () => {
   assert.equal(r.status, 404);
   assert.equal(seen.length, 0);
 });
+
+test("/v1/* routes to the api-v1 function with path and query intact (A7-1)", async () => {
+  assert.equal((await route("/v1/memories/abc?x=1", { method: "GET" })).seen[0].url, BASE + "/api-v1/v1/memories/abc?x=1");
+  const { seen } = await route("/v1/recall", { method: "POST", headers: { authorization: "Bearer k" }, body: "{}" });
+  assert.equal(seen[0].url, BASE + "/api-v1/v1/recall");
+  assert.equal(seen[0].opts.headers.get("authorization"), "Bearer k");
+  assert.equal((await route("/v1x")).r.status, 404);
+});

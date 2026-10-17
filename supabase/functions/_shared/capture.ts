@@ -43,6 +43,8 @@ export interface CaptureInput {
   source_label?: string | null;
   idempotency_key?: unknown;
   occurred_at?: unknown;
+  /** Where it lives at the source (A7-1): the source's own id and/or a link. */
+  source_ref?: unknown;
 }
 
 export interface NormalizedCapture {
@@ -54,6 +56,7 @@ export interface NormalizedCapture {
   source_label: string | null;
   idempotency_key: string | null;
   occurred_at: string;
+  source_ref?: { id: string | null; url: string | null } | null;
 }
 
 export type CaptureOutcome =
@@ -114,7 +117,25 @@ export function validateCapture(
     occurred_at = new Date(t).toISOString();
   }
   const source_label = typeof input.source_label === "string" && input.source_label.trim() ? input.source_label.trim().slice(0, 120) : null;
-  return { ok: true, value: { content, title, tags, facets, project, source_label, idempotency_key, occurred_at } };
+  let source_ref: { id: string | null; url: string | null } | null = null;
+  if (input.source_ref != null) {
+    const r = input.source_ref as Record<string, unknown>;
+    if (typeof r !== "object" || Array.isArray(r)) return { ok: false, error: "source.ref must be an object { id?, url? }" };
+    const id = typeof r.id === "string" && r.id.trim() ? r.id.trim().slice(0, 200) : null;
+    let url: string | null = null;
+    if (r.url != null && r.url !== "") {
+      if (typeof r.url !== "string" || r.url.length > 2000) return { ok: false, error: "source.ref.url must be an http(s) URL" };
+      try {
+        const u = new URL(r.url);
+        if (u.protocol !== "https:" && u.protocol !== "http:") throw new Error("scheme");
+        url = u.toString();
+      } catch {
+        return { ok: false, error: "source.ref.url must be an http(s) URL" };
+      }
+    }
+    if (id || url) source_ref = { id, url };
+  }
+  return { ok: true, value: { content, title, tags, facets, project, source_label, idempotency_key, occurred_at, ...(source_ref ? { source_ref } : {}) } };
 }
 
 /** A light, honest label for what kind of statement this is. Never blocks a capture. */
@@ -307,6 +328,7 @@ async function runPipeline(
       kind,
       channel: ctx.channel,
       ...(eventId ? { capture_id: eventId } : {}),
+      ...(value.source_ref ? { source_ref: value.source_ref, ...(value.source_ref.url ? { url: value.source_ref.url } : {}) } : {}),
     },
     origin_key: originKeyFor(value.source_label),
     api_key_id: ctx.apiKeyId ?? null,
