@@ -41,8 +41,9 @@ Capture health per user or overall: `select public.capture_health(24);` (service
    5. The three `tests/schema/*.sql` files and `tests/eval/recall_eval.sql` through `execute_sql`.
    6. `tests/rls/cleanup-http-fixtures.sql`.
    7. Residue check: must be 0.
-3. Probe `mcp.axon-memory.com/health` and smoke all three domains (`/`, `/recall`, `/capture`, `/docs`, `/login`, `/?facet=recall`; all 200, one index hash).
-4. Record the run in `docs/ACCEPTANCE.md`. Any `leak` row is a release blocker.
+3. Consent click e2e (step 4): seed a throwaway Pro user (`demo-seed` + `plan_tier='pro'`), then `E2E_FIXTURE=… SUPABASE_ANON_KEY=… npm run test:oauth-e2e` (needs playwright-core + Chrome; `PW_DIR`). The cleanup SQL removes its DCR clients.
+4. Probe `mcp.axon-memory.com/health` and smoke all three domains (`/`, `/recall`, `/capture`, `/docs`, `/login`, `/?facet=recall`; all 200, one index hash).
+5. Record the run in `docs/ACCEPTANCE.md`. Any `leak` row is a release blocker.
 
 ## Migrations
 1. Write an **additive** migration. If it would drop or rewrite existing columns or data, stop and get Luka's approval.

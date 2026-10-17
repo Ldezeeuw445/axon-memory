@@ -28,7 +28,7 @@ Gate run on main `d81540f` + branch `a12-release-gate`, against production. Live
 | 1 | User creates account | **partial** | Fixture users go through `handle_new_user` (profile + plan) and sign in with a password grant. Sign-up is open with **email confirmation required** (`mailer_autoconfirm=false`). The real sign-up → confirmation mail → first sign-in has **not** been run end to end: that needs a real inbox (the bot has none claimed yet) |
 | 2 | User captures a new Memory | automated | HTTP capture section (REST `remember`, MCP `capture`, `/v1` with key and with the app's own session, idempotency, offline queue). The app's capture is checked in the browser (`axon-shots/a9/capture-kept-mobile.png`) |
 | 3 | Memory stores with provenance | automated | `memory_items_provenance_required`, capture_pipeline 26/26, HTTP checks on `source.channel` (direct/agent/connector) and `capture_events.channel` |
-| 4 | Another AI connects through AXON MCP | **partial** | Automated: 22 OAuth checks (metadata, PKCE S256 only, code exchange, expiry, refresh rotation, grandfathering) and 14 MCP checks through the public gateway. The consent click in a real browser was run **by hand** (16/16, 2026-10-17); it is not scripted |
+| 4 | Another AI connects through AXON MCP | automated | `npm run test:oauth-e2e` (scripts/oauth-consent-e2e.mjs, real headless Chrome against production, throwaway `@rls-test.invalid` Pro user): DCR register → `/authorize` S256 → sign-in → consent screen names the client → **Approve click** → code + state → token → MCP `tools/list` (22) + `recall_context` → refresh rotation → the AI is listed in Connect → Withdraw → old token 401 → second consent **Cancel** → `access_denied` → all of the client's keys revoked. **14/14** on 2026-10-17. Plus 22 OAuth and 14 MCP protocol checks |
 | 5 | AI recalls relevant Memory | automated | recall_eval 24/24, plus HTTP recall-trace checks |
 | 6 | Recall shows the right user's information | automated | isolation 249 SQL + 204 HTTP |
 | 7 | Source is traceable | automated | Every recalled item carries `source`, `confidence` and `relevance.matched_by`; inferences cite memory ids. The app's recall log shows which AI read what (`axon-shots/a9/you-recall-log-mobile.png`) |
@@ -37,15 +37,13 @@ Gate run on main `d81540f` + branch `a12-release-gate`, against production. Live
 | 10 | Delete removes from future Recall | automated | lifecycle propagation, MCP `delete`, `delete-account` (HTTP: a deleted user's key dies) |
 | 11 | A different user cannot retrieve it | automated | isolation suites (release blocker): clean |
 | 12 | Mobile Recall works | **partial** | Recall is the phone-first home (A9-1), live at app.axon-memory.com/recall. Checked at 390×844 in headless Chrome: live screenshot `axon-shots/live/app-recall-mobile.png`, recall query + result `axon-shots/a9/recall-result-mobile.png`. Not run on a physical phone or in the TWA |
-| 13 | Terrain reflects actual relationship data | **partial** | Terrain reads only real rows (`memory_source_breakdown`, `memory_items`, `source_connections`, `api_keys`); there is no mock or sample data in the code path. It shows **where memories come from and which AIs read them**. It does **not** yet draw relationships between memories (`entities` / `entity_links`) |
+| 13 | Terrain reflects actual relationship data | automated | Terrain has two readings. *Where it comes from* (source summits, `memory_source_breakdown`). *How it connects* (`?facet=terrain&view=links`) draws the stored links between memories: thread (`memory_items.project_id`), same person or thing (`entity_links`, only entities joined to 2+ memories), replaced by newer (`superseded_by`), and `memory_relations` (relates, weaves, contradicts). Rows are read with the person's own session (RLS), and memories with no link are left out. No sample data in the code path; the empty state says so. `src/lib/linkGraph.js`, 8 unit tests. Screenshots at 390×844 and 1440×900: `axon-shots/a13/links-*.png` (throwaway user seeded with 3 threads, 4 named things, 2 replacements, 1 relation → 15 memories, 29 links) |
 | 14 | Billing entitlement is correct | **partial** | Entitlement truth holds: `user_plan_status` is the single source and users cannot change their plan, Stripe ids, the feature matrix or subscriptions (5 live checks + 402 on a Starter key). The live webhook has **5 recorded defects** in replay/ordering/Lifetime handling (`npm run test:billing`, docs/BILLING.md). The fix is written (`_shared/billing.ts`, 6/6) but **waits for approval** |
 | 15 | MCP remains healthy | automated (probe) | `/health` ok with a database ping. Not yet watched by an external uptime monitor |
 
-**Verdict: not done.** 10 of 15 steps are proven automatically. Five are partial:
-- 1 needs a real inbox.
-- 4 has an unscripted consent click.
+**Verdict: not done.** 12 of 15 steps are proven automatically. Three are partial:
+- 1 needs a real inbox (the bot's own inbox must be claimed first).
 - 12 has no physical-device run.
-- 13 has no relationship view yet.
 - 14 needs the billing fix, which needs approval.
 
 No step failed, and nothing in the gate blocks the current production release.
