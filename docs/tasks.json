@@ -218,7 +218,7 @@
       "objective": "Retire/supersede/delete propagation across items, embeddings, facts, entity links, caches",
       "phase": "A4",
       "priority": "P1",
-      "status": "queued",
+      "status": "done",
       "owner_agent": "grok-bot",
       "dependencies": [
         "A1-1"
@@ -227,18 +227,25 @@
         "Deleted memory absent from all recall paths (tested)"
       ],
       "files_or_services_touched": [
-        "supabase/migrations",
-        "memory-core.ts"
+        "supabase/migrations/20261017101436_memory_lifecycle.sql",
+        "supabase/functions/_shared/lifecycle.ts",
+        "supabase/functions/_shared/lifecycle.test.ts",
+        "tests/schema/lifecycle.sql",
+        "docs/MEMORY_LIFECYCLE.md"
       ],
-      "started_at": null,
-      "last_progress_at": null,
-      "attempts": 0,
-      "tests_run": [],
-      "build_result": null,
-      "deployment_result": null,
-      "verification_result": null,
+      "started_at": "2026-10-17T12:30:00+02:00",
+      "last_progress_at": "2026-10-17T12:50:00+02:00",
+      "attempts": 1,
+      "tests_run": [
+        "tests/schema/lifecycle.sql 44/44 (dry-run + prod after apply); found & fixed account-deletion FK clash in purge trigger",
+        "tests/rls/isolation.sql with migration 234/234",
+        "deno test 15/15"
+      ],
+      "build_result": "deno check OK; lint/build unaffected (no frontend change)",
+      "deployment_result": "Migration applied to prod as 20261017101436 (functions + BEFORE DELETE trigger; additive)",
+      "verification_result": "Supersede keeps previous state + relation; retire/restore idempotent; delete removes row, vector, links, orphan entities, sole-source facts, recalls, relations; absent from keyword, semantic (exact vector), related, memories view; cross-tenant and anon refused",
       "blocker": null,
-      "next_action": "Write propagation tests first",
+      "next_action": "None",
       "rollback_reference": "git revert"
     },
     {
