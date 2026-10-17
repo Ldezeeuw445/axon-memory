@@ -815,7 +815,7 @@
       "objective": "Release gate: typecheck, unit, RLS, MCP, recall eval, build, deploy smoke; scripted Pages/Worker deploy; AXE Core heartbeat",
       "phase": "A12",
       "priority": "P1",
-      "status": "queued",
+      "status": "waiting_external",
       "owner_agent": "grok-bot",
       "dependencies": [
         "A5-1",
@@ -827,18 +827,32 @@
         "All suites green; acceptance flow §37 passes end-to-end"
       ],
       "files_or_services_touched": [
-        "scripts/",
-        "docs/RUNBOOK.md"
+        "scripts/release-gate.sh",
+        "docs/ACCEPTANCE.md",
+        "docs/RUNBOOK.md",
+        "supabase/functions/oauth-callback/index.ts (type annotation only, not redeployed: no runtime change)"
       ],
-      "started_at": null,
-      "last_progress_at": null,
-      "attempts": 0,
-      "tests_run": [],
-      "build_result": null,
+      "started_at": "2026-10-17T15:20:00+02:00",
+      "last_progress_at": "2026-10-17T15:50:00+02:00",
+      "attempts": 1,
+      "tests_run": [
+        "release-gate.sh 10/10",
+        "SDK integration 12/12",
+        "HTTP isolation 204/204",
+        "isolation.sql 249/249",
+        "capture_pipeline 26/26",
+        "lifecycle 44/44",
+        "memory_model 45/45",
+        "recall_eval 24/24",
+        "MCP /health ok",
+        "3 domains x 8 paths 200, one build",
+        "residue 0"
+      ],
+      "build_result": "vite build ok (index-nUaD4goP.js, live)",
       "deployment_result": null,
-      "verification_result": null,
-      "blocker": null,
-      "next_action": "Script wrangler pages deploy + health pings",
+      "verification_result": "All suites green, no tenant leak. §37: 10/15 automated, 5 partial (1 sign-up e2e needs a real inbox; 4 consent click unscripted; 12 no physical device; 13 no relationship view; 14 billing defects need approval). Nothing failed.",
+      "blocker": "Remaining partials need: Luka to choose a bot inbox name (step 1), approval of the billing fix (step 14), a device run (step 12). 4 and 13 are follow-up engineering.",
+      "next_action": "Script the OAuth consent click with Playwright (step 4); relationship layer on Terrain from entity_links (step 13).",
       "rollback_reference": "git revert"
     },
     {
