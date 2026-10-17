@@ -1,4 +1,5 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense } from 'react';
+import { lazyPage } from './lib/lazyPage';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -12,17 +13,17 @@ import ConnectAuthorize from './pages/ConnectAuthorize';
 // Everything that is not the product's first screen loads on demand, so the
 // app on a phone downloads the shell and Recall, not the landing page's 3D,
 // the docs or billing (perf, A-perf-1).
-const Splash = lazy(() => import('./pages/Splash'));
-const Home = lazy(() => import('./pages/Home'));
-const Onboarding = lazy(() => import('./pages/Onboarding'));
-const Settings = lazy(() => import('./pages/Settings'));
-const Subscription = lazy(() => import('./pages/Subscription'));
-const ConnectError = lazy(() => import('./pages/ConnectError'));
-const Developers = lazy(() => import('./pages/Developers'));
-const Privacy = lazy(() => import('./pages/Privacy'));
-const Terms = lazy(() => import('./pages/Terms'));
-const AdminAlerts = lazy(() => import('./pages/AdminAlerts'));
-const NotFound = lazy(() => import('./pages/NotFound'));
+const Splash = lazyPage(() => import('./pages/Splash'));
+const Home = lazyPage(() => import('./pages/Home'));
+const Onboarding = lazyPage(() => import('./pages/Onboarding'));
+const Settings = lazyPage(() => import('./pages/Settings'));
+const Subscription = lazyPage(() => import('./pages/Subscription'));
+const ConnectError = lazyPage(() => import('./pages/ConnectError'));
+const Developers = lazyPage(() => import('./pages/Developers'));
+const Privacy = lazyPage(() => import('./pages/Privacy'));
+const Terms = lazyPage(() => import('./pages/Terms'));
+const AdminAlerts = lazyPage(() => import('./pages/AdminAlerts'));
+const NotFound = lazyPage(() => import('./pages/NotFound'));
 
 /** The void, while a page's code arrives. No spinner, by canon. */
 const Quiet = () => <div className="full-screen" style={{ background: '#020203' }} />;

@@ -1,4 +1,5 @@
-import React, { Suspense, lazy, useEffect, useRef, useState } from 'react';
+import React, { Suspense, useEffect, useRef, useState } from 'react';
+import { lazyPage } from '../lib/lazyPage';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Search, Plus, Spline, Mountain, Link2, CircleUser } from 'lucide-react';
@@ -11,8 +12,8 @@ import ThreadsFacet from './facets/ThreadsFacet';
 import YouFacet from './facets/YouFacet';
 import { flushCaptureQueue } from '../lib/axonApi';
 // Heavy parts load after the facet has painted: the 3D void/Core and Terrain.
-const AppScene = lazy(() => import('./AppScene'));
-const MemoryGraph = lazy(() => import('./MemoryGraph'));
+const AppScene = lazyPage(() => import('./AppScene'));
+const MemoryGraph = lazyPage(() => import('./MemoryGraph'));
 import ConnectFacet from './facets/ConnectFacet';
 import '../styles/facets.css';
 
@@ -32,6 +33,13 @@ export const FACETS = [
 ];
 const ALIAS = { dashboard: 'recall', graph: 'terrain', billing: 'you', sources: 'connections', privacy: 'you', profile: 'you' };
 export const facetFrom = (f) => (FACETS.some((x) => x.id === f) ? f : ALIAS[f] || null);
+
+/** The scene is decoration: if its code or WebGL fails, the void stays and the facets keep working. */
+class SceneBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { failed: false }; }
+  static getDerivedStateFromError() { return { failed: true }; }
+  render() { return this.state.failed ? null : this.props.children; }
+}
 
 /** Waits for the first paint and a quiet moment before the scene is fetched. */
 function useAfterFirstPaint(delay = 250) {
@@ -125,7 +133,7 @@ export default function AppShell() {
     <div className="full-screen">
       <div style={{ position: 'absolute', inset: 0, zIndex: 0, background: '#020203' }}>
         {sceneReady && (
-          <Suspense fallback={null}>
+          <SceneBoundary><Suspense fallback={null}>
             <div style={{ position: 'absolute', inset: 0, opacity: sceneShown ? 1 : 0, transition: 'opacity 1.2s ease' }} ref={(el) => { if (el && !sceneShown) requestAnimationFrame(() => setSceneShown(true)); }}>
               <AppScene
                 facet={facet}
@@ -138,7 +146,7 @@ export default function AppShell() {
                 }}
               />
             </div>
-          </Suspense>
+          </Suspense></SceneBoundary>
         )}
       </div>
 
