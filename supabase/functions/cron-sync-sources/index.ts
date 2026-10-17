@@ -47,7 +47,7 @@ Deno.serve(async (req: Request) => {
     // decide between reaching back and asking for the gap. Left out, every
     // scheduled run would page through a hundred commits per repo, every half
     // hour, forever.
-    .select("id, user_id, provider, access_token_encrypted, refresh_token_encrypted, status, last_synced_at")
+    .select("id, user_id, provider, access_token_encrypted, refresh_token_encrypted, status, last_synced_at, consecutive_failures")
     .in("status", ["connected", "error"])
     // Longest-unsynced first. Without an order Postgres returns whatever it
     // likes, and with more connections than the limit that tends to be the

@@ -9,6 +9,7 @@ import {
   lifecycle, lifecycleError, listThreads, me, recall, requireId, retryCapture, routeOf,
 } from "../_shared/api-v1.ts";
 import { OPENAPI } from "./openapi.ts";
+import { listConnectors } from "../_shared/connectors.ts";
 
 function send(body: unknown, status = 200, extra: Record<string, string> = {}) {
   return new Response(JSON.stringify(body), {
@@ -64,6 +65,15 @@ Deno.serve(async (req: Request) => {
 
     if (res === "me" && !id && m === "GET") return send(await me(admin, resolved.userId, resolved));
     if (res === "threads" && !id && m === "GET") return send(await listThreads(admin, resolved.userId));
+    // A8-1 connector contract. Read-only here: connecting and revoking need the
+    // signed-in app (provider consent screens), not a token.
+    if (res === "connectors" && m === "GET") {
+      if (!id) return send({ connectors: await listConnectors(admin, resolved.userId) });
+      const connId = requireId(id, "connector");
+      const [one] = await listConnectors(admin, resolved.userId, connId);
+      if (!one) throw new ApiError(404, "not_found", "connector not found");
+      return send(one);
+    }
     if (res === "recall" && !id && m === "POST") return send(await recall(admin, resolved.userId, await readJson(req), caller));
 
     if (res === "memories") {
@@ -136,7 +146,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    const known = ["me", "threads", "recall", "memories", "captures", "health", "openapi.json"].includes(res ?? "");
+    const known = ["me", "threads", "recall", "memories", "captures", "connectors", "health", "openapi.json"].includes(res ?? "");
     throw known
       ? new ApiError(405, "method_not_allowed", `${m} is not supported on /v1/${route.join("/")}`)
       : new ApiError(404, "not_found", `No route /v1/${route.join("/")}. See /v1/openapi.json`);

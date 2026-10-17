@@ -378,6 +378,17 @@ from pg_proc p join pg_namespace s on s.oid = p.pronamespace
 where s.nspname = 'public' and p.prosecdef
   and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e');
 
+-- ───────────────────── A8-1 connector contract columns ─────────────────────
+insert into rls_results (area, check_name, pass, severity, detail)
+select 'contract', 'source_connections has A8 contract columns', count(*) = 5, 'control', count(*)::text
+from information_schema.columns
+where table_schema = 'public' and table_name = 'source_connections'
+  and column_name in ('last_attempt_at', 'last_error_at', 'consecutive_failures', 'last_fetched_count', 'last_stored_count');
+insert into rls_results (area, check_name, pass, severity, detail)
+select 'contract', 'new connections start with 0 consecutive failures', bool_and(consecutive_failures = 0), 'control',
+       string_agg(consecutive_failures::text, ',')
+from public.source_connections where id in (select v::uuid from rls_fx where k in ('a_conn', 'b_conn'));
+
 select area, check_name, pass, severity, detail from rls_results order by pass, id;
 
 rollback;

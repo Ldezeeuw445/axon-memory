@@ -555,7 +555,7 @@
       "objective": "Connector runtime contract: status/scope/last_success/error/count/revoke + UI truthfulness",
       "phase": "A8",
       "priority": "P2",
-      "status": "queued",
+      "status": "done",
       "owner_agent": "grok-bot",
       "dependencies": [
         "A1-1"
@@ -564,19 +564,41 @@
         "No connector shown connected when last sync failed"
       ],
       "files_or_services_touched": [
-        "source_connections",
-        "sync-source",
-        "ConnectionsFacet.jsx"
+        "supabase/migrations/20261017112951_connector_runtime_contract.sql (additive columns)",
+        "supabase/functions/_shared/connectors.ts (new)",
+        "supabase/functions/connectors (new, v1)",
+        "supabase/functions/_shared/source-sync.ts",
+        "sync-source v56",
+        "cron-sync-sources v48",
+        "disconnect-source v25",
+        "oauth-callback v42",
+        "api-v1 v3 (GET /v1/connectors)",
+        "src/pages/DataSources.jsx",
+        "scripts/rls-fixtures-sql.mjs",
+        "scripts/rls-isolation-http.mjs",
+        "tests/rls/isolation.sql",
+        "docs/CONNECTORS.md",
+        "docs/API.md",
+        "docs/ARCHITECTURE.md",
+        "docs/RUNBOOK.md"
       ],
-      "started_at": null,
-      "last_progress_at": null,
-      "attempts": 0,
-      "tests_run": [],
-      "build_result": null,
-      "deployment_result": null,
-      "verification_result": null,
+      "started_at": "2026-10-17T11:20:00Z",
+      "last_progress_at": "2026-10-17T11:45:00Z",
+      "attempts": 1,
+      "tests_run": [
+        "deno unit 47/47 (connectors.test.ts +4)",
+        "migration dry-run + isolation.sql 242/242",
+        "SDK live integration 12/12",
+        "HTTP isolation 179/179 (+22 connector checks)",
+        "isolation.sql post-deploy 242/242",
+        "UI smoke on app.axon-memory.com with throwaway user: stuck/unsupported/disconnected badges, redacted error, no B data, 0 page errors",
+        "residue 0"
+      ],
+      "build_result": "vite build ok",
+      "deployment_result": "migration 20261017112951 applied; edge fns deployed; Pages axon-app 1fc8f00c + axon-memory 88d50f50 (first axon-memory deploy 8220ae11 served 500 ~2.5 min until assets were uploaded with that project's token; RUNBOOK updated)",
+      "verification_result": "No connector shows synced unless last success < 3h and status connected; failing/stale/stuck/unsupported/disconnected shown as such; revoke reports provider revoke truthfully",
       "blocker": null,
-      "next_action": "Add last_success_at/last_error columns",
+      "next_action": "Existing failing rows keep consecutive_failures=0 until their next run; scope.granted fills on reconnect",
       "rollback_reference": "git revert"
     },
     {

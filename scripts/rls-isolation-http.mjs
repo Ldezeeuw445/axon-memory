@@ -368,6 +368,56 @@ async function main() {
       check('api', 'v1: forged token → 401', forged.status === 401, `status ${forged.status}`);
     }
 
+    // ── Connector runtime contract (A8-1) ──
+    if (a.connectors) {
+      const cx = a.connectors;
+      const v1 = (key, path) => fetch(`${GATEWAY}/v1${path}`, { headers: { Authorization: `Bearer ${key}` } });
+      const getList = async (jwt) => { const r = await fn(jwt, 'connectors', null, 'GET'); return { r, body: await j(r) }; };
+      const { r: la, body: lab } = await getList(jwtA);
+      const list = lab?.connectors ?? [];
+      const byId = Object.fromEntries(list.map((c) => [c.id, c]));
+      check('control', 'connectors: A lists own connections', la.ok && !!byId[cx.stuck] && !!byId[cx.unsupported] && !!byId[cx.gone], `status ${la.status} n=${list.length}`);
+      check('connector', "connectors: A's list has no B connection", la.ok && !byId[cx.bConn] && !has(lab, [cx.bLabel]), `status ${la.status}`);
+      check('connector', 'connectors: no token material in the contract', !JSON.stringify(lab).includes(cx.secret) && !/access_token_encrypted|refresh_token_encrypted/.test(JSON.stringify(lab)));
+      const st = byId[cx.stuck] ?? {};
+      check('connector', 'stuck sync is not reported as synchronized', st.health === 'stuck' && st.synchronized === false, `${st.health}/${st.synchronized}`);
+      check('connector', 'failure visible: error kind, streak, last success kept', st.error?.kind === 'auth' && st.consecutive_failures === 2 && !!st.last_success_at && !!st.last_attempt_at, JSON.stringify(st.error));
+      check('connector', 'imported count and last run reported', st.imported?.items === 1 && st.imported?.last_run?.fetched === 5 && st.imported?.last_run?.stored === 1, JSON.stringify(st.imported));
+      check('connector', 'scope explanation + revoke + provenance present', st.scope?.access === 'read-only' && !!st.scope?.explanation && st.revoke?.available === true && st.provenance?.connection_id === cx.stuck);
+      const un = byId[cx.unsupported] ?? {};
+      check('connector', 'unsupported provider is honest (unsupported, not synchronized)', un.health === 'unsupported' && un.supported === false && un.synchronized === false, `${un.health}`);
+      const gone = byId[cx.gone] ?? {};
+      check('connector', 'disconnected connector shows disconnected, revoke unavailable', gone.health === 'disconnected' && gone.revoke?.available === false && gone.synchronized === false, `${gone.health}`);
+      check('control', 'catalog lists unsupported providers as unsupported', (lab?.catalog ?? []).some((c) => c.provider === 'discord' && c.supported === false));
+
+      const v1l = await v1(a.apiKey, '/connectors');
+      const v1b = await j(v1l);
+      check('control', 'v1: GET /connectors returns the same contract', v1l.ok && (v1b.connectors ?? []).some((c) => c.id === cx.stuck && c.health === 'stuck'), `status ${v1l.status}`);
+      check('connector', "v1: A's /connectors has no B connection", v1l.ok && !has(v1b, [cx.bConn, cx.bLabel]));
+      const v1x = await v1(a.apiKey, `/connectors/${cx.bConn}`);
+      check('connector', "v1: A GET /connectors/<B> → 404", v1x.status === 404, `status ${v1x.status}`);
+      const v1ro = await v1(a.readOnlyKey, `/connectors/${cx.stuck}`);
+      check('control', 'v1: read-only key can read a connector', v1ro.ok, `status ${v1ro.status}`);
+
+      const bOne = await fn(jwtB, `connectors?id=${cx.stuck}`, null, 'GET');
+      check('connector', "B GET connectors?id=<A's> → 404", bOne.status === 404, `status ${bOne.status}`);
+      const bDis = await fn(jwtB, 'disconnect-source', { source_connection_id: cx.stuck });
+      check('connector', "B cannot revoke A's connector (404)", bDis.status === 404, `status ${bDis.status}`);
+      const bSync = await fn(jwtB, 'sync-source', { source_connection_id: cx.stuck });
+      check('connector', "B cannot sync A's connector (404)", bSync.status === 404, `status ${bSync.status}`);
+      const aGoneSync = await fn(jwtA, 'sync-source', { source_connection_id: cx.gone });
+      check('connector', 'syncing a disconnected connector is refused (409), not turned into "failing"', aGoneSync.status === 409, `status ${aGoneSync.status}`);
+      const aRev = await fn(jwtA, 'disconnect-source', { source_connection_id: cx.unsupported });
+      const aRevB = await j(aRev);
+      check('connector', 'revoke: tokens deleted, provider revoke not claimed when not done', aRev.ok && aRevB.tokens_deleted === true && aRevB.revoked_at_provider === false && aRevB.imported_memories_kept === true, JSON.stringify(aRevB).slice(0, 160));
+      const after = await getList(jwtA);
+      const afterById = Object.fromEntries((after.body?.connectors ?? []).map((c) => [c.id, c]));
+      check('connector', 'after revoke the connector reads disconnected', afterById[cx.unsupported]?.health === 'disconnected', afterById[cx.unsupported]?.health);
+      check('connector', "A's other connector untouched by B's revoke attempt", afterById[cx.stuck]?.health === 'stuck' && afterById[cx.stuck]?.status === 'syncing', afterById[cx.stuck]?.status);
+      const { body: lbb } = await getList(jwtB);
+      check('control', 'B lists its own connector and none of A\'s', (lbb?.connectors ?? []).some((c) => c.id === cx.bConn) && !has(lbb, [cx.label, cx.stuck]));
+    }
+
     // ── MCP OAuth (A5-4 PKCE S256-only, A5-5 expiry + refresh, grandfathering) ──
     if (a.oauth) {
       const o = a.oauth;

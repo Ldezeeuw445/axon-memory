@@ -73,6 +73,23 @@ insert into public.api_keys (user_id, name, key_prefix, key_hash, oauth_client_i
 values ('${a.id}', 'rls-test expired oauth', '${expiredKey.slice(0, 14)}', '${sha(expiredKey)}', '${clientId}', 'memory.read memory.write', now() - interval '1 minute');
 `;
 }
+// Connector contract fixtures (A8-1). Only statuses the scheduler never picks
+// up ('syncing', 'disconnected'), so cron-sync-sources cannot try to sync a
+// fake token or raise an alert while the suite runs. No tokens are stored.
+{
+  const tag = randomBytes(5).toString('hex');
+  const a = fx.a, b = fx.b;
+  const ids = { stuck: randomUUID(), unsupported: randomUUID(), gone: randomUUID(), bConn: randomUUID() };
+  a.connectors = { ...ids, label: `rls-a-conn-${tag}`, bLabel: `rls-b-conn-${tag}`, secret: `ya29.RLSSECRET${tag}` };
+  sql += `insert into public.source_connections (id, user_id, provider, status, external_account_label, external_account_id, last_synced_at, last_attempt_at, last_error, last_error_at, consecutive_failures, last_fetched_count, last_stored_count)
+values ('${ids.stuck}', '${a.id}', 'gmail', 'syncing', '${a.connectors.label}', 'rls-${tag}-1', now() - interval '2 hours', now() - interval '1 hour', 'gmail list failed: 401 Bearer ${a.connectors.secret}', now() - interval '1 hour', 2, 5, 1),
+       ('${ids.unsupported}', '${a.id}', 'jira', 'syncing', 'rls jira ${tag}', 'rls-${tag}-2', null, now(), null, null, 0, null, null),
+       ('${ids.gone}', '${a.id}', 'slack', 'disconnected', 'rls slack ${tag}', 'rls-${tag}-3', now() - interval '3 days', now() - interval '3 days', null, null, 0, null, null),
+       ('${ids.bConn}', '${b.id}', 'github', 'syncing', '${a.connectors.bLabel}', 'rls-${tag}-4', null, now(), null, null, 0, null, null);
+insert into public.memory_items (user_id, source_type, content_type, title, content, source_connection_id, external_id, origin_key)
+values ('${a.id}', 'gmail', 'email', 'rls connector item ${tag}', 'imported via rls connector ${tag}', '${ids.stuck}', 'rls-ext-${tag}', 'gmail');
+`;
+}
 sql += 'commit;\n';
 writeFileSync(out, JSON.stringify(fx, null, 2));
 process.stdout.write(sql);

@@ -33,8 +33,18 @@ Deno.serve(async (req: Request) => {
     .single();
 
   if (connErr || !conn) return jsonResponse({ error: "Connection not found" }, { status: 404, origin });
+  // A revoked connection has no tokens. Syncing it would only flip it to
+  // "error" and make a deliberate disconnect look like a failure.
+  if (conn.status === "disconnected") {
+    return jsonResponse({ error: "Connection is disconnected. Reconnect it first." }, { status: 409, origin });
+  }
 
-  await admin.from("source_connections").update({ status: "syncing" }).eq("id", conn.id);
+  // last_attempt_at with it, so a run that never comes back reads as "stuck"
+  // after a while instead of "syncing" forever (A8-1).
+  await admin
+    .from("source_connections")
+    .update({ status: "syncing", last_attempt_at: new Date().toISOString() })
+    .eq("id", conn.id);
 
   const result = await syncOneConnection(admin, conn);
   if (!result.ok) {
