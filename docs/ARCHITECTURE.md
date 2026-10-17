@@ -42,7 +42,8 @@ There is one source of truth: Postgres. There is no separate graph or vector sto
 | mcp-oauth-register / -authorize / -token, oauth-metadata | no | MCP clients | OAuth 2.1 dynamic registration, PKCE, token = an `api_keys` row |
 | mcp-oauth-consent | yes | app | The user approves a client and scope |
 | api-keys-create | yes | app | Personal developer key (Power plan or higher) |
-| oauth-start / oauth-callback, sync-source, cron-sync-sources, disconnect-source | mixed | app / cron | Source connectors (GitHub, Linear, …). Tokens are AES-GCM encrypted at rest |
+| oauth-start / oauth-callback, sync-source, cron-sync-sources, disconnect-source | mixed | app / cron | Source connectors (GitHub, Linear, …). Tokens are AES-GCM encrypted at rest. disconnect-source is the revoke action |
+| connectors | yes | app | Connector runtime contract (`CONNECTORS.md`), same builder as `GET /v1/connectors` |
 | delete-account | yes | app | Full account deletion (everything cascades from `auth.users`) |
 | stripe-checkout / stripe-portal / stripe-webhook | mixed | app / Stripe | Billing. The webhook verifies the Stripe signature |
 | check-alerts, list-alerts | no / yes | cron / admin | Operational alerts (`system_alerts`) |
@@ -60,4 +61,4 @@ There is one source of truth: Postgres. There is no separate graph or vector sto
 Everything is verified on a workstation or the agent box. The steps are in `RUNBOOK.md`. Pages projects are Direct Upload with no git integration, and the Worker is deployed by hand.
 
 ## Related docs
-`MEMORY_MODEL.md` · `MEMORY_LIFECYCLE.md` · `CAPTURE.md` · `RECALL.md` · `SECURITY.md` · `MCP.md` · `RUNBOOK.md` · `ACCEPTANCE.md` · `CLAUDE.md` · canon in `Docs/axon/`.
+`MEMORY_MODEL.md` · `CONNECTORS.md` · `API.md` · `MEMORY_LIFECYCLE.md` · `CAPTURE.md` · `RECALL.md` · `SECURITY.md` · `MCP.md` · `RUNBOOK.md` · `ACCEPTANCE.md` · `CLAUDE.md` · canon in `Docs/axon/`.

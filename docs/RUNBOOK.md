@@ -47,7 +47,7 @@ Deploy with entrypoint `index.js` and the function's **existing** `verify_jwt` s
 
 ## Frontend (Pages Direct Upload)
 1. `npm run build`.
-2. Get an upload token per project: Cloudflare API `GET /accounts/{acct}/pages/projects/{name}/upload-token`.
+2. Get an upload token **per project** and run step 3 once per project with that project's token. Assets are stored per project: a deployment whose hashes were uploaded only under the other project's token succeeds but serves **500** (happened to axon-memory.com on 2026-10-17 for ~2.5 min, 13:37–13:40 CEST). Get the token: Cloudflare API `GET /accounts/{acct}/pages/projects/{name}/upload-token`.
 3. `UPLOAD_JWT=<token> DIST_DIR=dist node axon-pages-upload.mjs` (box helper: MD5-keyed check-missing → upload → upsert-hashes. Writes the manifest).
 4. `POST /accounts/{acct}/pages/projects/{name}/deployments` as multipart with `manifest`, `branch=main` and `commit_hash`.
 5. Smoke: each domain 200, its `index.html` points at the new `/assets/index-*.js`, SPA routes (`/dashboard`, `/settings`) 200.

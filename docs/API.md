@@ -26,6 +26,8 @@ Machine-readable contract: `GET /v1/openapi.json` (no auth). Function: `supabase
 | DELETE | `/memories/{id}` | Permanent, with full propagation (vectors, links, sole-source conclusions). An idempotent replay of its capture returns `410 gone` and never re-creates it |
 | POST | `/recall` | `query?`, `thread?`, `facets[]?`, `limit` (1–50), `include_inferences` (default true). Returns `{memories[], inferences[], signals[]}`. Inferences are conclusions with `from` memory ids, never mixed into memories |
 | GET | `/threads` | Thread keys to pass as `thread` |
+| GET | `/connectors` | Source connections with the A8 runtime contract (`CONNECTORS.md`): `health`, `synchronized`, scope, last success/attempt, error, imported count, revoke, provenance. Read-only: connecting and revoking happen in the app |
+| GET | `/connectors/{id}` | One connector contract |
 | GET | `/captures` | 24 h capture health plus captures needing attention |
 | GET | `/captures/{id}` | One capture's status |
 | POST | `/captures/{id}/retry` | Retry a failed capture from its saved payload |
@@ -34,4 +36,4 @@ Machine-readable contract: `GET /v1/openapi.json` (no auth). Function: `supabase
 - `supabase/functions/_shared/api-v1.test.ts`: routing, shape, error mapping, source-ref validation.
 - `packages/sdk-ts/test/unit.test.mjs`: SDK transport, retries, error typing (no network).
 - `packages/sdk-ts/test/integration.test.mjs`: live, against **both** base URLs, with throwaway fixture users. Covers capture + provenance + thread, idempotency, recall trace, thread scoping, cross-tenant refusal on every verb, supersede/retire/restore/delete, no resurrection after delete, read-only scope, validation, auth.
-- `scripts/rls-isolation-http.mjs`: 7 `/v1` isolation checks in the release suite.
+- `scripts/rls-isolation-http.mjs`: 7 `/v1` isolation checks plus the A8-1 connector checks (22, incl. `/v1/connectors`) in the release suite.
