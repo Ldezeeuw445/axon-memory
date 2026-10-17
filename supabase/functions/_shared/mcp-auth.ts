@@ -5,6 +5,7 @@
 // exactly the same user_id as a manually-created key would.
 import { supabaseAdmin } from "./supabase-admin.ts";
 import { sha256Hex } from "./crypto.ts";
+import { accessTokenExpired } from "./oauth.ts";
 
 export type ResolvedKey = {
   userId: string;
@@ -38,11 +39,15 @@ export async function resolveBearerToken(req: Request): Promise<ResolvedKey | nu
   const keyHash = await sha256Hex(token);
   const { data } = await admin
     .from("api_keys")
-    .select("id, user_id, revoked_at, oauth_client_id, scope, name")
+    .select("id, user_id, revoked_at, oauth_client_id, scope, name, access_expires_at")
     .eq("key_hash", keyHash)
     .maybeSingle();
 
   if (!data || data.revoked_at) return null;
+  // NULL expiry = personal key or a pre-A5-5 OAuth token (grandfathered).
+  // An expired one gets the same 401 as an unknown token, which is what tells
+  // an OAuth client to use its refresh token.
+  if (accessTokenExpired(data.access_expires_at)) return null;
 
   await admin.from("api_keys").update({ last_used_at: new Date().toISOString() }).eq("id", data.id);
 

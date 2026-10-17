@@ -5,7 +5,7 @@
 // calls mcp-oauth-consent (with the user's own JWT) to actually approve.
 import { handlePreflight } from "../_shared/cors.ts";
 import { supabaseAdmin } from "../_shared/supabase-admin.ts";
-import { APP_URL, redirectUriAllowed } from "../_shared/oauth.ts";
+import { APP_URL, pkceRequestError, redirectUriAllowed } from "../_shared/oauth.ts";
 
 function redirect(url: string) {
   return new Response(null, { status: 302, headers: { Location: url } });
@@ -28,13 +28,28 @@ Deno.serve(async (req: Request) => {
   const admin = supabaseAdmin();
   const { data: client } = await admin
     .from("oauth_clients")
-    .select("client_id, client_name, redirect_uris, logo_uri")
+    .select("client_id, client_name, redirect_uris, logo_uri, is_public")
     .eq("client_id", clientId)
     .maybeSingle();
 
   if (!client) return redirect(`${APP_URL}/connect/error?reason=unknown_client`);
   if (!redirectUriAllowed(client.redirect_uris, redirectUri)) {
     return redirect(`${APP_URL}/connect/error?reason=redirect_uri_mismatch`);
+  }
+
+  // PKCE is S256 only (A5-4). The redirect_uri is verified by now, so the
+  // error goes back to the client as RFC 6749 §4.1.2.1 describes.
+  const pkceError = pkceRequestError({
+    isPublic: client.is_public !== false,
+    challenge: p.get("code_challenge"),
+    method: p.get("code_challenge_method"),
+  });
+  if (pkceError) {
+    const back = new URL(redirectUri);
+    back.searchParams.set("error", "invalid_request");
+    back.searchParams.set("error_description", pkceError);
+    if (p.get("state")) back.searchParams.set("state", p.get("state")!);
+    return redirect(back.toString());
   }
 
   // Hand everything the app needs off to the consent screen as query params.
@@ -45,7 +60,7 @@ Deno.serve(async (req: Request) => {
     state: p.get("state") ?? "",
     scope: p.get("scope") ?? "memory.read memory.write",
     code_challenge: p.get("code_challenge") ?? "",
-    code_challenge_method: p.get("code_challenge_method") ?? "S256",
+    code_challenge_method: "S256",
   });
 
   return redirect(`${APP_URL}/connect/authorize?${forward.toString()}`);

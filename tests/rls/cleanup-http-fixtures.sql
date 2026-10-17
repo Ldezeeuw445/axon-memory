@@ -10,3 +10,7 @@ select count(*) as leftover_objects from storage.objects where bucket_id = 'note
 delete from auth.users where email like '%@rls-test.invalid'
   and id not in (select owner from storage.objects where bucket_id = 'note-files' and owner is not null);
 select count(*) as remaining from auth.users where email like '%@rls-test.invalid';
+-- OAuth clients created by the suite are not owned by a user, so they do not
+-- cascade. Codes cascade from the client; api_keys from the user.
+delete from public.oauth_clients where client_name like 'rls-test%' and client_id like 'axon_client_rlstest%';
+select count(*) as remaining_clients from public.oauth_clients where client_name like 'rls-test%';

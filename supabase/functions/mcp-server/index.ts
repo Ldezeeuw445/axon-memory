@@ -374,7 +374,7 @@ Deno.serve(async (req: Request) => {
   // Everything else touches user memory -> auth required.
   const resolved = await resolveBearerToken(req);
   if (!resolved) {
-    return unauthorized(cors);
+    return unauthorized(cors, !!req.headers.get("authorization"));
   }
 
   if (method === "tools/list") {
@@ -667,14 +667,17 @@ function json(payload: unknown, cors: Record<string, string>, status = 200) {
   return new Response(JSON.stringify(payload), { status, headers: { ...cors, "content-type": "application/json" } });
 }
 
-function unauthorized(cors: Record<string, string>) {
+function unauthorized(cors: Record<string, string>, tokenPresented = false) {
   const resourceOrigin = mcpOrigin();
+  // RFC 6750 §3.1: a presented-but-rejected token (unknown, revoked, expired)
+  // says invalid_token, which is the cue for an OAuth client to refresh.
+  const err = tokenPresented ? `error="invalid_token", ` : "";
   return new Response(JSON.stringify({ jsonrpc: "2.0", error: { code: -32001, message: "Unauthorized" } }), {
     status: 401,
     headers: {
       ...cors,
       "content-type": "application/json",
-      "www-authenticate": `Bearer resource_metadata="${resourceOrigin}/.well-known/oauth-protected-resource"`,
+      "www-authenticate": `Bearer ${err}resource_metadata="${resourceOrigin}/.well-known/oauth-protected-resource"`,
     },
   });
 }

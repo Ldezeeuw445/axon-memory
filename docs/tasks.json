@@ -397,21 +397,66 @@
         "Legit own-data writes unaffected"
       ],
       "files_or_services_touched": [
-        "supabase/migrations/20261017095947_tenant_parent_ownership_checks.sql"
+        "supabase/functions/_shared/oauth.ts",
+        "mcp-oauth-authorize v23",
+        "mcp-oauth-consent v23",
+        "mcp-oauth-token v24",
+        "oauth-metadata v25",
+        "supabase/functions/_shared/oauth.test.ts"
       ],
-      "started_at": "2026-10-17T12:10:00+02:00",
-      "last_progress_at": "2026-10-17T12:30:00+02:00",
+      "started_at": "2026-10-17T13:02:00+02:00",
+      "last_progress_at": "2026-10-17T13:12:00+02:00",
       "attempts": 1,
       "tests_run": [
-        "isolation.sql integrity section 6/6 + legit-write control, before and after apply",
-        "HTTP suite 84/84"
+        "pre-check: all 13 stored grants (2026-08-11..2026-10-15) S256 with challenge; 0 plain → safe",
+        "deno test 38/38",
+        "live HTTP: metadata S256-only, /authorize plain→error to client, no-PKCE public→error, consent plain→400, stored plain code→invalid_grant"
       ],
       "build_result": "n/a (SQL only)",
-      "deployment_result": "Applied to prod as 20261017095947 (restrictive RLS policies, additive)",
-      "verification_result": "Found by A5-1: A could plant tasks/catch/work in B's workspace and file memories/threads/links under B's project/entity if it knew B's uuid; service-role MCP reads by workspace_id would have surfaced planted tasks to B's assistants. Zero such rows existed in prod. Now refused.",
+      "deployment_result": "deployed",
+      "verification_result": "plain refused at authorize, consent and token; confidential clients may still skip PKCE (secret authenticates)",
       "blocker": null,
-      "next_action": "None",
+      "next_action": "none",
       "rollback_reference": "drop the *_parent_owned_* / *_keys_owned_* policies"
+    },
+    {
+      "id": "A5-5",
+      "product": "axon-memory",
+      "objective": "MCP OAuth: access-token expiry + refresh_token grant, existing tokens grandfathered",
+      "phase": "A5",
+      "priority": "P1",
+      "status": "done",
+      "owner_agent": "grok-bot",
+      "dependencies": [
+        "A5-4"
+      ],
+      "acceptance_criteria": [
+        "New OAuth tokens expire and can be refreshed (rotation)",
+        "Existing tokens keep working (NULL expiry)",
+        "Expired token rejected with 401 + WWW-Authenticate"
+      ],
+      "files_or_services_touched": [
+        "supabase/migrations/20261017110651_oauth_token_expiry.sql (additive: 4 nullable columns + partial unique index)",
+        "mcp-oauth-token v24 (refresh_token grant)",
+        "_shared/mcp-auth.ts (expiry check)",
+        "mcp-server v74, context-pack v62, remember v54",
+        "mcp-oauth-register v24"
+      ],
+      "started_at": "2026-10-17T13:02:00+02:00",
+      "last_progress_at": "2026-10-17T13:12:00+02:00",
+      "attempts": 1,
+      "tests_run": [
+        "dry-run migration + isolation.sql 240/240",
+        "live HTTP 150/150 incl. 17 oauth checks: code→access+refresh(expires_in 86400), replay refused, refresh rotates, reused refresh refused, refresh bound to client, old access 401, expired 401 invalid_token (MCP + context-pack), grandfathered token works, forged refresh refused",
+        "isolation.sql 240/240 after deploy",
+        "residue 0 (users, test clients, test keys)"
+      ],
+      "build_result": null,
+      "deployment_result": "migration applied (prod version 20261017110651); functions deployed",
+      "verification_result": "13 existing OAuth tokens untouched (access_expires_at NULL), still valid",
+      "blocker": null,
+      "next_action": "Optional (needs Luka): force-expire the 13 grandfathered tokens",
+      "rollback_reference": "git revert + redeploy previous bundle"
     },
     {
       "id": "A6-1",

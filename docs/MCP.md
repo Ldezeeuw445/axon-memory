@@ -4,8 +4,8 @@ Endpoint: **`https://mcp.axon-memory.com/`**. Transport is MCP Streamable HTTP (
 
 ## Authentication
 - Discovery: `/.well-known/oauth-protected-resource` and `/.well-known/oauth-authorization-server` (both served by `oauth-metadata`). An unauthenticated `tools/*` call gets 401 with `WWW-Authenticate: Bearer resource_metadata=…`.
-- OAuth 2.1: dynamic client registration `/register`, then `/authorize` (the user signs in and approves on app.axon-memory.com/connect/authorize through `mcp-oauth-consent`), then `/token` (authorization_code + PKCE). Scopes: `memory.read`, `memory.write`.
-- The access token is an `api_keys` row (only the SHA-256 is stored) carrying `oauth_client_id` and `scope`. Revoking it in the app disconnects that client.
+- OAuth 2.1: dynamic client registration `/register`, then `/authorize` (the user signs in and approves on app.axon-memory.com/connect/authorize through `mcp-oauth-consent`), then `/token`. Grants: `authorization_code` with PKCE **S256 only** (`plain` is refused, and public clients must use PKCE), and `refresh_token` (rotating, bound to the client). Access tokens last 24 h (`expires_in`). Scopes: `memory.read`, `memory.write`.
+- The access token is an `api_keys` row (only the SHA-256 is stored) carrying `oauth_client_id`, `scope`, `access_expires_at` and the refresh hash. A refresh rotates both tokens on the same row, so the connection keeps its identity and provenance. Tokens issued before 2026-10-17 have no expiry (grandfathered). Revoking a token in the app disconnects that client. An expired or revoked token gets 401 with `error="invalid_token"`.
 - Personal developer keys (`axon_live_…`, created in the app, Power plan or higher) work as Bearer tokens too. They have no scope, which means full access.
 - `initialize` and `notifications/*` need no auth (they carry no user data). `tools/list` and `tools/call` do.
 - Rate limit: 60 `tools/call` per minute per key (`take_rate_limit_token`). An over-limit call returns a tool error that says when to retry.

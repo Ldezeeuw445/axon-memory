@@ -350,6 +350,60 @@ async function main() {
       check('capture', 'capture_status over MCP returns health', !!csj?.health && typeof csj.health.attempts === 'number', cs.text.slice(0, 120));
     }
 
+    // ── MCP OAuth (A5-4 PKCE S256-only, A5-5 expiry + refresh, grandfathering) ──
+    if (a.oauth) {
+      const o = a.oauth;
+      const form = (params) => fetch(`${GATEWAY}/token`, { method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(params).toString() });
+      const meta = await j(await fetch(`${GATEWAY}/.well-known/oauth-authorization-server`));
+      check('oauth', 'metadata advertises PKCE S256 only', JSON.stringify(meta.code_challenge_methods_supported) === '["S256"]', JSON.stringify(meta.code_challenge_methods_supported));
+      check('oauth', 'metadata advertises refresh_token grant', (meta.grant_types_supported ?? []).includes('refresh_token'));
+      const authz = (extra) => fetch(`${GATEWAY}/authorize?${new URLSearchParams({ client_id: o.clientId, redirect_uri: o.redirectUri, response_type: 'code', state: 'st', ...extra })}`, { redirect: 'manual' });
+      const loc = (r) => r.headers.get('location') ?? '';
+      const goodCh = createHash('sha256').update(randomBytes(16)).digest('base64url');
+      const rPlain = await authz({ code_challenge: 'x'.repeat(43), code_challenge_method: 'plain' });
+      check('oauth', '/authorize refuses code_challenge_method=plain (error back to client)', rPlain.status === 302 && loc(rPlain).startsWith(o.redirectUri) && /error=invalid_request/.test(loc(rPlain)) && /state=st/.test(loc(rPlain)), `${rPlain.status} ${loc(rPlain).slice(0, 90)}`);
+      const rNone = await authz({});
+      check('oauth', '/authorize refuses a public client without PKCE', rNone.status === 302 && /error=invalid_request/.test(loc(rNone)), `${rNone.status}`);
+      const rOk = await authz({ code_challenge: goodCh, code_challenge_method: 'S256' });
+      check('control', '/authorize with S256 goes to the consent screen', rOk.status === 302 && /\/connect\/authorize\?/.test(loc(rOk)) && /code_challenge_method=S256/.test(loc(rOk)), `${rOk.status} ${loc(rOk).slice(0, 60)}`);
+      const cPlain = await fn(jwtA, 'mcp-oauth-consent', { client_id: o.clientId, redirect_uri: o.redirectUri, code_challenge: 'y'.repeat(43), code_challenge_method: 'plain', decision: 'approve' });
+      check('oauth', 'consent refuses plain before minting a code', cPlain.status === 400, `status ${cPlain.status}`);
+
+      const tPlain = await form({ grant_type: 'authorization_code', code: o.plainCode, redirect_uri: o.redirectUri, client_id: o.clientId, code_verifier: o.plainVerifier });
+      check('oauth', 'token endpoint refuses a stored plain-PKCE code', tPlain.status === 400 && (await j(tPlain)).error === 'invalid_grant', `status ${tPlain.status}`);
+      const tWrong = await form({ grant_type: 'authorization_code', code: o.code, redirect_uri: o.redirectUri, client_id: o.clientId, code_verifier: 'wrong-' + o.verifier });
+      check('oauth', 'token endpoint refuses a wrong S256 verifier', tWrong.status === 400, `status ${tWrong.status}`);
+      const tOk = await form({ grant_type: 'authorization_code', code: o.code, redirect_uri: o.redirectUri, client_id: o.clientId, code_verifier: o.verifier });
+      const tok = await j(tOk);
+      check('oauth', 'S256 code → access + refresh token with expires_in', tOk.ok && /^axon_live_/.test(tok.access_token ?? '') && /^axon_refresh_/.test(tok.refresh_token ?? '') && tok.expires_in > 0, `status ${tOk.status} expires_in ${tok.expires_in}`);
+      const tReplay = await form({ grant_type: 'authorization_code', code: o.code, redirect_uri: o.redirectUri, client_id: o.clientId, code_verifier: o.verifier });
+      check('oauth', 'a code cannot be redeemed twice', tReplay.status === 400, `status ${tReplay.status}`);
+
+      const ok1 = await mcp(GATEWAY, tok.access_token, 'tools/call', { name: 'recall_context', arguments: { query: tokA } });
+      const ok1b = await j(ok1);
+      check('oauth', 'new OAuth token recalls only its own user', ok1.ok && has(ok1b, [contentA]) && !has(ok1b, [contentB, titleB]), `status ${ok1.status}`);
+      const rWrongClient = await form({ grant_type: 'refresh_token', refresh_token: tok.refresh_token, client_id: 'axon-claude-mcp' });
+      check('oauth', 'refresh token is bound to its client', rWrongClient.status >= 400, `status ${rWrongClient.status}`);
+      const rf = await form({ grant_type: 'refresh_token', refresh_token: tok.refresh_token, client_id: o.clientId });
+      const tok2 = await j(rf);
+      check('oauth', 'refresh_token grant rotates access + refresh', rf.ok && tok2.access_token && tok2.access_token !== tok.access_token && tok2.refresh_token !== tok.refresh_token, `status ${rf.status}`);
+      const reuse = await form({ grant_type: 'refresh_token', refresh_token: tok.refresh_token, client_id: o.clientId });
+      check('oauth', 'a rotated refresh token cannot be reused', reuse.status === 400, `status ${reuse.status}`);
+      const oldAcc = await mcp(GATEWAY, tok.access_token, 'tools/list', {});
+      check('oauth', 'the pre-refresh access token stops working', oldAcc.status === 401, `status ${oldAcc.status}`);
+      const newAcc = await mcp(GATEWAY, tok2.access_token, 'tools/list', {});
+      check('control', 'the refreshed access token works', newAcc.ok, `status ${newAcc.status}`);
+      const legacy = await mcp(GATEWAY, o.legacyKey, 'tools/list', {});
+      check('control', 'grandfathered OAuth token (no expiry) keeps working', legacy.ok, `status ${legacy.status}`);
+      const expired = await mcp(GATEWAY, o.expiredKey, 'tools/list', {});
+      check('oauth', 'expired OAuth token → 401 invalid_token', expired.status === 401 && /invalid_token/.test(expired.headers.get('www-authenticate') ?? ''), `${expired.status} ${expired.headers.get('www-authenticate')}`);
+      const expRest = await fn(o.expiredKey, 'context-pack', { query: tokA });
+      check('oauth', 'expired OAuth token refused by context-pack too', expRest.status === 401, `status ${expRest.status}`);
+      const bRefresh = await form({ grant_type: 'refresh_token', refresh_token: 'axon_refresh_' + '0'.repeat(64), client_id: o.clientId });
+      check('oauth', 'forged refresh token refused', bRefresh.status === 400, `status ${bRefresh.status}`);
+    }
+
     // ── Exports ──
     check('export', 'no export endpoint exists yet — add a case here when data export ships', true, 'skipped (surface absent)');
 

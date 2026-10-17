@@ -49,15 +49,68 @@ export async function base64UrlSha256(input: string): Promise<string> {
     .replace(/=+$/, "");
 }
 
+/**
+ * PKCE is S256 only (A5-4).
+ *
+ * `plain` sends the verifier itself as the challenge, so anyone who sees the
+ * authorization request can redeem the code. Before turning it off, every
+ * grant ever issued was checked: all 13 stored codes (2026-08-11 → 2026-10-15)
+ * were S256 with a challenge, so no connected client relied on `plain`.
+ *
+ * Public clients (no secret) must send a challenge. Confidential clients may
+ * still skip PKCE, because their client_secret authenticates the redemption,
+ * and dropping that would break a pre-seeded Actions client for no gain.
+ */
+export const PKCE_METHODS = ["S256"] as const;
+
+/** Why an authorization request's PKCE parameters are unacceptable, or null. */
+export function pkceRequestError(
+  p: { isPublic: boolean; challenge?: string | null; method?: string | null },
+): string | null {
+  const challenge = (p.challenge ?? "").trim();
+  const method = (p.method ?? "").trim();
+  if (method && method !== "S256") return "code_challenge_method must be S256 (plain is not supported)";
+  if (!challenge && p.isPublic) return "PKCE code_challenge (S256) is required for public clients";
+  if (challenge && !/^[A-Za-z0-9_-]{43,128}$/.test(challenge)) return "code_challenge must be a base64url S256 digest";
+  return null;
+}
+
 export async function verifyPkce(
   codeVerifier: string | null | undefined,
   codeChallenge: string | null | undefined,
   method: string | null | undefined,
+  isPublic = true,
 ): Promise<boolean> {
-  if (!codeChallenge) return true; // client didn't use PKCE (only allowed for confidential clients)
+  if (!codeChallenge) return !isPublic; // only a confidential client may skip PKCE
   if (!codeVerifier) return false;
-  if ((method ?? "S256") === "plain") return codeVerifier === codeChallenge;
+  if ((method ?? "S256") !== "S256") return false; // plain (or anything else) is refused
   return (await base64UrlSha256(codeVerifier)) === codeChallenge;
+}
+
+/**
+ * Token lifetimes (A5-5).
+ *
+ * Tokens issued before this existed have NULL `access_expires_at` and keep
+ * working until revoked (grandfathered), so no connected client is cut off.
+ * New OAuth grants get an access token that expires and a rotating refresh
+ * token. Every MCP client in use (Claude, ChatGPT, Cursor) refreshes on 401.
+ */
+export const ACCESS_TOKEN_TTL_S = Number(Deno.env.get("OAUTH_ACCESS_TTL_SECONDS")) || 24 * 3600;
+export const REFRESH_TOKEN_TTL_S = Number(Deno.env.get("OAUTH_REFRESH_TTL_SECONDS")) || 90 * 24 * 3600;
+
+export function newRefreshToken(): string {
+  return `axon_refresh_${randomToken(32)}`;
+}
+
+/** NULL = grandfathered (no expiry). */
+export function accessTokenExpired(accessExpiresAt: string | null | undefined, now = Date.now()): boolean {
+  if (!accessExpiresAt) return false;
+  const t = new Date(accessExpiresAt).getTime();
+  return Number.isFinite(t) && t <= now;
+}
+
+export function expiryIso(ttlSeconds: number, now = Date.now()): string {
+  return new Date(now + ttlSeconds * 1000).toISOString();
 }
 
 export function newAuthorizationCode(): { plaintext: string; hashPromise: Promise<string> } {
