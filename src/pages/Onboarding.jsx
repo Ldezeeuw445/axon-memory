@@ -152,7 +152,7 @@ export default function Onboarding() {
           <div>
             <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 6 }}>Connect your AI tools</h2>
             <p style={{ color: 'var(--color-text-secondary)', marginBottom: 20, fontSize: 14, lineHeight: 1.6 }}>
-              In Claude or ChatGPT, add AXON as a connector using this URL — you'll be asked to log in and approve, no key to copy. You can do this anytime from the AI Adapters page.
+              In Claude or ChatGPT, add AXON as a connector using this URL — you'll be asked to log in and approve, no key to copy. You can do this any time from Connect.
             </p>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(0,0,0,0.35)', border: '1px solid var(--color-border)', borderRadius: 8, padding: '10px 12px', fontFamily: 'monospace', fontSize: 12.5, marginBottom: 24 }}>
               <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{MCP_GATEWAY_URL}</span>

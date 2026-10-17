@@ -172,7 +172,7 @@ export default function ConnectAuthorize() {
         </div>
 
         <p style={{ textAlign: 'center', marginTop: 18, fontSize: 11.5, color: 'var(--color-text-secondary)' }}>
-          You can revoke this connection any time from AI Adapters.
+          You can withdraw it any time in Connect.
         </p>
       </div>
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
