@@ -25,6 +25,7 @@ step "lint (errors fail, warnings allowed)" npx oxlint src
 step "MCP gateway worker"                node --test cloudflare/mcp-gateway/worker.test.mjs
 step "SDK unit"                          bash -c 'cd packages/sdk-ts && npm test --silent'
 step "billing webhook replay (local)"    deno run -A tests/billing/webhook-replay.ts
+step "billing checkout guard (local)"    deno run -A tests/billing/checkout-guard.ts
 step "production build"                  npx vite build
 step "first-screen bundle budget"         node scripts/bundle-budget.mjs dist
 echo "---"
