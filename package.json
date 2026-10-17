@@ -22,7 +22,10 @@
     "test:billing": "deno run -A tests/billing/webhook-replay.ts",
     "test:oauth-e2e": "node scripts/oauth-consent-e2e.mjs",
     "perf:recall": "node scripts/perf-recall.mjs",
-    "perf:budget": "node scripts/bundle-budget.mjs dist"
+    "perf:budget": "node scripts/bundle-budget.mjs dist",
+    "deploy:upload": "node scripts/deploy/pages-upload.mjs",
+    "deploy:pages": "node scripts/deploy/pages-deploy.mjs",
+    "deploy:smoke": "bash scripts/deploy/smoke.sh"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.8",

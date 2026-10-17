@@ -36,3 +36,5 @@ supabase/.temp
 # wrangler local cache
 .wrangler/
 **/.wrangler/
+.pages-manifest.json
+.pages-deploy-*.js

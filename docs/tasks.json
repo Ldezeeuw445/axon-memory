@@ -852,7 +852,7 @@
       "deployment_result": null,
       "verification_result": "Gate 2026-10-17: local 10/10, SDK 12/12, HTTP isolation 204/204, isolation.sql 249/249, schema 26/44/45, eval 24/24, MCP health ok, domains 200. §37: 12/15 automated (step 4 consent click e2e 14/14 via npm run test:oauth-e2e, PR #22; step 13 Terrain 'How it connects' from real rows, PR #23). Partial: 1 (needs bot inbox), 12 (no physical device), 14 (billing fix awaits approval).",
       "blocker": "Step 1 needs the bot's own inbox claimed (parent/user approval). Step 14 billing fix awaits Luka. CI (A0-2) billing-locked.",
-      "next_action": "Script the OAuth consent click with Playwright (step 4); relationship layer on Terrain from entity_links (step 13).",
+      "next_action": "Scripted Pages deploy now in repo (scripts/deploy, npm run deploy:upload/deploy:pages/deploy:smoke). Remaining: step 1 sign-up e2e once the bot inbox is claimed; external uptime watch for /health; CI (A0-2).",
       "rollback_reference": "git revert"
     },
     {
@@ -930,6 +930,39 @@
       "next_action": null,
       "rollback_reference": null,
       "notes": "List uses the connection's token (never returned); choice written with the caller's JWT under RLS; only repos GitHub lists can be added; max 10; stopping removes only the project_repos row."
+    },
+    {
+      "id": "A12-2",
+      "product": "axon-memory",
+      "objective": "Signed-in first paint: Recall visible under ~1.5 s on 4G (mobile, CPU 4x)",
+      "phase": "A12",
+      "priority": "P1",
+      "status": "done",
+      "owner_agent": "grok-bot",
+      "dependencies": [],
+      "acceptance_criteria": [
+        "Recall visible ≤1.5 s on fast 4G, cold, stored session, headless mobile profile",
+        "three.js not on the critical path; budget enforced in the release gate"
+      ],
+      "files_or_services_touched": [
+        "src/pages/AppShell.jsx",
+        "src/pages/AppScene.jsx",
+        "src/App.jsx",
+        "src/lib/lazyPage.js",
+        "src/contexts/AuthContext.jsx",
+        "src/components/CoreGateway.jsx",
+        "src/components/FragmentPanel.jsx",
+        "src/components/ProtectedRoute.jsx",
+        "scripts/bundle-budget.mjs",
+        "scripts/perf-recall.mjs"
+      ],
+      "test_result": "vitest 22/22; release gate 11/11; OAuth consent e2e 14/14 on prod after deploy",
+      "build_result": "critical path 202.7 kB gzip (was 1.86 MB raw single entry)",
+      "deployment_result": "PR #24 c1bbb6d. axon-app 0d1ae197-c3dd-448a-8944-645ed5ea0262, axon-memory e5ab6281-3bf8-47d2-923d-b7c75fb6fd4b; smoke 24/24 200, one build",
+      "verification_result": "npm run perf:recall on prod, median: fast 4G Recall visible 12.3 s -> 1.2 s (first DB request 1.15 -> 0.57 s); slow 4G 14.5 s -> 2.2 s. Cause: main thread frozen ~11 s by three.js scene build (shader compile + Environment PMREM) before the facet could paint; auth/session was not the bottleneck.",
+      "blocker": null,
+      "next_action": null,
+      "rollback_reference": "Pages rollback to axon-app ed026b3d / axon-memory 9819901a"
     }
   ]
 }
