@@ -1,7 +1,22 @@
 // Shared plan/price configuration for Axon Memory's 4-tier pricing model.
 // Single source of truth — both stripe-checkout and stripe-webhook import this.
 
+// Internal tier keys. "ultra" is the stored key (DB plan_tier, plan_features,
+// Stripe metadata) for the plan users see as "Power"; the key is deliberately
+// NOT renamed (A11-1) so billing and entitlements are untouched.
 export type PlanTier = "starter" | "pro" | "ultra" | "lifetime_founder";
+
+/** User-facing plan names. Show these, never the internal key. */
+export const PLAN_DISPLAY_NAMES: Record<PlanTier, string> = {
+  starter: "Starter",
+  pro: "Pro",
+  ultra: "Power",
+  lifetime_founder: "Lifetime Founder",
+};
+
+export function planDisplayName(tier: string | null | undefined): string {
+  return (tier && (PLAN_DISPLAY_NAMES as Record<string, string>)[tier]) || "Starter";
+}
 
 export interface PlanConfig {
   tier: PlanTier;

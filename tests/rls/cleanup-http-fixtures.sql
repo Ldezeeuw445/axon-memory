@@ -1,6 +1,12 @@
 -- Fallback cleanup for scripts/rls-isolation-http.mjs fixtures. Only ever
 -- matches the disposable test domain; every owned row cascades from auth.users.
-delete from storage.objects where bucket_id = 'note-files'
+--
+-- Storage objects cannot be deleted with SQL any more (storage.protect_delete
+-- raises 42501), so the suite removes its note-files object through the
+-- Storage API itself. This query reports any that survived; remove those via
+-- the Storage API before deleting their owner.
+select count(*) as leftover_objects from storage.objects where bucket_id = 'note-files'
   and owner in (select id from auth.users where email like '%@rls-test.invalid');
-delete from auth.users where email like '%@rls-test.invalid';
+delete from auth.users where email like '%@rls-test.invalid'
+  and id not in (select owner from storage.objects where bucket_id = 'note-files' and owner is not null);
 select count(*) as remaining from auth.users where email like '%@rls-test.invalid';

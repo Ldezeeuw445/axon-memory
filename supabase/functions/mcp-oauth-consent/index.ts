@@ -47,7 +47,7 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ redirect_to: denyUrl.toString() }, { origin });
   }
 
-  // Gate: connecting an AI assistant is an Ultra/Pro-tier ("axon_ai") feature.
+  // Gate: connecting an AI assistant is a Pro/Power-tier ("axon_ai") feature.
   const { data: planStatus } = await admin
     .from("user_plan_status")
     .select("has_axon_ai")
