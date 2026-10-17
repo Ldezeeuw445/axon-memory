@@ -244,6 +244,18 @@ async function main() {
       check('lifecycle', 'A captures via capture (gateway)', cap.ok && !cap.isError && !!oldId, cap.text.slice(0, 120));
       const rec = await tool(GATEWAY, a.apiKey, 'recall', { query: tokL });
       check('lifecycle', 'recall returns the memory with its id', rec.text.includes(v1) && rec.text.includes(oldId), `status ${rec.status}`);
+      {
+        let pack = null; try { pack = JSON.parse(rec.text); } catch { /* not JSON */ }
+        const mem = pack ? Object.values(pack.memory ?? {}).flat().find((m) => m.id === oldId) : null;
+        check('recall', 'pack uses hybrid ranking', pack?.stats?.search_mode === 'hybrid', JSON.stringify(pack?.stats ?? null));
+        check('recall', 'memory carries kind/source/confidence/relevance trace',
+          mem?.kind === 'memory' && mem?.source?.channel === 'agent' && ['high', 'medium', 'low'].includes(mem?.confidence)
+            && typeof mem?.relevance?.score === 'number' && Array.isArray(mem?.relevance?.matched_by) && mem.relevance.matched_by.includes('lexical'),
+          JSON.stringify(mem ?? null).slice(0, 200));
+        check('recall', 'legend distinguishes memory/inference/source/confidence',
+          ['memory', 'inference', 'source', 'confidence'].every((k) => typeof pack?.how_to_use?.reading?.[k] === 'string'), '');
+        check('recall', 'inferences are labelled (no bare-string `known`)', pack && !('known' in pack) && typeof pack.inferred === 'object', '');
+      }
       const sup = await tool(GATEWAY, a.apiKey, 'supersede', { old_id: oldId, content: v2 });
       const newId = (sup.text.match(/with ([0-9a-f-]{36})/) ?? [])[1];
       check('lifecycle', 'supersede with new content', !sup.isError && !!newId && newId !== oldId, sup.text.slice(0, 160));
