@@ -61,6 +61,12 @@ Deno.serve(async (req: Request) => {
     console.error("check-alerts: uptime watch failed", err instanceof Error ? err.message : String(err));
   }
 
+  // §35 recall telemetry is kept 30 days (A12-3). Service telemetry only, no user data.
+  {
+    const { error: purgeError } = await admin.from("recall_events").delete().lt("at", new Date(Date.now() - 30 * 86400e3).toISOString());
+    if (purgeError) console.error("check-alerts: recall_events purge failed", purgeError.message);
+  }
+
   const { data: alerts, error } = await admin
     .from("system_alerts")
     .select("id, alert_type, message, metadata, created_at")

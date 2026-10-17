@@ -19,6 +19,16 @@ curl -s -o /dev/null -w '%{http_code}' https://axon-memory.com/       # 200
 ```
 Capture health per user or overall: `select public.capture_health(24);` (service role). Failed captures: `select * from capture_events where status='failed' order by created_at desc limit 20;`.
 
+## Operations view (§35, A12-3)
+The owner's **Operations** page (`/admin/alerts`, OWNER_EMAIL only) shows a live snapshot from `ops-health` → `public.ops_health_snapshot()` (service role only, counts and timings, never content):
+- **Capture**: success rate, p50/p95, last 5 failures (`capture_events`).
+- **Recall**: p50/p95, embed p50, error rate (5xx only), empty results, per surface (`recall_events`, written by api-v1 / mcp-server / context-pack with a 400 ms fire-and-forget insert; purged after 30 days by `check-alerts`).
+- **Queues**: captures stuck >10 min, memories without an embedding >15 min old, undelivered alerts, `net.http_request_queue`.
+- **Connectors**: connected, failing (`consecutive_failures>0`), stale >24 h.
+- **Deletion**: lifecycle ops in 7 days; orphaned rows whose owner is gone (must be 0, a non-zero value means an account delete did not finish).
+- **Billing**: webhook outcomes in 30 days, open `billing_attention`.
+SQL equivalent: `select public.ops_health_snapshot();`. Auth errors, DB errors and RLS denials are in the Supabase logs (`query_logs`); RLS is proven per release by the isolation suites.
+
 ## Uptime watch
 `check-alerts` (every 5 min) probes `mcp.axon-memory.com/health`, `app.axon-memory.com/login` and `axon-memory.com/` (`_shared/uptime.ts`). An outage writes one `uptime_down` row to `system_alerts`; recovery writes one `uptime_recovered`. These rows are written `notified=true` (in-app only) unless the secret `UPTIME_ALERTS_DELIVER=1` is set, which would send them to the existing alert channel; that needs Luka's approval. Read: `select alert_type, message, created_at from system_alerts where alert_type like 'uptime_%' order by created_at desc limit 20;`
 

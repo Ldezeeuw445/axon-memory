@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { RefreshCw, AlertTriangle } from 'lucide-react';
 import { callFunction } from '../lib/functions';
+import { healthTiles } from '../lib/opsHealth';
+
+const TONE = { ok: '#25c2a0', warn: '#FFB733', bad: '#ff6b6b', idle: 'rgba(255,255,255,0.35)' };
 
 function timeAgo(iso) {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -20,13 +23,19 @@ export default function AdminAlerts() {
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [health, setHealth] = useState(null);
 
   const load = async () => {
     setLoading(true);
     setError(null);
     try {
-      const { alerts } = await callFunction('list-alerts', { method: 'GET' });
+      const [{ alerts }, ops] = await Promise.all([
+        callFunction('list-alerts', { method: 'GET' }),
+        // §35 health; its own failure must not hide the alerts.
+        callFunction('ops-health', { method: 'GET' }).catch(() => null),
+      ]);
       setAlerts(alerts);
+      setHealth(ops?.health ?? null);
     } catch (err) {
       setError(err.status === 403 ? 'Not authorized.' : err.message);
     } finally {
@@ -40,8 +49,8 @@ export default function AdminAlerts() {
     <div className="page-container">
       <header className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <div>
-          <h1 className="page-title">System Alerts</h1>
-          <p className="page-subtitle">Cost-cap trips and other operator-facing signals, newest first.</p>
+          <h1 className="page-title">Operations</h1>
+          <p className="page-subtitle">Health over the last 24 hours, then alerts, newest first.</p>
         </div>
         <button onClick={load} disabled={loading} className="glow-btn" style={{ background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 6 }}>
           <RefreshCw size={14} className={loading ? 'spin' : ''} /> Refresh
@@ -52,6 +61,23 @@ export default function AdminAlerts() {
         <div className="glass-card" style={{ borderColor: '#ff6b6b', padding: '12px 20px', color: '#ff6b6b', fontSize: 14 }}>
           {error}
         </div>
+      )}
+
+      {!error && health && (
+        <section aria-label="Health" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10, marginBottom: 24 }}>
+          {healthTiles(health).map((t) => (
+            <div key={t.key} className="glass-card" style={{ padding: '12px 14px', borderColor: t.tone === 'bad' ? 'rgba(255,107,107,0.35)' : undefined }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-text-secondary)' }}>
+                <span aria-hidden style={{ width: 7, height: 7, borderRadius: 4, background: TONE[t.tone] }} />{t.label}
+              </div>
+              <div style={{ fontSize: 20, fontWeight: 600, marginTop: 6 }}>{t.value}</div>
+              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 3, lineHeight: 1.4 }}>{t.sub}</div>
+            </div>
+          ))}
+          <div style={{ gridColumn: '1 / -1', fontSize: 11.5, color: 'var(--color-text-secondary)' }}>
+            Snapshot {timeAgo(health.generated_at)}. Auth errors, database errors and RLS refusals live in the Supabase logs; the isolation suites cover RLS on every release.
+          </div>
+        </section>
       )}
 
       {!error && !loading && alerts.length === 0 && (

@@ -80,6 +80,7 @@ Deno.serve(async (req: Request) => {
     clientLabel: identity.clientLabel,
     project,
     facets,
+    surface: "context_pack",
   });
 
   return jsonResponse(pack, { origin });
