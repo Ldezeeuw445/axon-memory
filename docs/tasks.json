@@ -598,7 +598,7 @@
       "objective": "Plan naming Ultra→Power (display only, keep internal key)",
       "phase": "A11",
       "priority": "P1",
-      "status": "queued",
+      "status": "done",
       "owner_agent": "grok-bot",
       "dependencies": [],
       "acceptance_criteria": [
@@ -607,18 +607,33 @@
       "files_or_services_touched": [
         "src/lib/planCatalog.js",
         "landing/src/content.js",
-        "mcp-oauth-consent",
-        "Subscription.jsx"
+        "supabase/functions/_shared/plans.ts",
+        "supabase/functions/_shared/plans.test.ts",
+        "supabase/functions/_shared/memory-core.ts",
+        "supabase/functions/api-keys-create/index.ts",
+        "supabase/functions/mcp-oauth-consent (comment only, not redeployed)",
+        "supabase/functions/stripe-webhook (comment only, NOT redeployed: billing function)",
+        "scripts/check-plan-names.mjs",
+        "tests/rls/cleanup-http-fixtures.sql",
+        "edge functions mcp-server v73, context-pack v61, api-keys-create v25",
+        "Pages axon-app 308ce48c, axon-memory a842b1b6"
       ],
-      "started_at": null,
-      "last_progress_at": null,
-      "attempts": 0,
-      "tests_run": [],
-      "build_result": null,
-      "deployment_result": null,
-      "verification_result": null,
+      "started_at": "2026-10-17T13:10:00+02:00",
+      "last_progress_at": "2026-10-17T13:40:00+02:00",
+      "attempts": 1,
+      "tests_run": [
+        "npm run test:naming (no capitalised Ultra in user-facing source; 4 Stripe price ids + ultra key unchanged)",
+        "deno test 34/34 (plans.test.ts)",
+        "local bundle smoke (OPTIONS 200) x3",
+        "live rls-isolation-http 130/130",
+        "tests/rls/isolation.sql 240/240",
+        "residue 0"
+      ],
+      "build_result": "vite build ok (index-BsJ_jPJC.js)",
+      "deployment_result": "Pages Direct Upload to axon-app + axon-memory (production); mcp-server v73, context-pack v61, api-keys-create v25 (verify_jwt kept true). stripe-webhook untouched.",
+      "verification_result": "app.axon-memory.com, axon-memory.com, www: 200, bundle has 'Go Power', 0 'Ultra'; SPA routes 200",
       "blocker": null,
-      "next_action": "String change only; no billing change",
+      "next_action": "none. Stripe product display names (shown on Stripe Checkout) still say whatever Stripe has; renaming them is a Stripe-side change left for Luka. landing/ subproject is not deployed anywhere (both domains serve root app).",
       "rollback_reference": "git revert"
     },
     {
