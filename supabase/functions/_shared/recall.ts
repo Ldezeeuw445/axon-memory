@@ -111,6 +111,9 @@ export function relevanceOf(row: HybridRow) {
   return {
     score: round2(Math.max(0, Math.min(1, row.score ?? 0))),
     matched_by: row.matched_by ?? [],
+    // A3-2: raw cosine similarity to the question (recall_hybrid's `semantic`),
+    // when the question was embedded. Lets a caller see how close a match was.
+    ...(typeof row.semantic === "number" ? { similarity: round2(row.semantic) } : {}),
   };
 }
 

@@ -40,7 +40,7 @@ export interface Memory {
   /** true = stated by the user or an assistant; false = an inference. */
   stated: boolean;
   confidence: Confidence;
-  relevance?: { score: number; matched_by: string[] };
+  relevance?: { score: number; matched_by: string[]; similarity?: number };
   created_at: string;
   updated_at: string;
 }

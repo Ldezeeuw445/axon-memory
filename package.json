@@ -26,7 +26,8 @@
     "deploy:upload": "node scripts/deploy/pages-upload.mjs",
     "deploy:pages": "node scripts/deploy/pages-deploy.mjs",
     "deploy:smoke": "bash scripts/deploy/smoke.sh",
-    "perf:signin": "node scripts/perf-signin.mjs"
+    "perf:signin": "node scripts/perf-signin.mjs",
+    "test:eval:live": "node tests/eval/recall-live.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.8",
