@@ -12,6 +12,7 @@
 //     { error: { code, message, retryable, ...context } } with a matching status.
 //   - Every memory, wherever it appears, has the same shape (ApiMemory).
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { recordRecallEvent } from "./telemetry.ts";
 import { capture, captureStatus, type CaptureOutcome, retryCapture } from "./capture.ts";
 import { deleteMemory, LifecycleError, restoreMemory, retireMemory, supersedeMemory } from "./lifecycle.ts";
 import { lifecycleStateOf, normalizeFacets } from "./domain.ts";
@@ -170,11 +171,34 @@ export async function getMemory(admin: Admin, userId: string, id: string) {
   return apiMemory(row, await traceMapsFor(admin, userId, [row]));
 }
 
+// §35: every /v1 recall leaves one telemetry row (latency, outcome, result
+// count; nothing personal). Validation errors (4xx) are the caller's, not the
+// service's, so they are not counted as recall failures.
 export async function recall(
   admin: Admin,
   userId: string,
   opts: { query?: unknown; thread?: unknown; facets?: unknown; limit?: unknown; include_inferences?: unknown },
   caller: { apiKeyId: string | null; clientLabel: string | null },
+) {
+  const t0 = performance.now();
+  const timing = { embed_ms: null as number | null };
+  try {
+    const out = await recallImpl(admin, userId, opts, caller, timing);
+    await recordRecallEvent(admin, { surface: "api", ms: performance.now() - t0, ok: true, results: out.memories.length, semantic: out.signals.includes("semantic"), embed_ms: timing.embed_ms });
+    return out;
+  } catch (e) {
+    const status = e instanceof ApiError ? e.status : 500;
+    if (status >= 500) await recordRecallEvent(admin, { surface: "api", ms: performance.now() - t0, ok: false, embed_ms: timing.embed_ms, error_code: e instanceof ApiError ? e.code : "exception" });
+    throw e;
+  }
+}
+
+async function recallImpl(
+  admin: Admin,
+  userId: string,
+  opts: { query?: unknown; thread?: unknown; facets?: unknown; limit?: unknown; include_inferences?: unknown },
+  caller: { apiKeyId: string | null; clientLabel: string | null },
+  timing: { embed_ms: number | null },
 ) {
   if (opts.query != null && typeof opts.query !== "string") throw new ApiError(400, "invalid", "query must be a string");
   if (opts.thread != null && typeof opts.thread !== "string") throw new ApiError(400, "invalid", "thread must be a thread key");
@@ -186,7 +210,9 @@ export async function recall(
   if (threadKey && !projectId) throw new ApiError(404, "not_found", `No thread with key "${threadKey}" on this account.`);
 
   const { data: plan } = await admin.from("user_plan_status").select("has_semantic_search").eq("user_id", userId).maybeSingle();
+  const te = performance.now();
   const vector = query && plan?.has_semantic_search ? await embedQuery(admin, userId, query) : null;
+  if (query && plan?.has_semantic_search) timing.embed_ms = performance.now() - te;
   const { data: ranked, error } = await admin.rpc("recall_hybrid", {
     p_user_id: userId, p_query: query, p_query_embedding: vector, p_project_id: projectId,
     p_facets: facets.length ? facets : null, p_limit: limit,

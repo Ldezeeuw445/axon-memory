@@ -105,6 +105,13 @@ async function main() {
     const jwtA = await login(a);
     const jwtB = await login(b);
     check('auth', 'both disposable users log in', jwtA && jwtB);
+    // §35 ops view: owner-only. A signed-in customer gets 403, no session 401.
+    {
+      const opsA = await fn(jwtA, 'ops-health', null, 'GET');
+      check('control', 'ops-health: a customer (not the owner) is refused (403)', opsA.status === 403, `status ${opsA.status}`);
+      const opsAnon = await fetch(`${URL_}/functions/v1/ops-health`, { headers: { apikey: ANON } });
+      check('control', 'ops-health: no session → 401', opsAnon.status === 401, `status ${opsAnon.status}`);
+    }
 
     // Seed through the real write path (remember API, API-key auth).
     const rb = await fn(b.apiKey, 'remember', { content: contentB, title: titleB });

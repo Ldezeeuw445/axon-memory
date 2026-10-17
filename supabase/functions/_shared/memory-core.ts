@@ -4,6 +4,7 @@
 // which is *why* three different AI chats connected to the same Axon
 // account see identical context: there is only ever one underlying store.
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { recordRecallEvent, type RecallSurface } from "./telemetry.ts";
 import { embedQuery } from "./embeddings.ts";
 import { adapterKeyFromLabel } from "./adapters.ts";
 import { capture, type CaptureChannel, type CaptureOutcome } from "./capture.ts";
@@ -37,6 +38,7 @@ export async function resolveProjectId(
   return data?.id ?? null;
 }
 
+/** §35: every MCP / context-pack recall leaves one telemetry row (see telemetry.ts). */
 export async function buildContextPack(
   admin: SupabaseClient,
   userId: string,
@@ -59,7 +61,45 @@ export async function buildContextPack(
     project?: string | null;
     /** Facets to favour (A3-1), e.g. ["trading"]. Ranks, never filters. */
     facets?: string[] | null;
+  } & { surface?: RecallSurface } = {},
+) {
+  const t0 = performance.now();
+  const timing = { embed_ms: null as number | null, results: null as number | null };
+  const surface: RecallSurface = opts.surface ?? "mcp";
+  try {
+    const pack = await buildContextPackImpl(admin, userId, opts, timing);
+    await recordRecallEvent(admin, { surface, ms: performance.now() - t0, ok: true, results: timing.results, semantic: timing.embed_ms != null, embed_ms: timing.embed_ms });
+    return pack;
+  } catch (e) {
+    await recordRecallEvent(admin, { surface, ms: performance.now() - t0, ok: false, embed_ms: timing.embed_ms, error_code: "exception" });
+    throw e;
+  }
+}
+
+async function buildContextPackImpl(
+  admin: SupabaseClient,
+  userId: string,
+  opts: {
+    query?: string | null;
+    tokenBudget?: number;
+    apiKeyId?: string | null;
+    /**
+     * The name the calling client registered under, when there is one. Present
+     * for every MCP/API caller and absent for the in-app preview — which is
+     * the distinction that keeps the graph honest: looking at your own memory
+     * in your own browser is not another app having read it.
+     */
+    clientLabel?: string | null;
+    /**
+     * Which project this recall is for. Omitted means everything, which is the
+     * right default: an assistant that has not said what it is working on
+     * should not be given a guess.
+     */
+    project?: string | null;
+    /** Facets to favour (A3-1), e.g. ["trading"]. Ranks, never filters. */
+    facets?: string[] | null;
   } = {},
+  timing: { embed_ms: number | null; results?: number | null } = { embed_ms: null },
 ) {
   const query = opts.query?.trim() || null;
   /* Started here and awaited below, so it costs no wall-clock: it runs beside
@@ -172,7 +212,9 @@ export async function buildContextPack(
   {
     let queryVector: number[] | null = null;
     if (query && planStatus?.has_semantic_search) {
+      const te = performance.now();
       queryVector = await embedQuery(admin, userId, query);
+      timing.embed_ms = performance.now() - te;
     }
     const { data: ranked, error: hybridError } = await admin.rpc("recall_hybrid", {
       p_user_id: userId,
@@ -603,6 +645,7 @@ export async function buildContextPack(
   });
 
   await recordRecalls(admin, userId, includedIds, opts.clientLabel ?? null, opts.apiKeyId ?? null);
+  timing.results = included;
 
   return pack;
 }
