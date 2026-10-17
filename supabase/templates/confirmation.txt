@@ -1,0 +1,14 @@
+AXON
+
+Confirm your email
+
+You're one step from a memory that follows you into every AI. Confirm this address to finish creating your AXON account.
+
+Confirm email:
+{{ .ConfirmationURL }}
+
+Didn't sign up for AXON? You can safely ignore this email. No account is created until the address is confirmed.
+
+--
+AXON - One memory. Every AI.
+https://axon-memory.com

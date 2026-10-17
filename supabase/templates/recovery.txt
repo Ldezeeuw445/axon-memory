@@ -1,0 +1,14 @@
+AXON
+
+Reset your password
+
+Someone asked to reset the password for the AXON account linked to {{ .Email }}. Tap below to choose a new one.
+
+Choose a new password:
+{{ .ConfirmationURL }}
+
+Didn't request this? Ignore this email. Your password stays the same until you set a new one.
+
+--
+AXON - One memory. Every AI.
+https://axon-memory.com

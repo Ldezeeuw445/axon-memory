@@ -1,0 +1,13 @@
+AXON
+
+Confirm it's you
+
+Enter this code in AXON to continue. It works once and expires shortly.
+
+Your code: {{ .Token }}
+
+Didn't try to change anything? Ignore this email and change your password from the app.
+
+--
+AXON - One memory. Every AI.
+https://axon-memory.com
