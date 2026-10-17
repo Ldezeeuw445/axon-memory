@@ -460,6 +460,31 @@ async function main() {
       check('control', 'B lists its own connector and none of A\'s', (lbb?.connectors ?? []).some((c) => c.id === cx.bConn) && !has(lbb, [cx.label, cx.stuck]));
     }
 
+    // ── Entitlement truth (A11-2): the plan can only change server-side ──
+    {
+      const planOf = async () => (await j(await rest(jwtA, `user_plan_status?select=plan_tier,has_api_access,has_axon_ai&user_id=eq.${a.id}`)))?.[0];
+      const before = await planOf();
+      check('control', 'entitlement: A reads its own plan status (starter)', before?.plan_tier === 'starter' && before?.has_api_access === false, JSON.stringify(before));
+      const up = await rest(jwtA, `profiles?id=eq.${a.id}`, { method: 'PATCH', body: JSON.stringify({ plan_tier: 'lifetime_founder' }), headers: { Prefer: 'return=minimal' } });
+      await up.body?.cancel();
+      const cust = await rest(jwtA, `profiles?id=eq.${a.id}`, { method: 'PATCH', body: JSON.stringify({ stripe_customer_id: 'cus_forged', stripe_subscription_id: 'sub_forged' }), headers: { Prefer: 'return=minimal' } });
+      await cust.body?.cancel();
+      const pf = await rest(jwtA, 'plan_features?tier=eq.starter&feature_key=eq.api_access', { method: 'PATCH', body: JSON.stringify({ enabled: true }), headers: { Prefer: 'return=representation' } });
+      const pfBody = await j(pf);
+      const pfIns = await rest(jwtA, 'plan_features', { method: 'POST', body: JSON.stringify({ tier: 'starter', feature_key: 'rls_forged', enabled: true }) });
+      await pfIns.body?.cancel();
+      const subIns = await rest(jwtA, 'subscriptions', { method: 'POST', body: JSON.stringify({ user_id: a.id, status: 'active', plan: 'ultra', stripe_customer_id: 'cus_forged' }) });
+      await subIns.body?.cancel();
+      const after = await planOf();
+      check('billing', 'entitlement: A cannot raise its own plan_tier', !up.ok && after?.plan_tier === 'starter', `status ${up.status} → ${after?.plan_tier}`);
+      check('billing', 'entitlement: A cannot forge Stripe ids on its profile', !cust.ok, `status ${cust.status}`);
+      check('billing', 'entitlement: A cannot change the plan_features matrix', (!pf.ok || (Array.isArray(pfBody) && pfBody.length === 0)) && !pfIns.ok && after?.has_api_access === false, `patch ${pf.status} insert ${pfIns.status}`);
+      check('billing', 'entitlement: A cannot write its own subscription row', !subIns.ok, `status ${subIns.status}`);
+      const key = await fn(jwtA, 'api-keys-create', { name: 'rls starter key' });
+      check('billing', 'entitlement: server refuses a personal key on Starter (402/403)', key.status === 402 || key.status === 403, `status ${key.status}`);
+      await key.body?.cancel();
+    }
+
     // ── MCP OAuth (A5-4 PKCE S256-only, A5-5 expiry + refresh, grandfathering) ──
     if (a.oauth) {
       const o = a.oauth;
