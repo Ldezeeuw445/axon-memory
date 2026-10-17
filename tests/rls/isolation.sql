@@ -243,6 +243,40 @@ begin
   exception when insufficient_privilege or check_violation then
     insert into rls_results values (default, 'write', 'insert api_keys as B (mint key for B)', true, 'leak', sqlstate);
   end;
+
+  -- api_keys hardening (20261017120631_a_key_is_made_by_the_server): keys are minted by the
+  -- server only. A may read, rename and revoke its own key, nothing else.
+  begin
+    insert into public.api_keys (user_id, key_prefix, key_hash) values (a, 'axon_x', md5(random()::text));
+    insert into rls_results values (default, 'apikeys', 'browser mints own api key', false, 'leak', 'accepted');
+  exception when insufficient_privilege or check_violation then
+    insert into rls_results values (default, 'apikeys', 'browser mints own api key', true, 'leak', sqlstate);
+  end;
+  begin
+    update public.api_keys set key_hash = md5('chosen') where id = (fx->>'a_key')::uuid;
+    insert into rls_results values (default, 'apikeys', 'rewrite own key_hash', false, 'leak', 'accepted');
+  exception when insufficient_privilege then
+    insert into rls_results values (default, 'apikeys', 'rewrite own key_hash', true, 'leak', sqlstate);
+  end;
+  begin
+    delete from public.api_keys where id = (fx->>'a_key')::uuid;
+    insert into rls_results values (default, 'apikeys', 'delete own key row', false, 'control', 'accepted');
+  exception when insufficient_privilege then
+    insert into rls_results values (default, 'apikeys', 'delete own key row', true, 'control', sqlstate);
+  end;
+  update public.api_keys set display_name = 'renamed by A' where id = (fx->>'a_key')::uuid;
+  insert into rls_results (area, check_name, pass, severity, detail) select 'apikeys', 'rename own key works', count(*) = 1, 'control', count(*)::text
+    from public.api_keys where id = (fx->>'a_key')::uuid and display_name = 'renamed by A';
+  update public.api_keys set display_name = 'renamed by A' where id = (fx->>'b_key')::uuid;
+  update public.api_keys set revoked_at = now() where id = (fx->>'a_key')::uuid;
+  insert into rls_results (area, check_name, pass, severity, detail) select 'apikeys', 'revoke own key works', count(*) = 1, 'control', count(*)::text
+    from public.api_keys where id = (fx->>'a_key')::uuid and revoked_at is not null;
+  begin
+    update public.api_keys set revoked_at = null where id = (fx->>'a_key')::uuid;
+    insert into rls_results values (default, 'apikeys', 'un-revoke own key', false, 'leak', 'accepted');
+  exception when insufficient_privilege then
+    insert into rls_results values (default, 'apikeys', 'un-revoke own key', true, 'leak', sqlstate);
+  end;
   begin
     update public.memory_items set user_id = b where id = (fx->>'a_item2')::uuid;
     insert into rls_results values (default, 'write', 'hand own memory to B (user_id swap)', false, 'leak', 'accepted');
@@ -363,6 +397,11 @@ begin
   insert into rls_results values (default, 'control', 'match_memory_items(A, A vector) finds own', n = 1, 'control', n::text);
 end
 $backend$;
+
+-- api_keys: A's rename of B's key changed nothing (checked as owner, after reset role).
+insert into rls_results (area, check_name, pass, severity, detail)
+select 'apikeys', 'rename someone else''s key changes nothing', coalesce(display_name, '') <> 'renamed by A', 'leak', coalesce(display_name, 'null')
+from public.api_keys where id = (select v::uuid from rls_fx where k = 'b_key');
 
 -- ───────────────────── privilege hygiene on SECURITY DEFINER functions ─────────────────────
 insert into rls_results (area, check_name, pass, severity, detail)

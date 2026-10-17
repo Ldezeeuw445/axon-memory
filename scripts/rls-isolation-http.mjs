@@ -437,6 +437,18 @@ async function main() {
       check('control', '/authorize with S256 goes to the consent screen', rOk.status === 302 && /\/connect\/authorize\?/.test(loc(rOk)) && /code_challenge_method=S256/.test(loc(rOk)), `${rOk.status} ${loc(rOk).slice(0, 60)}`);
       const cPlain = await fn(jwtA, 'mcp-oauth-consent', { client_id: o.clientId, redirect_uri: o.redirectUri, code_challenge: 'y'.repeat(43), code_challenge_method: 'plain', decision: 'approve' });
       check('oauth', 'consent refuses plain before minting a code', cPlain.status === 400, `status ${cPlain.status}`);
+      // decision 'describe' (consent screen, axon-memory-app PR #2): the server names the client from
+      // its registered row + redirect host, never from the link. A stranger's client is unverified.
+      const dOk = await fn(jwtA, 'mcp-oauth-consent', { client_id: o.clientId, redirect_uri: o.redirectUri, code_challenge: 'x'.repeat(43), code_challenge_method: 'S256', client_name: 'Claude', decision: 'describe' });
+      const dBody = await j(dOk);
+      check('oauth', 'describe names the client by its redirect host, not the link', dOk.ok && dBody.client?.host === 'rls-test.invalid' && dBody.client?.verified === false && dBody.client?.slug === null && dBody.client?.name === 'rls-test.invalid', `status ${dOk.status} ${JSON.stringify(dBody.client ?? dBody).slice(0, 120)}`);
+      check('oauth', 'describe mints no code', !('redirect_to' in dBody) && !JSON.stringify(dBody).includes('code='), JSON.stringify(dBody).slice(0, 80));
+      const dBad = await fn(jwtA, 'mcp-oauth-consent', { client_id: o.clientId, redirect_uri: 'https://evil.example/cb', code_challenge: 'x'.repeat(43), decision: 'describe' });
+      check('oauth', 'describe refuses an unregistered redirect_uri', dBad.status === 400, `status ${dBad.status}`);
+      const dPlain = await fn(jwtA, 'mcp-oauth-consent', { client_id: o.clientId, redirect_uri: o.redirectUri, code_challenge: 'y'.repeat(43), code_challenge_method: 'plain', decision: 'describe' });
+      check('oauth', 'describe refuses plain PKCE too', dPlain.status === 400, `status ${dPlain.status}`);
+      const dAnon = await fetch(`${URL_}/functions/v1/mcp-oauth-consent`, { method: 'POST', headers: { apikey: ANON, 'Content-Type': 'application/json' }, body: JSON.stringify({ client_id: o.clientId, redirect_uri: o.redirectUri, decision: 'describe' }) });
+      check('oauth', 'describe needs a signed-in user', dAnon.status === 401, `status ${dAnon.status}`);
 
       const tPlain = await form({ grant_type: 'authorization_code', code: o.plainCode, redirect_uri: o.redirectUri, client_id: o.clientId, code_verifier: o.plainVerifier });
       check('oauth', 'token endpoint refuses a stored plain-PKCE code', tPlain.status === 400 && (await j(tPlain)).error === 'invalid_grant', `status ${tPlain.status}`);
