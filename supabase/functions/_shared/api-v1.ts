@@ -76,7 +76,8 @@ export interface MemoryRow {
   origin_key: string | null;
   source_connection_id: string | null;
   api_key_id: string | null;
-  capture_channel: string | null;
+  /** Not a column on memory_items (derived in the memories view); channelOf() derives it the same way. */
+  capture_channel?: string | null;
   occurred_at: string | null;
   created_at: string;
   updated_at: string | null;
@@ -89,7 +90,7 @@ export interface MemoryRow {
 
 export const MEMORY_COLUMNS =
   "id, title, content, content_type, project_id, facets, source_type, origin_key, source_connection_id, api_key_id, " +
-  "capture_channel, occurred_at, created_at, updated_at, retired_at, retired_reason, superseded_by, confidence, metadata";
+  "occurred_at, created_at, updated_at, retired_at, retired_reason, superseded_by, confidence, metadata";
 
 function sourceRefOf(meta: Record<string, unknown> | null) {
   const r = (meta?.source_ref ?? null) as { id?: string | null; url?: string | null } | null;
