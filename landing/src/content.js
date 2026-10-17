@@ -106,7 +106,7 @@ export const PLANS = [
   },
   {
     tier: 'ultra',
-    name: 'Ultra',
+    name: 'Power',
     price: '€9.99',
     period: '/month',
     tagline: 'For power users and builders.',
@@ -124,7 +124,7 @@ export const PLANS = [
     period: 'one-time',
     tagline: 'Everything, forever. Limited founder pricing.',
     features: [
-      'Everything in Ultra',
+      'Everything in Power',
       'Lifetime access — no recurring billing',
       'Founder badge + early access',
       'Direct line to the team',

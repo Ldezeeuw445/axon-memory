@@ -1,6 +1,6 @@
 // supabase/functions/stripe-webhook/index.ts
 //
-// Handles Stripe webhook events for all 4 pricing tiers (Starter/Pro/Ultra
+// Handles Stripe webhook events for all 4 pricing tiers (Starter/Pro/Power ("ultra")
 // recurring, Lifetime Founder one-time) and keeps `profiles` in sync.
 //
 // Configure this function's URL as a webhook endpoint in the Stripe Dashboard

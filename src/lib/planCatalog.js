@@ -34,7 +34,7 @@ export const PLAN_CATALOG = [
   },
   {
     tier: 'ultra',
-    name: 'Ultra',
+    name: 'Power',
     price: '€9.99',
     period: '/month',
     tagline: 'For power users and builders.',
@@ -44,7 +44,7 @@ export const PLAN_CATALOG = [
       'Full API + MCP access for custom tools',
       'Priority sync frequency',
     ],
-    cta: 'Go Ultra',
+    cta: 'Go Power',
   },
   {
     tier: 'lifetime_founder',
@@ -53,7 +53,7 @@ export const PLAN_CATALOG = [
     period: 'one-time',
     tagline: 'Everything, forever. Limited founder pricing.',
     features: [
-      'Everything in Ultra',
+      'Everything in Power',
       'Lifetime access — no recurring billing',
       'Founder badge + early access to new features',
       'Direct line to the team',

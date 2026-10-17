@@ -7,6 +7,7 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { embedQuery } from "./embeddings.ts";
 import { adapterKeyFromLabel } from "./adapters.ts";
 import { capture, type CaptureChannel, type CaptureOutcome } from "./capture.ts";
+import { planDisplayName } from "./plans.ts";
 import { openWorkForPack, standingRulesForPack } from "./workspace.ts";
 import { inferenceOf, RECALL_LEGEND, traceMemory, type TraceMaps } from "./recall.ts";
 
@@ -193,7 +194,7 @@ export async function buildContextPack(
   }
 
   if (!usedHybrid && query && planStatus?.has_semantic_search) {
-    // Real vector similarity search (Ultra/Lifetime tiers). Falls through to
+    // Real vector similarity search (Power/Lifetime tiers). Falls through to
     // keyword search below if embedding the query fails for any reason
     // (missing key, provider hiccup) — semantic search degrading to keyword
     // search is fine; silently returning nothing would not be.
@@ -484,7 +485,8 @@ export async function buildContextPack(
       name: profile?.full_name ?? null,
       role: profile?.role ?? null,
       use_case: profile?.use_case ?? null,
-      plan: profile?.plan_tier ?? "starter",
+      // Display name ("Power"), not the internal key ("ultra"): assistants repeat this to the person.
+      plan: planDisplayName(profile?.plan_tier),
     },
     session_objective: query ?? "general context",
     connected_sources: (sources ?? []).map((s) => ({

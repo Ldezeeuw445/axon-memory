@@ -17,7 +17,7 @@ Deno.serve(async (req: Request) => {
 
   const admin = supabaseAdmin();
   // Gate: manually-created API keys (direct programmatic access) are an
-  // Ultra/Lifetime-tier ("api_access") feature. The UI already hides this
+  // Power (internal key "ultra")/Lifetime-tier ("api_access") feature. The UI already hides this
   // button for lower tiers, but that's cosmetic only — this is the real
   // enforcement, so a user can't bypass the paywall by calling the endpoint
   // directly (e.g. from curl or devtools).
@@ -29,7 +29,7 @@ Deno.serve(async (req: Request) => {
 
   if (!planStatus?.has_api_access) {
     return jsonResponse(
-      { error: "upgrade_required", error_description: "Creating API keys requires the Ultra plan or higher." },
+      { error: "upgrade_required", error_description: "Creating API keys requires the Power plan or higher." },
       { status: 402, origin },
     );
   }
