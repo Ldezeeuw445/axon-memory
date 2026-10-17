@@ -1,4 +1,4 @@
-# AXON Memory — domain model (A1-1)
+# AXON Memory — domain model (A1-1, updated through A3-1/A2-1, 2026-10-17)
 
 Canon nouns (Lexicon §1): **Memory, Thread, Core, Facet, Weight, Depth**. Canon verbs: **Capture, Recall, Retire, Restore, Delete**, plus supersession (spec §15).
 Contract code: `supabase/functions/_shared/domain.ts` (types, rules, row mapper). Database surface: migration `20261017101016_memory_domain_model.sql`. They're kept in step by `tests/schema/memory_model.sql` (view columns, Weight/Depth parity) and `domain.test.ts`.
@@ -37,6 +37,13 @@ A continuous strand about one thing. Today a Thread is a project (key, name) plu
 ## Core → `core_summary()`
 The one entity holding every Thread: counts of memories by lifecycle state, thread count and the facets in use. It always answers for the caller (`auth.uid()`). Only the service role may pass `p_user_id`.
 
+## Provenance is enforced (A2-1)
+Every `memory_items` row must have an owner (`user_id`, NOT NULL, RLS) and an origin. The `memory_items_provenance_defaults` trigger fills a blank `origin_key` from `source_type`. The validated check `memory_items_provenance_required` then requires `origin_key` (1–64 chars). `capture_channel` is derived (direct / agent / connector / unknown). Every prod row already satisfied the check when it was added, so no data was rewritten.
+Each capture attempt is recorded in `capture_events`: stage, status, error_code, retryable, attempts, timings, and the payload only while the capture is failed or pending. `(user_id, idempotency_key)` is unique. See `CAPTURE.md`.
+
+## Recall reads the model (A3-1)
+`recall_hybrid(p_user_id, query, embedding, project, facets, limit)` ranks active memories by relevance (lexical + fuzzy + exact semantic), with recency, Weight, provenance, Thread match and Facet match as further signals. Every returned memory is traced (`id`, `source`, `confidence`, `relevance.matched_by`). Facts derived from memories are returned as **inferences** with their supporting memory ids, never as things the user said. See `RECALL.md`.
+
 ## Not yet modelled (tracked)
-- Many-to-many Thread membership (a memory in several Threads): A2/A3.
+- Many-to-many Thread membership (a memory in several Threads): still one `project_id` per memory. Facets cover cross-cutting grouping for now.
 - Weave/Merge mechanics beyond the `weaves` relation kind: later.

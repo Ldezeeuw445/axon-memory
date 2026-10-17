@@ -192,3 +192,6 @@ and `customer.subscription.deleted`.
   Quick Start are delivered as `axon-desktop.zip`; running `npm run tauri
   build` needs to happen on a real macOS/Windows/Linux desktop, not this
   sandbox).
+
+## Documentation
+System docs (kept in step with what is live): `docs/ARCHITECTURE.md`, `docs/MEMORY_MODEL.md`, `docs/MEMORY_LIFECYCLE.md`, `docs/CAPTURE.md`, `docs/RECALL.md`, `docs/SECURITY.md`, `docs/MCP.md`, `docs/RUNBOOK.md`, `docs/ACCEPTANCE.md`. Agent instructions: `CLAUDE.md`. Canon (Operating Manual, Lexicon, Product Language): `Docs/axon/`. Task state: `docs/tasks.json`.

@@ -1,0 +1,70 @@
+# AXON Memory — Runbook (as live, 2026-10-17)
+
+CI (GitHub Actions) is billing-locked (A0-2), so **every gate below is run by hand** before merge and deploy. Rules: no destructive migrations, never touch real user rows, deploy only after tests pass, and rerun isolation after every backend deploy.
+
+## Identifiers
+| Thing | Value |
+|---|---|
+| Supabase project | `ktaditgtbubonrahyiig` (eu, prod) |
+| Cloudflare account | `78d47158ae5cedb2a11512396cd46c1e` |
+| Worker | `axon-mcp-gateway` on route `mcp.axon-memory.com/*` |
+| Pages | `axon-app` (app.axon-memory.com), `axon-memory` (axon-memory.com, www). Both serve the root `dist/` |
+| Repo | `Ldezeeuw445/axon-memory`, squash-merge PRs to `main` |
+
+## Health checks
+```
+curl -s https://mcp.axon-memory.com/health            # status ok, database ok, tools[]
+curl -s -o /dev/null -w '%{http_code}' https://app.axon-memory.com/   # 200
+curl -s -o /dev/null -w '%{http_code}' https://axon-memory.com/       # 200
+```
+Capture health per user or overall: `select public.capture_health(24);` (service role). Failed captures: `select * from capture_events where status='failed' order by created_at desc limit 20;`.
+
+## Test gates
+| Gate | Command | Notes |
+|---|---|---|
+| Unit (Deno) | `npm test` | `_shared/*.test.ts` |
+| Worker | `npm run test:worker` | |
+| Plan naming | `npm run test:naming` | no user-visible "Ultra". Stripe price ids unchanged |
+| Schema + eval SQL | `npm run test:sql` / `npm run test:eval` | Needs a DB URL. Without one, run each file through Supabase `execute_sql`. Each file is `begin; … rollback;` |
+| Isolation SQL | `tests/rls/isolation.sql` via `execute_sql` | rolled back, fixture users `@rls-test.invalid`. Every row must be `ok = true` |
+| Isolation HTTP | `node scripts/rls-fixtures-sql.mjs fixtures.json > provision.sql` → run `provision.sql` via `execute_sql` → `SUPABASE_URL=… SUPABASE_ANON_KEY=… RLS_FIXTURES=fixtures.json npm run test:rls-http` | Creates and deletes its own throwaway users. Afterwards check residue: `select count(*) from auth.users where email like '%@rls-test.invalid'` must be 0 |
+| Build | `npm run build` | needs `.env` with `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` |
+
+## Migrations
+1. Write an **additive** migration. If it would drop or rewrite existing columns or data, stop and get Luka's approval.
+2. Dry run: `begin;` + migration + the relevant suite (its own `begin;` stripped) + `rollback;` via `execute_sql`.
+3. Apply with `apply_migration`. Prod assigns the version: rename the repo file to `<version>_<name>.sql` to match `list_migrations`.
+4. Rerun the schema suite, `isolation.sql` and the advisors (`get_advisors security`).
+
+## Edge functions
+The Supabase MCP deploy accepts only a few files, so each function is shipped as one bundle:
+```
+deno bundle --platform deno --external 'npm:*' -o bundles/<fn>.js supabase/functions/<fn>/index.ts
+deno run -A bundles/<fn>.js      # local smoke: listens on :8000, OPTIONS → 200
+```
+Deploy with entrypoint `index.js` and the function's **existing** `verify_jwt` setting (see the table in `ARCHITECTURE.md`). Before redeploying a function you didn't touch recently, diff the deployed source against the repo (`get_edge_function`). **Do not redeploy `stripe-webhook` for comment-only changes.** Then run both isolation suites.
+
+## Frontend (Pages Direct Upload)
+1. `npm run build`.
+2. Get an upload token per project: Cloudflare API `GET /accounts/{acct}/pages/projects/{name}/upload-token`.
+3. `UPLOAD_JWT=<token> DIST_DIR=dist node axon-pages-upload.mjs` (box helper: MD5-keyed check-missing → upload → upsert-hashes. Writes the manifest).
+4. `POST /accounts/{acct}/pages/projects/{name}/deployments` as multipart with `manifest`, `branch=main` and `commit_hash`.
+5. Smoke: each domain 200, its `index.html` points at the new `/assets/index-*.js`, SPA routes (`/dashboard`, `/settings`) 200.
+Note: `_headers` / `_redirects` currently travel only inside the manifest, so `_redirects` rules (missing `/assets/*` → 404) are **not** active. Sending them as their own multipart fields would activate them. That is a behaviour change, so test it on a preview first.
+
+## Worker
+`cloudflare/mcp-gateway/worker.js`. Test with `npm run test:worker`, deploy through the Cloudflare API (script upload, module syntax), then check `/health` and `/.well-known/oauth-authorization-server`.
+
+## Rollback
+- Frontend: redeploy the previous Pages deployment (`POST …/deployments/{id}/rollback`), or rebuild the previous commit.
+- Edge function: rebundle from the previous commit and deploy.
+- Migration: write a forward fix. Never `down`-migrate prod data.
+- Worker: redeploy the previous `worker.js`.
+
+## Incidents
+| Symptom | First look |
+|---|---|
+| MCP clients fail to connect | `/health`, then `/.well-known/oauth-protected-resource`, then the `mcp-server` logs (`query_logs`, service `edge-function`) |
+| Saves fail | `capture_health(24)`, and `capture_events` with status failed (stage + error_code). Retry with `retry_capture` |
+| Recall empty or odd | `npm run test:eval`. Check `memory_embeddings` backlog (`capture_health` index backlog) |
+| Possible cross-tenant leak | **Release blocker.** Run both isolation suites, freeze deploys, tell Luka |
