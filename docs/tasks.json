@@ -379,7 +379,7 @@
       "objective": "MCP canonical lifecycle tools: capture/recall/retire/delete (+supersede) with health endpoint",
       "phase": "A6",
       "priority": "P0",
-      "status": "queued",
+      "status": "done",
       "owner_agent": "grok-bot",
       "dependencies": [
         "A4-1"
@@ -389,18 +389,33 @@
         "Tenant boundary intact"
       ],
       "files_or_services_touched": [
-        "supabase/functions/mcp-server",
-        "cloudflare/mcp-gateway"
+        "supabase/functions/mcp-server/index.ts",
+        "supabase/functions/_shared/mcp-lifecycle.ts",
+        "supabase/functions/_shared/mcp-lifecycle.test.ts",
+        "supabase/functions/_shared/memory-core.ts",
+        "cloudflare/mcp-gateway/worker.js",
+        "cloudflare/mcp-gateway/worker.test.mjs",
+        "scripts/rls-isolation-http.mjs",
+        "docs/MEMORY_LIFECYCLE.md",
+        "edge functions mcp-server v69, context-pack v59, remember v51",
+        "Worker axon-mcp-gateway"
       ],
-      "started_at": null,
-      "last_progress_at": null,
-      "attempts": 0,
-      "tests_run": [],
-      "build_result": null,
-      "deployment_result": null,
-      "verification_result": null,
+      "started_at": "2026-10-17T12:00:00+02:00",
+      "last_progress_at": "2026-10-17T12:25:00+02:00",
+      "attempts": 1,
+      "tests_run": [
+        "deno test 22/22 (incl. mcp-lifecycle.test.ts 7)",
+        "node --test worker.test.mjs 4/4",
+        "local boot smoke of mcp-server bundle (health, initialize, auth)",
+        "live scripts/rls-isolation-http.mjs 107/107 after deploy (84 isolation + 23 MCP lifecycle, both transports)",
+        "tests/rls/isolation.sql 234/234 after deploy",
+        "residue check: 0 test users/memories/orphans"
+      ],
+      "build_result": "deno check OK; vite build OK; oxlint warnings only (pre-existing)",
+      "deployment_result": "mcp-server v69, context-pack v59, remember v51 (deno bundle of commit, npm external, verify_jwt false); Worker axon-mcp-gateway with /health route (no bindings, compat 2024-09-23)",
+      "verification_result": "Real MCP over mcp.axon-memory.com: capture -> recall (with id) -> supersede -> retire -> restore -> delete(confirm) works; delete without confirm refused; another tenant gets 'No memory with that id' on retire/restore/delete/supersede via function URL and gateway; GET /health 200 without user data; OAuth routes and remember/recall_context unchanged",
       "blocker": null,
-      "next_action": "Add retire_memory/delete_memory tools; keep remember/recall_context as aliases",
+      "next_action": "None. Note: deployed functions are single-file bundles (MCP deploy allows max 4 file refs); a CLI deploy from the repo is equivalent",
       "rollback_reference": "git revert"
     },
     {

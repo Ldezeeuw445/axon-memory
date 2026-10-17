@@ -225,6 +225,63 @@ async function main() {
       check('control', `${label}: A recalls own canary over MCP`, has(await j(own), [contentA]), `status ${own.status}`);
     }
 
+    // ── MCP lifecycle verbs (A6-1): capture/recall/supersede/retire/restore/delete ──
+    {
+      const tool = async (base, key, name, args) => {
+        const res = await mcp(base, key, 'tools/call', { name, arguments: args });
+        const body = await j(res);
+        return { ok: res.ok, status: res.status, body, text: body?.result?.content?.[0]?.text ?? JSON.stringify(body), isError: !!body?.result?.isError };
+      };
+      const idOf = (t) => (t.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/) ?? [])[0];
+      const tokL = `rlslife${randomBytes(5).toString('hex')}`;
+      const v1 = `A lifecycle v1 ${tokL}`, v2 = `A lifecycle v2 ${tokL}`;
+      const listed = await j(await mcp(GATEWAY, a.apiKey, 'tools/list', {}));
+      const names = (listed?.result?.tools ?? []).map((t) => t.name);
+      check('lifecycle', 'tools/list exposes capture/recall/retire/restore/supersede/delete next to the old tools',
+        ['capture', 'recall', 'retire', 'restore', 'supersede', 'delete', 'remember', 'recall_context'].every((n) => names.includes(n)), names.join(','));
+      const cap = await tool(GATEWAY, a.apiKey, 'capture', { content: v1 });
+      const oldId = idOf(cap.text);
+      check('lifecycle', 'A captures via capture (gateway)', cap.ok && !cap.isError && !!oldId, cap.text.slice(0, 120));
+      const rec = await tool(GATEWAY, a.apiKey, 'recall', { query: tokL });
+      check('lifecycle', 'recall returns the memory with its id', rec.text.includes(v1) && rec.text.includes(oldId), `status ${rec.status}`);
+      const sup = await tool(GATEWAY, a.apiKey, 'supersede', { old_id: oldId, content: v2 });
+      const newId = (sup.text.match(/with ([0-9a-f-]{36})/) ?? [])[1];
+      check('lifecycle', 'supersede with new content', !sup.isError && !!newId && newId !== oldId, sup.text.slice(0, 160));
+      const rec2 = await tool(GATEWAY, a.apiKey, 'recall', { query: tokL });
+      check('lifecycle', 'recall after supersede shows v2, not v1', rec2.text.includes(v2) && !rec2.text.includes(v1), `status ${rec2.status}`);
+      // B (another tenant) cannot touch A's memories on either transport.
+      for (const [label, base] of [['mcp-server', `${URL_}/functions/v1/mcp-server`], ['gateway', GATEWAY]]) {
+        for (const [name, args] of [['retire', { id: newId }], ['restore', { id: oldId }], ['delete', { id: newId, confirm: true }],
+          ['supersede', { old_id: newId, content: `B hijack ${tokL}` }]]) {
+          const r = await tool(base, b.apiKey, name, args);
+          check('lifecycle', `${label}: B ${name} on A's memory is refused`, r.isError && /No memory with that id/.test(r.text), r.text.slice(0, 120));
+        }
+      }
+      const stillThere = await tool(GATEWAY, a.apiKey, 'recall', { query: tokL });
+      check('lifecycle', "A's memory unaffected by B's attempts", stillThere.text.includes(v2), '');
+      const ret = await tool(GATEWAY, a.apiKey, 'retire', { id: newId, reason: 'test' });
+      check('lifecycle', 'A retires own memory', !ret.isError && ret.text.startsWith('Retired'), ret.text.slice(0, 120));
+      const rec3 = await tool(GATEWAY, a.apiKey, 'recall', { query: tokL });
+      check('lifecycle', 'retired memory leaves recall', !rec3.text.includes(v2) && !rec3.text.includes(v1), '');
+      const res = await tool(GATEWAY, a.apiKey, 'restore', { id: newId });
+      const rec4 = await tool(GATEWAY, a.apiKey, 'recall', { query: tokL });
+      check('lifecycle', 'restore brings it back', !res.isError && rec4.text.includes(v2), res.text.slice(0, 120));
+      const noConfirm = await tool(GATEWAY, a.apiKey, 'delete', { id: newId });
+      check('lifecycle', 'delete without confirm is refused', noConfirm.isError && /confirm/.test(noConfirm.text), noConfirm.text.slice(0, 120));
+      const del = await tool(GATEWAY, a.apiKey, 'delete', { id: newId, confirm: true });
+      check('lifecycle', 'delete with confirm: true succeeds', !del.isError && del.text.startsWith('Deleted'), del.text.slice(0, 160));
+      const gone = await rest(jwtA, `memory_items?select=id&id=in.(${newId},${oldId})`);
+      const goneB = await j(gone);
+      check('lifecycle', 'deleted row is gone; superseded history row remains', Array.isArray(goneB) && goneB.length === 1 && goneB[0].id === oldId, JSON.stringify(goneB));
+      const rec5 = await tool(GATEWAY, a.apiKey, 'recall', { query: tokL });
+      check('lifecycle', 'deleted memory never returns in recall', !rec5.text.includes(v2) && !rec5.text.includes(newId), '');
+      const again = await tool(GATEWAY, a.apiKey, 'retire', { id: newId });
+      check('lifecycle', 'acting on a deleted id says not found', again.isError && /No memory with that id/.test(again.text), again.text.slice(0, 120));
+      const health = await fetch(`${GATEWAY}/health`);
+      const hb = await j(health);
+      check('lifecycle', 'gateway GET /health is 200 with no user data', health.ok && hb.status === 'ok' && !has(hb, [a.email, b.email, a.id, b.id]), `status ${health.status}`);
+    }
+
     // ── Exports ──
     check('export', 'no export endpoint exists yet — add a case here when data export ships', true, 'skipped (surface absent)');
 

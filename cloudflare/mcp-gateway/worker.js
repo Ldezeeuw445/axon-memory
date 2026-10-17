@@ -15,6 +15,8 @@ const ROUTES = [
   { match: "/register", target: "/mcp-oauth-register" },
   { match: "/authorize", target: "/mcp-oauth-authorize" },
   { match: "/token", target: "/mcp-oauth-token" },
+  // Unauthenticated liveness probe (no user data) for uptime monitors / AXE Core.
+  { match: "/health", target: "/mcp-server?health=1" },
 ];
 
 export default {

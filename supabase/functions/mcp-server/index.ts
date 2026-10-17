@@ -23,6 +23,7 @@ import { sourceLabelFor, resolveBearerToken } from "../_shared/mcp-auth.ts";
 import { buildContextPack, rememberMemory, listSourcesForUser, resolveProjectId } from "../_shared/memory-core.ts";
 import { addCatch, addPhase, addTask, listTasks, markTask, listWork, claimWork, completeWork } from "../_shared/workspace.ts";
 import { mcpOrigin } from "../_shared/oauth.ts";
+import { handleLifecycleTool, LIFECYCLE_TOOL_NAMES, lifecycleTools, TOOL_ALIASES } from "../_shared/mcp-lifecycle.ts";
 
 const SERVER_INFO = { name: "axon-memory", version: "1.0.0" };
 const PROTOCOL_VERSION = "2025-06-18";
@@ -241,6 +242,12 @@ const TOOLS = [
   },
 ];
 
+// Canonical lifecycle verbs (A6-1). capture/recall are aliases of remember/recall_context.
+const ALL_TOOLS = [
+  ...TOOLS,
+  ...lifecycleTools(TOOLS.find((t) => t.name === "remember")!, TOOLS.find((t) => t.name === "recall_context")!),
+];
+
 function rpcResult(id: unknown, result: unknown) {
   return { jsonrpc: "2.0", id, result };
 }
@@ -252,6 +259,28 @@ Deno.serve(async (req: Request) => {
   const preflight = handlePreflight(req);
   if (preflight) return preflight;
   const cors = publicCorsHeaders();
+
+  // Liveness for monitors (AXE Core) — no auth, no user data. Reached as
+  // GET mcp.axon-memory.com/health (gateway) or GET …/mcp-server?health.
+  const reqUrl = new URL(req.url);
+  if (req.method === "GET" && (reqUrl.searchParams.has("health") || reqUrl.pathname.endsWith("/health"))) {
+    const started = Date.now();
+    const { error: dbError } = await supabaseAdmin().from("plan_features").select("tier", { head: true, count: "exact" }).limit(1);
+    const body = {
+      status: dbError ? "degraded" : "ok",
+      service: SERVER_INFO.name,
+      version: SERVER_INFO.version,
+      protocol: PROTOCOL_VERSION,
+      database: dbError ? "unreachable" : "ok",
+      db_ms: Date.now() - started,
+      tools: ALL_TOOLS.map((t) => t.name),
+      time: new Date().toISOString(),
+    };
+    return new Response(JSON.stringify(body), {
+      status: dbError ? 503 : 200,
+      headers: { ...cors, "content-type": "application/json", "cache-control": "no-store" },
+    });
+  }
 
   if (req.method !== "POST") {
     return new Response("MCP endpoint: POST JSON-RPC only", { status: 405, headers: cors });
@@ -326,11 +355,12 @@ Deno.serve(async (req: Request) => {
   }
 
   if (method === "tools/list") {
-    return json(rpcResult(id, { tools: TOOLS }), cors);
+    return json(rpcResult(id, { tools: ALL_TOOLS }), cors);
   }
 
   if (method === "tools/call") {
-    const toolName = params?.name as string | undefined;
+    const requestedName = params?.name as string | undefined;
+    const toolName = requestedName ? (TOOL_ALIASES[requestedName] ?? requestedName) : undefined;
     const args = (params?.arguments ?? {}) as Record<string, unknown>;
     const admin = supabaseAdmin();
 
@@ -554,7 +584,18 @@ Deno.serve(async (req: Request) => {
         return json(rpcResult(id, { content: [{ type: "text", text: JSON.stringify(sources, null, 2) }] }), cors);
       }
 
-      return json(rpcError(id, -32601, `Unknown tool: ${toolName}`), cors);
+      if (toolName && LIFECYCLE_TOOL_NAMES.has(toolName)) {
+        const out = await handleLifecycleTool(admin, resolved, toolName, args, (content, project) =>
+          rememberMemory(admin, resolved.userId, {
+            content,
+            source_label: sourceLabelFor(args, resolved),
+            project,
+            api_key_id: resolved.apiKeyId ?? null,
+          }));
+        return json(rpcResult(id, { content: [{ type: "text", text: out.text }], ...(out.isError ? { isError: true } : {}) }), cors);
+      }
+
+      return json(rpcError(id, -32601, `Unknown tool: ${requestedName}`), cors);
     } catch (err) {
       console.error("mcp-server tools/call error", err);
       /* 200, not 500.

@@ -31,3 +31,22 @@ All four functions are SECURITY INVOKER (RLS applies) and go through `lifecycle_
 - A signed-in caller always acts as `auth.uid()`. Naming another user raises 42501.
 - The service role (edge functions) must pass `p_user_id`. Every statement also filters `user_id = p_user_id`, so another user's memory id gives "no such memory".
 - anon has no EXECUTE.
+
+## MCP tools (A6-1)
+
+The MCP server (`mcp.axon-memory.com`, same OAuth/API-key auth and JSON-RPC transport as before) exposes the lifecycle as tools, next to the existing ones:
+
+| Tool | Args | Notes |
+| --- | --- | --- |
+| `capture` | same as `remember` | alias; `remember` still works |
+| `recall` | same as `recall_context` | alias; every memory in the pack now carries its `id` |
+| `retire` | `id`, `reason?` | out of recall, kept; reversible |
+| `restore` | `id` | undo retire |
+| `supersede` | `old_id`, `new_id` **or** `content`, `project?`, `reason?` | `content` captures the replacement first |
+| `delete` | `id`, `confirm: true` | permanent; refused without `confirm: true` |
+
+Writes need the `memory.write` scope (personal API keys have full scope). The owner is always the authenticated key/token; a user id in the arguments is ignored. Another account's id answers "No memory with that id on this account." — identical to a missing id, so ids can't be probed.
+
+`GET https://mcp.axon-memory.com/health` (→ `mcp-server?health=1`) is an unauthenticated liveness probe: status, protocol, tool names and a database round-trip; no user data.
+
+Tests: `npm test` (Deno, incl. `mcp-lifecycle.test.ts`), `npm run test:worker` (gateway routing), and the live `lifecycle` section of `npm run test:rls-http` (capture → recall → supersede → cross-tenant refusals on both transports → retire/restore → delete).

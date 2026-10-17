@@ -143,7 +143,7 @@ export async function buildContextPack(
     ).limit(1),
     admin
       .from("memory_items")
-      .select("title, content, updated_at, occurred_at, metadata")
+      .select("id, title, content, updated_at, occurred_at, metadata")
       .eq("user_id", userId)
       .eq("origin_key", "notes")
       .is("retired_at", null)
@@ -309,6 +309,9 @@ export async function buildContextPack(
     if (item.id) includedIds.push(item.id);
     grouped[item.content_type] ??= [];
     grouped[item.content_type].push({
+      // The handle for retire / supersede / delete. Without it an assistant can
+      // be told a memory is wrong and have no way to act on it.
+      id: item.id,
       title: item.title,
       content: item.content,
       source: item.source_type,
@@ -385,6 +388,7 @@ export async function buildContextPack(
        it, not summarise something it half saw. */
     ...((noteRows ?? []).length ? {
       your_notes: (noteRows ?? []).map((n) => ({
+        id: n.id,
         title: n.title ?? null,
         text: (n.content ?? "").slice(0, 400),
         about: n.metadata?.repo ?? n.metadata?.app ?? null,
@@ -502,6 +506,12 @@ export async function buildContextPack(
         "and mark_tested only from something you ran and read the output of: a " +
         "green build is not a test. Anything the person mentions in passing " +
         "goes to add_catch, even when it is not work yet.",
+      lifecycle:
+        "Every memory above carries an id. When the person says something is " +
+        "no longer true, call retire({ id }). When a newer statement replaces an " +
+        "older one, call supersede({ old_id, content }) — the old one is kept as " +
+        "history, not erased. Call delete({ id, confirm: true }) only when the " +
+        "person explicitly asks for it to be gone; it cannot be undone.",
       keep_the_thread:
         "Call set_thread when this conversation reaches a natural stopping " +
         "point, or when what happens next changes. One or two sentences: what " +
