@@ -31,6 +31,19 @@ Capture health per user or overall: `select public.capture_health(24);` (service
 | SDK | `npm run test:sdk` (unit). `AXON_FIXTURES=fixtures.json npm run test:sdk-integration` (live, run **before** the HTTP suite, which deletes the fixture users) | |
 | Build | `npm run build` | needs `.env` with `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` |
 
+## Release gate (A12-1)
+1. Local: `bash scripts/release-gate.sh` (10 steps, no production access, exits non-zero on any failure).
+2. Live, in this order:
+   1. Provision fixtures.
+   2. SDK integration.
+   3. HTTP isolation (it deletes its own users).
+   4. `tests/rls/isolation.sql`.
+   5. The three `tests/schema/*.sql` files and `tests/eval/recall_eval.sql` through `execute_sql`.
+   6. `tests/rls/cleanup-http-fixtures.sql`.
+   7. Residue check: must be 0.
+3. Probe `mcp.axon-memory.com/health` and smoke all three domains (`/`, `/recall`, `/capture`, `/docs`, `/login`, `/?facet=recall`; all 200, one index hash).
+4. Record the run in `docs/ACCEPTANCE.md`. Any `leak` row is a release blocker.
+
 ## Migrations
 1. Write an **additive** migration. If it would drop or rewrite existing columns or data, stop and get Luka's approval.
 2. Dry run: `begin;` + migration + the relevant suite (its own `begin;` stripped) + `rollback;` via `execute_sql`.

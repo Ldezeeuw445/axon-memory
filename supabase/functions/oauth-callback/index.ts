@@ -214,7 +214,7 @@ Deno.serve(async (req: Request) => {
       last_error_at: scopeMissing ? new Date().toISOString() : null,
       // What the provider actually granted, so the connector card can show it.
       // Only when the provider reports it — never overwrite with a guess.
-      ...(granted ? { scopes: granted.split(/[\s,]+/).map((x) => x.trim()).filter(Boolean) } : {}),
+      ...(granted ? { scopes: granted.split(/[\s,]+/).map((x: string) => x.trim()).filter(Boolean) } : {}),
     };
 
     // Matched on the account, not on the provider, so authorising a second
