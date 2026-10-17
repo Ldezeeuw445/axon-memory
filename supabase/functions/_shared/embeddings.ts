@@ -189,6 +189,37 @@ export async function embedAndStore(
 }
 
 /**
+ * Same as embedAndStore, but says what happened, for the capture pipeline's
+ * index stage. "pending" covers every reason a vector did not land (no key,
+ * cost ceiling, provider error, write error); the memory is stored either way
+ * and the capture stays retryable for indexing.
+ */
+export async function indexMemory(
+  admin: SupabaseClient,
+  userId: string,
+  memoryItemId: string,
+  title: string | null,
+  content: string,
+): Promise<"indexed" | "pending"> {
+  try {
+    const text = [title, content].filter(Boolean).join("\n\n");
+    const vector = await embed(admin, userId, text, "RETRIEVAL_DOCUMENT");
+    if (!vector) return "pending";
+    const { error } = await admin
+      .from("memory_embeddings")
+      .upsert({ memory_item_id: memoryItemId, embedding: vector }, { onConflict: "memory_item_id" });
+    if (error) {
+      console.error("embeddings: failed to store embedding", error.message);
+      return "pending";
+    }
+    return "indexed";
+  } catch (err) {
+    console.error("embeddings: indexMemory threw", err);
+    return "pending";
+  }
+}
+
+/**
  * Embeds a search query (RETRIEVAL_QUERY task type — asymmetric from
  * RETRIEVAL_DOCUMENT, which is what makes this model good at "find the doc
  * that answers this question" rather than just "find similar text").

@@ -119,7 +119,7 @@ async function main() {
     const tables = ['memory_items', 'memory_facts', 'memory_recalls', 'api_keys', 'source_connections', 'projects',
       'project_threads', 'project_repos', 'entities', 'entity_links', 'context_pack_logs', 'subscriptions',
       'recall_rules', 'workspaces', 'workspace_tasks', 'workspace_catch', 'workspace_docs', 'workspace_events',
-      'workspace_links', 'workspace_phases', 'workspace_team', 'workspace_work', 'memory_hub_counts',
+      'workspace_links', 'workspace_phases', 'workspace_team', 'workspace_work', 'memory_hub_counts', 'capture_events',
       'memory_facts_with_source', 'memory_by_repo', 'user_plan_status'];
     for (const t of tables) {
       const res = await rest(jwtA, `${t}?select=*&user_id=eq.${b.id}`);
@@ -292,6 +292,52 @@ async function main() {
       const health = await fetch(`${GATEWAY}/health`);
       const hb = await j(health);
       check('lifecycle', 'gateway GET /health is 200 with no user data', health.ok && hb.status === 'ok' && !has(hb, [a.email, b.email, a.id, b.id]), `status ${health.status}`);
+    }
+
+    // ── Capture pipeline (A2-1): idempotency, dedupe, visible + retryable failures ──
+    {
+      const tokC = `rlscap${randomBytes(5).toString('hex')}`;
+      const key = `phone-queue:${tokC}`;
+      const body1 = { content: `A captured offline ${tokC}`, idempotency_key: key, channel: 'offline', occurred_at: new Date(Date.now() - 3600_000).toISOString() };
+      const c1 = await fn(a.apiKey, 'remember', body1); const c1b = await j(c1);
+      check('capture', 'REST capture returns id, status and capture_id', c1.ok && c1b.id && c1b.capture_id && ['indexed', 'stored'].includes(c1b.status), JSON.stringify(c1b));
+      const c2 = await fn(a.apiKey, 'remember', body1); const c2b = await j(c2);
+      check('capture', 'same idempotency key again -> same memory, not stored twice', c2.ok && c2b.id === c1b.id && c2b.status === 'duplicate', JSON.stringify(c2b));
+      const rows = await j(await rest(jwtA, `memory_items?select=id,occurred_at,origin_key&content=eq.${encodeURIComponent(body1.content)}`));
+      check('capture', 'exactly one row for the queued capture, with its original occurred_at', Array.isArray(rows) && rows.length === 1
+        && Math.abs(Date.parse(rows[0].occurred_at) - Date.parse(body1.occurred_at)) < 2000, JSON.stringify(rows));
+      const prov = await j(await rest(jwtA, `memories?select=owner_id,capture_channel,source_application&id=eq.${c1b.id}`));
+      check('capture', 'stored memory has owner + provenance', Array.isArray(prov) && prov[0]?.owner_id === a.id && prov[0]?.capture_channel === 'agent' && !!prov[0]?.source_application, JSON.stringify(prov));
+      const d1 = await fn(a.apiKey, 'remember', { content: `A double send ${tokC}` }); const d1b = await j(d1);
+      const d2 = await fn(a.apiKey, 'remember', { content: `  A double   send ${tokC} ` }); const d2b = await j(d2);
+      check('capture', 'identical content within minutes (no key) is deduplicated', d1b.id && d2b.id === d1b.id && d2b.status === 'duplicate', `${d1b.id} / ${d2b.id} ${d2b.status}`);
+      const bad = await fn(a.apiKey, 'remember', { content: '   ' }); const badb = await j(bad);
+      check('capture', 'invalid capture is refused with stage + capture_id', bad.status === 400 && badb.code === 'invalid' && badb.stage === 'normalize' && !!badb.capture_id && badb.retryable === false, JSON.stringify(badb));
+      const st = await j(await fn(a.apiKey, 'remember?status', null, 'GET'));
+      const open = st?.needs_attention ?? [];
+      check('capture', 'failures are visible in capture status', open.some((e) => e.id === badb.capture_id && e.status === 'failed') && open.some((e) => e.id === a.failedCaptureId), `${open.length} open`);
+      check('capture', 'capture health reports attempts and success rate', (st?.health?.attempts ?? 0) >= 4 && st?.health?.success_rate != null, JSON.stringify(st?.health ?? null));
+      const bst = await j(await fn(b.apiKey, 'remember?status', null, 'GET'));
+      check('capture', "B's capture status contains none of A's captures", !has(bst, [badb.capture_id, c1b.capture_id, a.failedCaptureId]), '');
+      const bRetry = await fn(b.apiKey, 'remember', { retry_capture_id: a.failedCaptureId }); const bRetryB = await j(bRetry);
+      check('capture', "B cannot retry A's failed capture", bRetry.status === 404 && bRetryB.code === 'not_found', JSON.stringify(bRetryB));
+      const mcpTool = async (key2, name, args) => { const r = await mcp(GATEWAY, key2, 'tools/call', { name, arguments: args }); const bj = await j(r);
+        return { text: bj?.result?.content?.[0]?.text ?? JSON.stringify(bj), isError: !!bj?.result?.isError }; };
+      const bMcp = await mcpTool(b.apiKey, 'retry_capture', { capture_id: a.failedCaptureId });
+      check('capture', "B cannot retry A's failed capture over MCP", bMcp.isError && /no capture with that id/.test(bMcp.text), bMcp.text.slice(0, 120));
+      const retry = await mcpTool(a.apiKey, 'retry_capture', { capture_id: a.failedCaptureId });
+      const retriedId = (retry.text.match(/id: ([0-9a-f-]{36})/) ?? [])[1];
+      check('capture', 'A retries the failed capture over MCP and it is stored', !retry.isError && !!retriedId, retry.text.slice(0, 160));
+      const qrows = await j(await rest(jwtA, `memory_items?select=id&content=eq.${encodeURIComponent(a.queued)}`));
+      check('capture', 'retried capture exists exactly once', Array.isArray(qrows) && qrows.length === 1 && qrows[0].id === retriedId, JSON.stringify(qrows));
+      const again = await mcpTool(a.apiKey, 'retry_capture', { capture_id: a.failedCaptureId });
+      check('capture', 'retrying a stored capture does not store it twice', !again.isError && /Already saved/.test(again.text), again.text.slice(0, 120));
+      const m1 = await mcpTool(a.apiKey, 'remember', { content: `A via mcp ${tokC}`, idempotency_key: `mcp:${tokC}` });
+      const m2 = await mcpTool(a.apiKey, 'capture', { content: `A via mcp ${tokC}`, idempotency_key: `mcp:${tokC}` });
+      check('capture', 'MCP capture is idempotent on idempotency_key', !m1.isError && /Already saved/.test(m2.text), `${m1.text.slice(0, 60)} | ${m2.text.slice(0, 60)}`);
+      const cs = await mcpTool(a.apiKey, 'capture_status', {});
+      let csj = null; try { csj = JSON.parse(cs.text); } catch { /* */ }
+      check('capture', 'capture_status over MCP returns health', !!csj?.health && typeof csj.health.attempts === 'number', cs.text.slice(0, 120));
     }
 
     // ── Exports ──

@@ -17,7 +17,11 @@ for (const who of ['a', 'b']) {
   const password = `R1s!${randomBytes(12).toString('hex')}`;
   const apiKey = `axon_live_${randomBytes(24).toString('hex')}`;
   const hash = createHash('sha256').update(apiKey).digest('hex');
-  fx[who] = { id, email, password, apiKey };
+  // A failed capture (as a store outage would leave it) so the live suite can
+  // prove retry_capture re-runs it from its saved payload.
+  const failedCaptureId = randomUUID();
+  const queued = `queued capture ${who} ${randomBytes(5).toString('hex')}`;
+  fx[who] = { id, email, password, apiKey, failedCaptureId, queued };
   sql += `insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token,
   email_change_token_new, email_change, email_change_token_current, reauthentication_token, phone_change, phone_change_token)
@@ -27,6 +31,10 @@ values ('00000000-0000-0000-0000-000000000000', '${id}', 'authenticated', 'authe
 insert into auth.identities (provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
 values ('${id}', '${id}', jsonb_build_object('sub', '${id}', 'email', '${email}', 'email_verified', true), 'email', now(), now(), now());
 insert into public.api_keys (user_id, name, key_prefix, key_hash) values ('${id}', 'rls-test', '${apiKey.slice(0, 14)}', '${hash}');
+insert into public.capture_events (id, user_id, channel, status, stage, error, error_code, retryable, payload)
+values ('${failedCaptureId}', '${id}', 'offline', 'failed', 'store', 'simulated outage', 'test', true,
+  jsonb_build_object('content', '${queued}', 'title', null, 'tags', '[]'::jsonb, 'facets', '[]'::jsonb, 'project', null,
+                     'source_label', 'rls-test', 'idempotency_key', null, 'occurred_at', now()));
 `;
 }
 sql += 'commit;\n';
