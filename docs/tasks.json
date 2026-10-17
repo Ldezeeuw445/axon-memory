@@ -879,7 +879,7 @@
         "supabase/functions/oauth-callback/index.ts (type annotation only, not redeployed: no runtime change)"
       ],
       "started_at": "2026-10-17T15:20:00+02:00",
-      "last_progress_at": "2026-10-17T15:50:00+02:00",
+      "last_progress_at": "2026-10-17T18:45:00+02:00",
       "attempts": 1,
       "tests_run": [
         "release-gate.sh 10/10",
@@ -896,9 +896,9 @@
       ],
       "build_result": "vite build ok (index-nUaD4goP.js, live)",
       "deployment_result": null,
-      "verification_result": "Gate 2026-10-17: local 10/10, SDK 12/12, HTTP isolation 204/204, isolation.sql 249/249, schema 26/44/45, eval 24/24, MCP health ok, domains 200. §37: 12/15 automated (step 4 consent click e2e 14/14 via npm run test:oauth-e2e, PR #22; step 13 Terrain 'How it connects' from real rows, PR #23). Partial: 1 (needs bot inbox), 12 (no physical device), 14 (billing fix awaits approval).",
-      "blocker": "Step 1 needs the bot's own inbox claimed (parent/user approval). Step 14 billing fix awaits Luka. CI (A0-2) billing-locked.",
-      "next_action": "Done since #22: consent e2e (#22), Terrain links (#23), perf (#24), scripted deploy (#25), uptime watch (#26, check-alerts v21 live, first tick 14:25 UTC all 3 targets ok). Post-deploy suites: SDK 12/12, HTTP 204/204, isolation.sql 249/249, residue 0. Remaining: step 1 (bot inbox), step 12 (physical device), step 14 (billing approval), CI (A0-2).",
+      "verification_result": "Gate 2026-10-17: local 12/12, SDK 12/12, HTTP isolation 211/211, isolation.sql 251/251, residue 0, domains 200. §37: 14/15 (step 1 sign-up→mail→confirm→first sign-in→delete e2e pass; step 14 billing pass after A11-3). Partial: 12 (no physical device).",
+      "blocker": "Step 12 needs a physical device. CI (A0-2) billing-locked.",
+      "next_action": "Since #27: billing live (#28; step 14 pass), step 1 sign-up e2e with the bot inbox (pass). Remaining: step 12 (physical device), CI (A0-2).",
       "rollback_reference": "git revert"
     },
     {
