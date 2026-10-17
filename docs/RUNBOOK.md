@@ -62,9 +62,10 @@ Deploy with entrypoint `index.js` and the function's **existing** `verify_jwt` s
 ## Frontend (Pages Direct Upload)
 1. `npm run build`.
 2. Get an upload token **per project** and run step 3 once per project with that project's token. Assets are stored per project: a deployment whose hashes were uploaded only under the other project's token succeeds but serves **500** (happened to axon-memory.com on 2026-10-17 for ~2.5 min, 13:37–13:40 CEST). Get the token: Cloudflare API `GET /accounts/{acct}/pages/projects/{name}/upload-token`.
-3. `UPLOAD_JWT=<token> DIST_DIR=dist node axon-pages-upload.mjs` (box helper: MD5-keyed check-missing → upload → upsert-hashes. Writes the manifest).
-4. `POST /accounts/{acct}/pages/projects/{name}/deployments` as multipart with `manifest`, `branch=main` and `commit_hash`.
-5. Smoke: each domain 200, its `index.html` points at the new `/assets/index-*.js`, SPA routes (`/dashboard`, `/settings`) 200.
+3. `UPLOAD_JWT=<that project's token> npm run deploy:upload` (`scripts/deploy/pages-upload.mjs`: MD5-keyed check-missing → upload → upsert-hashes; writes `.pages-manifest.json`). Never print the token.
+4. `npm run deploy:pages -- <project> <sha> "<message>"` (`scripts/deploy/pages-deploy.mjs`). With `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` it creates the production deployment itself; without them it writes `.pages-deploy-<project>.js` to run through the Cloudflare MCP `execute` tool.
+5. `npm run deploy:smoke -- <index-*.js from dist/index.html>` (`scripts/deploy/smoke.sh`): 3 domains × 8 paths, exits 1 on any non-200 or a page still serving another build (the other site, until it is deployed too). Any 5xx: roll back at once.
+6. Then repeat 2–5 for the other project. Lazy chunks: a tab left open across a deploy reloads once to pick up the new build (`src/lib/lazyPage.js`).
 Note: `_headers` / `_redirects` currently travel only inside the manifest, so `_redirects` rules (missing `/assets/*` → 404) are **not** active. Sending them as their own multipart fields would activate them. That is a behaviour change, so test it on a preview first.
 
 ## Worker
