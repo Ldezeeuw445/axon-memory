@@ -19,6 +19,9 @@ curl -s -o /dev/null -w '%{http_code}' https://axon-memory.com/       # 200
 ```
 Capture health per user or overall: `select public.capture_health(24);` (service role). Failed captures: `select * from capture_events where status='failed' order by created_at desc limit 20;`.
 
+## Uptime watch
+`check-alerts` (every 5 min) probes `mcp.axon-memory.com/health`, `app.axon-memory.com/login` and `axon-memory.com/` (`_shared/uptime.ts`). An outage writes one `uptime_down` row to `system_alerts`; recovery writes one `uptime_recovered`. These rows are written `notified=true` (in-app only) unless the secret `UPTIME_ALERTS_DELIVER=1` is set, which would send them to the existing alert channel; that needs Luka's approval. Read: `select alert_type, message, created_at from system_alerts where alert_type like 'uptime_%' order by created_at desc limit 20;`
+
 ## Test gates
 | Gate | Command | Notes |
 |---|---|---|
