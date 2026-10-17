@@ -1,0 +1,14 @@
+AXON
+
+Confirm your new email
+
+You asked to change your AXON email from {{ .Email }} to {{ .NewEmail }}. Confirm to make the switch.
+
+Confirm new email:
+{{ .ConfirmationURL }}
+
+Didn't ask for this? Don't tap the button, and change your password from the app to be safe.
+
+--
+AXON - One memory. Every AI.
+https://axon-memory.com

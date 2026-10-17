@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="color-scheme" content="dark">
+<meta name="supported-color-schemes" content="dark">
+<title>Your AXON sign-in link</title>
+<style>
+  :root { color-scheme: dark; supported-color-schemes: dark; }
+  body { margin:0; padding:0; background:#050608; }
+  a { color:#FFD98A; }
+  @media (max-width:600px) { .ax-card { padding:32px 22px !important; border-radius:20px !important; } .ax-h1 { font-size:26px !important; line-height:32px !important; } }
+</style>
+</head>
+<body style="margin:0;padding:0;background:#050608;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:#050608;">Tap to sign in. The link works once.&#8199;&#65279;&#847;&#8199;&#65279;&#847;&#8199;&#65279;&#847;</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#050608" style="background:#050608;">
+  <tr><td align="center" style="padding:40px 16px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;">
+      <tr><td style="padding:0 6px 22px 6px;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;font-weight:600;letter-spacing:6px;color:#F2F3F4;">
+        <span style="color:#FFB733;">&#9670;</span>&nbsp; AXON
+      </td></tr>
+      <tr><td class="ax-card" bgcolor="#0B0D10" style="background:#0B0D10;background-image:linear-gradient(180deg,#101318,#0B0D10);border:1px solid #1C2026;border-radius:24px;padding:44px 40px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr><td style="padding:0 0 4px 0;"><div style="height:2px;width:44px;background:#FFB733;background-image:linear-gradient(90deg,#FFD98A,#FFB733);border-radius:2px;line-height:2px;font-size:0;">&nbsp;</div></td></tr>
+          <tr><td class="ax-h1" style="padding:22px 0 12px 0;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:30px;line-height:36px;font-weight:600;letter-spacing:-0.02em;color:#F2F3F4;">Sign in to AXON</td></tr>
+          <tr><td style="padding:0 0 26px 0;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:25px;color:#A3A9AE;">Tap the button to sign in. The link works once and expires shortly.</td></tr>
+          <tr><td style="padding:8px 0 28px 0;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+          <td align="center" bgcolor="#FFB733" style="border-radius:999px;background:#FFB733;background-image:linear-gradient(180deg,#FFD98A,#FFB733);">
+            <a href="{{ .ConfirmationURL }}" target="_blank" style="display:inline-block;padding:15px 30px;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;font-weight:600;color:#120C00;text-decoration:none;border-radius:999px;letter-spacing:-0.01em;">Sign in</a>
+          </td></tr></table>
+      </td></tr>
+      <tr><td style="padding:0 0 28px 0;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:20px;color:#6F767C;">
+        Button not working? Paste this link into your browser:<br>
+        <a href="{{ .ConfirmationURL }}" target="_blank" style="color:#A3A9AE;text-decoration:underline;word-break:break-all;">{{ .ConfirmationURL }}</a>
+      </td></tr>
+          <tr><td style="border-top:1px solid #1C2026;padding:22px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:20px;color:#6F767C;">Didn't ask to sign in? Ignore this email and nothing happens. Your account stays as it is.</td></tr>
+        </table>
+      </td></tr>
+      <tr><td style="padding:24px 6px 0 6px;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:18px;color:#6F767C;">
+        AXON &middot; One memory. Every AI.<br>
+        <a href="https://axon-memory.com" target="_blank" style="color:#6F767C;text-decoration:underline;">axon-memory.com</a>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>

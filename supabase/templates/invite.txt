@@ -1,0 +1,14 @@
+AXON
+
+You're invited
+
+You've been invited to AXON: one memory you can carry into ChatGPT, Claude and the other AIs you use. Accept to set up your account.
+
+Accept invite:
+{{ .ConfirmationURL }}
+
+Not expecting this? You can ignore it. Nothing is created unless you accept.
+
+--
+AXON - One memory. Every AI.
+https://axon-memory.com

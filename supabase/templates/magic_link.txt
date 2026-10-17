@@ -1,0 +1,14 @@
+AXON
+
+Sign in to AXON
+
+Tap the button to sign in. The link works once and expires shortly.
+
+Sign in:
+{{ .ConfirmationURL }}
+
+Didn't ask to sign in? Ignore this email and nothing happens. Your account stays as it is.
+
+--
+AXON - One memory. Every AI.
+https://axon-memory.com
