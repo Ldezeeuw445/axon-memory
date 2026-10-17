@@ -1,5 +1,7 @@
 // POST /mcp-oauth-consent   body: { client_id, redirect_uri, state, scope,
-//   code_challenge, code_challenge_method, decision: "approve" | "deny" }
+//   code_challenge, code_challenge_method, decision: "describe" | "approve" | "deny" }
+// decision "describe" returns { client } (name, host, verified, logo slug) as the
+// server sees it, so the consent screen never trusts the link that opened it.
 // Auth: normal Axon user JWT (the React /connect/authorize page calls this
 // while the user is logged in). Issues a short-lived authorization code and
 // returns the redirect_uri to send the AI tool's browser back to — the
@@ -7,7 +9,8 @@
 import { handlePreflight, jsonResponse } from "../_shared/cors.ts";
 import { getUserFromRequest } from "../_shared/auth.ts";
 import { supabaseAdmin } from "../_shared/supabase-admin.ts";
-import { newAuthorizationCode, codeExpiresAt, pkceRequestError, redirectUriAllowed } from "../_shared/oauth.ts";
+import { newAuthorizationCode, codeExpiresAt, pkceRequestError, redirectUriAllowed, KNOWN_CLIENT_NAMES } from "../_shared/oauth.ts";
+import { describeClient } from "../_shared/oauth-client.ts";
 
 Deno.serve(async (req: Request) => {
   const preflight = handlePreflight(req);
@@ -30,7 +33,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: client } = await admin
     .from("oauth_clients")
-    .select("client_id, redirect_uris, is_public")
+    .select("client_id, client_name, redirect_uris, is_public")
     .eq("client_id", client_id)
     .maybeSingle();
   if (!client || !redirectUriAllowed(client.redirect_uris, redirect_uri)) {
@@ -40,6 +43,16 @@ Deno.serve(async (req: Request) => {
   const pkceError = pkceRequestError({ isPublic: client.is_public !== false, challenge: code_challenge, method: code_challenge_method });
   if (pkceError) {
     return jsonResponse({ error: "invalid_request", error_description: pkceError }, { status: 400, origin });
+  }
+
+  // The consent screen asks this before it shows anything: who it is, and where
+  // the code would go, decided here from the registered client and the already
+  // checked redirect_uri, not from the link that opened the page. Mints nothing.
+  if (decision === "describe") {
+    return jsonResponse(
+      { client: describeClient(client.client_name, redirect_uri, KNOWN_CLIENT_NAMES[client_id]?.label) },
+      { origin },
+    );
   }
 
   if (decision !== "approve") {
