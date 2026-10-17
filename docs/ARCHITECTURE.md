@@ -22,7 +22,7 @@ There is one source of truth: Postgres. There is no separate graph or vector sto
 
 | Component | Where | Notes |
 |---|---|---|
-| Web app | `src/` (React 19, Vite 8, react-router 7, three.js terrain) | Built to `dist/`. Both Pages projects serve **the same build**. `/` renders the landing page, except on the app host (`isAppHost()`), where it redirects into the app. `landing/` is a separate sub-project that is **not deployed** today |
+| Web app | `src/` (React 19, Vite 8, react-router 7, three.js terrain) | Built to `dist/`. Both Pages projects serve **the same build**. `/` renders the landing page, except on the app host (`isAppHost()`), where it redirects into the app. The landing is `src/pages/Home.jsx`; the product is `src/pages/AppShell.jsx` with facets in `src/pages/facets/` (Recall, Capture, Threads, Terrain, Connect, You), which read through RLS and act through `/v1` with the session JWT (A9-1). Offline captures wait in IndexedDB (`src/lib/outbox.js`, A2-2). |
 | Android | TWA shell around app.axon-memory.com (`ANDROID.md`) | A web deploy updates the phone. The APK is rebuilt only for icon, name or URL changes |
 | MCP gateway | `cloudflare/mcp-gateway/worker.js` | Path rewrites only: `/v1/*` → `api-v1` (public REST API, A7-1), `/.well-known/oauth-*` → `oauth-metadata`, `/register`, `/authorize`, `/token` → `mcp-oauth-*`, `/health` → `mcp-server?health=1`, `/` → `mcp-server`. It has no auth logic. It forwards redirects with `redirect: "manual"` |
 | Edge functions | `supabase/functions/*` (24) | See the table below. Shared code is in `_shared/` |
@@ -62,3 +62,10 @@ Everything is verified on a workstation or the agent box. The steps are in `RUNB
 
 ## Related docs
 `MEMORY_MODEL.md` · `CONNECTORS.md` · `API.md` · `MEMORY_LIFECYCLE.md` · `CAPTURE.md` · `RECALL.md` · `SECURITY.md` · `MCP.md` · `RUNBOOK.md` · `ACCEPTANCE.md` · `CLAUDE.md` · canon in `Docs/axon/`.
+
+## App surfaces (A9-1, A10-1)
+- **Shell**: `src/pages/AppShell.jsx`. `/?facet=recall|capture|threads|terrain|connections|you`; legacy `/dashboard`, `/graph`, `/sources`, `/billing` alias in. `/recall`, `/capture` (share target, `?title&text&url`), `/threads`, `/terrain`, `/you` redirect in with the query kept. The manifest declares `share_target` → `/capture`.
+- **Reads** (home lists, threads, terrain, recall log, retired) use RLS directly so that browsing never counts as a recall. **Writes and explicit recall** go through `/v1` with the session JWT (`src/lib/axonApi.js`), so the app obeys the same contract, idempotency and propagation as every client; captures are recorded on channel `app`.
+- **Terrain** summits come from `memory_source_breakdown` (every source that actually holds memories, captures by you as "YOU"), plus AIs that are connected or have written something.
+- **Landing**: `src/pages/Home.jsx` + `src/components/home/MemoryFlow.jsx`. Product images in `public/product/` are screenshots of the real app with a throwaway example account; pricing comes from `src/lib/planCatalog.js` (tested against the plan_features matrix in `src/lib/__tests__/planCatalog.test.js`).
+- **Lexicon**: `npm run test:lexicon` scans user-visible text of the shell and landing against `Docs/axon/AXON_Lexicon.md`.

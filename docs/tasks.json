@@ -183,7 +183,7 @@
       "objective": "Idempotent offline capture queue in PWA",
       "phase": "A2",
       "priority": "P2",
-      "status": "queued",
+      "status": "done",
       "owner_agent": "grok-bot",
       "dependencies": [
         "A2-1"
@@ -192,19 +192,25 @@
         "queued/syncing/stored/failed states; no 'stored' before ack"
       ],
       "files_or_services_touched": [
-        "public/sw.js",
-        "src/"
+        "src/lib/outbox.js",
+        "src/lib/__tests__/outbox.test.js",
+        "src/lib/axonApi.js",
+        "src/pages/AppShell.jsx",
+        "src/pages/facets/CaptureFacet.jsx"
       ],
-      "started_at": null,
-      "last_progress_at": null,
-      "attempts": 0,
-      "tests_run": [],
+      "started_at": "2026-10-17T14:30:00+02:00",
+      "last_progress_at": "2026-10-17T14:45:00+02:00",
+      "attempts": 1,
+      "tests_run": [
+        "vitest outbox 7/7"
+      ],
       "build_result": null,
       "deployment_result": null,
       "verification_result": null,
       "blocker": null,
       "next_action": "Client queue keyed by idempotency key",
-      "rollback_reference": "git revert"
+      "rollback_reference": "git revert",
+      "notes": "IndexedDB outbox ported from axon-memory-app@fbc294e (ordered, stops at first failure, never claims success it did not have); captures carry idempotency keys; flushed on sign-in and 'online'; 'Kept on this device' until acknowledged. Also ported (adapted): FirstRecall, RetiredMemories, RecallLog. Not ported: SourceConstellation, NotesField (large, different data model), Trust page (TRUST.md not yet reviewed against this backend)."
     },
     {
       "id": "A3-1",
@@ -607,7 +613,7 @@
       "objective": "Mobile-first surfaces: Recall home, Capture, Threads, Terrain(real data), Connections, Privacy",
       "phase": "A9",
       "priority": "P1",
-      "status": "queued",
+      "status": "done",
       "owner_agent": "grok-bot",
       "dependencies": [
         "A3-1"
@@ -616,19 +622,42 @@
         "Primary flows fast on phone; Terrain from real relationships; no forbidden user-visible words"
       ],
       "files_or_services_touched": [
-        "src/pages",
-        "src/components"
+        "src/pages/AppShell.jsx",
+        "src/pages/facets/*",
+        "src/components/app/*",
+        "src/lib/axonApi.js",
+        "src/styles/facets.css",
+        "src/components/DataLandscape.jsx",
+        "src/pages/MemoryGraph.jsx",
+        "src/components/ErrorBoundary.jsx",
+        "src/pages/Login.jsx",
+        "public/manifest.webmanifest",
+        "supabase/functions/api-v1",
+        "scripts/check-lexicon.mjs",
+        "scripts/rls-isolation-http.mjs"
       ],
-      "started_at": null,
-      "last_progress_at": null,
-      "attempts": 0,
-      "tests_run": [],
+      "started_at": "2026-10-17T13:20:00+02:00",
+      "last_progress_at": "2026-10-17T14:45:00+02:00",
+      "attempts": 1,
+      "tests_run": [
+        "vite build",
+        "oxlint (warnings only)",
+        "vitest 11/11",
+        "deno test --no-check 71/71 (type-check fails only on pre-existing source-sync.ts TS7053)",
+        "check-lexicon clean",
+        "check-plan-names OK",
+        "SDK integration 12/12",
+        "rls-isolation-http 192/192 incl. 8 new session-JWT checks",
+        "isolation.sql 249/249",
+        "Playwright 390x844 + 1440x900 per facet -> /workspace/axon-shots/a9"
+      ],
       "build_result": null,
       "deployment_result": null,
       "verification_result": null,
       "blocker": null,
       "next_action": "Rename Dashboard UI to Recall home; lexicon string audit",
-      "rollback_reference": "git revert"
+      "rollback_reference": "git revert",
+      "notes": "Product shell with six facets (Recall home, Capture text/voice/links/share target, Threads by depth, Terrain from memory_source_breakdown, Connect, You). App acts through /v1 with the session JWT (api-v1 v4); browsing reads via RLS so it never counts as a recall. Fixed prod crash in Terrain (MemoryGraph referenced undefined `selected`)."
     },
     {
       "id": "A9-2",
@@ -636,7 +665,7 @@
       "objective": "Remove duplicate/dead frontend modules (AuthContext x2, supabase client x2)",
       "phase": "A9",
       "priority": "P2",
-      "status": "queued",
+      "status": "done",
       "owner_agent": "grok-bot",
       "dependencies": [],
       "acceptance_criteria": [
@@ -645,16 +674,19 @@
       "files_or_services_touched": [
         "src/"
       ],
-      "started_at": null,
-      "last_progress_at": null,
-      "attempts": 0,
-      "tests_run": [],
+      "started_at": "2026-10-17T13:20:00+02:00",
+      "last_progress_at": "2026-10-17T14:45:00+02:00",
+      "attempts": 1,
+      "tests_run": [
+        "vite build"
+      ],
       "build_result": null,
       "deployment_result": null,
       "verification_result": null,
       "blocker": null,
       "next_action": "Consolidate",
-      "rollback_reference": "git revert"
+      "rollback_reference": "git revert",
+      "notes": "Removed src/context/AuthContext.jsx, src/lib/supabaseClient.js, Landing.jsx, Dashboard.jsx, DataSources.jsx, AIAdapters.jsx, ConnectionsFacet.jsx, BusinessDocs.jsx (false API docs), CorePortal, Shockwave, ConnectSourceModal, ExtractionPanel, MemoryParticle, SetupBanner, Modal, and the undeployed landing/ sub-project (mock graph)."
     },
     {
       "id": "A10-1",
@@ -662,7 +694,7 @@
       "objective": "Landing: spec story, real visuals, Power naming, no mock data claims",
       "phase": "A10",
       "priority": "P1",
-      "status": "queued",
+      "status": "done",
       "owner_agent": "grok-bot",
       "dependencies": [
         "A11-1"
@@ -671,18 +703,30 @@
         "Responsive; no fake claims; plan names match backend"
       ],
       "files_or_services_touched": [
-        "landing/src"
+        "src/pages/Home.jsx",
+        "src/components/home/MemoryFlow.jsx",
+        "src/styles/home.css",
+        "src/pages/Developers.jsx",
+        "public/product/*",
+        "src/lib/planCatalog.js",
+        "src/pages/Subscription.jsx"
       ],
-      "started_at": null,
-      "last_progress_at": null,
-      "attempts": 0,
-      "tests_run": [],
+      "started_at": "2026-10-17T14:00:00+02:00",
+      "last_progress_at": "2026-10-17T14:45:00+02:00",
+      "attempts": 1,
+      "tests_run": [
+        "vite build",
+        "vitest planCatalog 4/4",
+        "check-lexicon clean",
+        "Playwright hero + full page 390x844 and 1440x900 -> /workspace/axon-shots/a10"
+      ],
       "build_result": null,
       "deployment_result": null,
       "verification_result": null,
       "blocker": null,
       "next_action": "Replace mockGraph with real anonymized demo",
-      "rollback_reference": "git revert"
+      "rollback_reference": "git revert",
+      "notes": "Hero 'One memory. Every AI.' with an example memory travelling from one AI through the Core to another (labelled Example, one moving element at a time). Problem, How it works (real app screenshots, example account, labelled), Terrain/Connect visuals, Developers (MCP/API/SDK), Privacy (ownership, consent, source, withdrawal, deletion, tenant isolation, EU/Paris), pricing from planCatalog. Removed false claims: Starter 'API key', 'priority sync', founder badge/direct line/limited, Subscription 'AES-encrypted'/'token savings'/'desktop app'."
     },
     {
       "id": "A11-1",

@@ -17,7 +17,7 @@ Instructions for any AI agent (Claude, Grok Bot, Cursor, …) that changes this 
 7. Docs must not drift: if you change behaviour described in `docs/`, update the doc in the same PR.
 
 ## Layout
-- `src/`: React 19 + Vite app (served at app.axon-memory.com and axon-memory.com). `landing/` is not deployed.
+- `src/`: React 19 + Vite app (served at app.axon-memory.com and axon-memory.com). The landing page is `src/pages/Home.jsx` (A10-1); the old undeployed `landing/` sub-project with its mock graph was removed.
 - `supabase/functions/`: edge functions. Shared logic lives in `_shared/` (`memory-core.ts`, `capture.ts`, `recall.ts`, `lifecycle.ts`, `mcp-lifecycle.ts`, `mcp-auth.ts`, `plans.ts`, `cors.ts`).
 - `supabase/migrations/`: matches prod exactly (file version = applied version).
 - `cloudflare/mcp-gateway/`: router Worker for mcp.axon-memory.com.
