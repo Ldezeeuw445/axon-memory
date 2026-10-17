@@ -25,7 +25,7 @@ export const API_BUILD = "1.0.0";
 
 export type ApiErrorCode =
   | "unauthorized" | "forbidden_scope" | "not_found" | "invalid" | "method_not_allowed"
-  | "rate_limited" | "conflict" | "gone" | "capture_failed" | "server_error";
+  | "rate_limited" | "conflict" | "gone" | "capture_failed" | "server_error" | "plan_required";
 
 export class ApiError extends Error {
   constructor(

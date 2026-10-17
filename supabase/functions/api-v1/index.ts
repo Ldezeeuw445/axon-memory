@@ -3,7 +3,7 @@
 // <supabase>/functions/v1/api-v1/v1/*. Public door (token auth, no cookies).
 import { handlePublicPreflight as handlePreflight, publicCorsHeaders } from "../_shared/cors.ts";
 import { supabaseAdmin } from "../_shared/supabase-admin.ts";
-import { resolveBearerToken } from "../_shared/mcp-auth.ts";
+import { planRefusal, resolveBearerToken } from "../_shared/mcp-auth.ts";
 import { getUserFromRequest } from "../_shared/auth.ts";
 import {
   API_BUILD, API_VERSION, ApiError, apiCaptureOutcome, canWrite, capture, captureStatus, getCapture, getMemory,
@@ -50,8 +50,11 @@ Deno.serve(async (req: Request) => {
     // rulebook. A session acts as the person themselves: full scope, channel
     // "app", no API key. Keys are tried first; only a JWT-shaped token falls
     // through to session verification.
-    let resolved: { userId: string; apiKeyId: string | null; scope: string | null; clientLabel: string | null; viaOauthClient: boolean; viaApp?: boolean } | null =
-      await resolveBearerToken(req);
+    const viaKey = await resolveBearerToken(req);
+    // A11-3: a key or OAuth token is re-checked against the plan on every call.
+    const refusal = viaKey ? planRefusal(viaKey) : null;
+    if (refusal) throw new ApiError(refusal.status, refusal.error, refusal.message);
+    let resolved: { userId: string; apiKeyId: string | null; scope: string | null; clientLabel: string | null; viaOauthClient: boolean; viaApp?: boolean } | null = viaKey;
     if (!resolved && /^Bearer\s+eyJ/i.test(req.headers.get("Authorization") ?? "")) {
       const session = await getUserFromRequest(req);
       if (session) resolved = { userId: session.user.id, apiKeyId: null, scope: null, clientLabel: null, viaOauthClient: false, viaApp: true };

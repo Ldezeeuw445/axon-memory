@@ -9,7 +9,7 @@
 // Public: the plain REST write path, called by tools with a personal key.
 import { handlePublicPreflight as handlePreflight, publicJsonResponse as jsonResponse } from "../_shared/cors.ts";
 import { supabaseAdmin } from "../_shared/supabase-admin.ts";
-import { resolveBearerToken, sourceLabelFor } from "../_shared/mcp-auth.ts";
+import { planRefusal, resolveBearerToken, sourceLabelFor } from "../_shared/mcp-auth.ts";
 import { capture, captureStatus, type CaptureChannel, retryCapture } from "../_shared/capture.ts";
 
 const writes = (scope: string | null | undefined) => !scope || !scope.trim() || scope.split(/\s+/).includes("memory.write");
@@ -21,6 +21,8 @@ Deno.serve(async (req: Request) => {
 
   const resolved = await resolveBearerToken(req);
   if (!resolved) return jsonResponse({ error: "unauthorized" }, { status: 401, origin });
+  const refusal = planRefusal(resolved);
+  if (refusal) return jsonResponse({ error: refusal.error, message: refusal.message }, { status: refusal.status, origin });
   const admin = supabaseAdmin();
   const url = new URL(req.url);
 
