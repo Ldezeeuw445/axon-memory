@@ -13,4 +13,8 @@ select count(*) as remaining from auth.users where email like '%@rls-test.invali
 -- OAuth clients created by the suite are not owned by a user, so they do not
 -- cascade. Codes cascade from the client; api_keys from the user.
 delete from public.oauth_clients where client_name like 'rls-test%' and client_id like 'axon_client_rlstest%';
+-- scripts/oauth-consent-e2e.mjs registers through real DCR, so its client id is
+-- server-made; it is matched by name, origin and its disposable redirect only.
+delete from public.oauth_clients where client_name like 'rls-test e2e %' and created_via = 'dcr'
+  and redirect_uris = array['https://rls-test.invalid/cb'];
 select count(*) as remaining_clients from public.oauth_clients where client_name like 'rls-test%';
