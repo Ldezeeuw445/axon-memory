@@ -833,6 +833,63 @@
       "blocker": null,
       "next_action": "Script wrangler pages deploy + health pings",
       "rollback_reference": "git revert"
+    },
+    {
+      "id": "A8-2",
+      "product": "axon-memory",
+      "objective": "Notion connector: fix title parsing crash (\"titleProp?.title?.map is not a function\") seen on 2 live connections",
+      "phase": "A8",
+      "priority": "P1",
+      "status": "queued",
+      "owner_agent": "grok-bot",
+      "dependencies": [
+        "A8-1"
+      ],
+      "acceptance_criteria": [
+        "Both Notion connections read again; parser handles every Notion title shape; unit test"
+      ],
+      "files_or_services_touched": [
+        "supabase/functions/_shared/source-sync.ts"
+      ],
+      "started_at": null,
+      "last_progress_at": null,
+      "attempts": 0,
+      "tests_run": [],
+      "build_result": null,
+      "deployment_result": null,
+      "verification_result": null,
+      "blocker": null,
+      "next_action": null,
+      "rollback_reference": null
+    },
+    {
+      "id": "A8-3",
+      "product": "axon-memory",
+      "objective": "GitHub connector: repo selection in Connect (2 live connections fail with \"no repositories chosen\")",
+      "phase": "A8",
+      "priority": "P2",
+      "status": "queued",
+      "owner_agent": "grok-bot",
+      "dependencies": [
+        "A8-1"
+      ],
+      "acceptance_criteria": [
+        "Choose repos per connection in the app; failing connections recover without reconnecting"
+      ],
+      "files_or_services_touched": [
+        "src/pages/facets/ConnectFacet.jsx",
+        "supabase/functions"
+      ],
+      "started_at": null,
+      "last_progress_at": null,
+      "attempts": 0,
+      "tests_run": [],
+      "build_result": null,
+      "deployment_result": null,
+      "verification_result": null,
+      "blocker": null,
+      "next_action": null,
+      "rollback_reference": null
     }
   ]
 }
