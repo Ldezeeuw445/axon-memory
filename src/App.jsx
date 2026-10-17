@@ -14,7 +14,7 @@ import Settings from './pages/Settings';
 import Subscription from './pages/Subscription';
 import ConnectAuthorize from './pages/ConnectAuthorize';
 import ConnectError from './pages/ConnectError';
-import BusinessDocs from './pages/BusinessDocs';
+import Developers from './pages/Developers';
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
 import AdminAlerts from './pages/AdminAlerts';
@@ -51,7 +51,7 @@ function AppLayout() {
               <Route path="/login" element={<Login />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/terms" element={<Terms />} />
-              <Route path="/docs" element={<BusinessDocs />} />
+              <Route path="/docs" element={<Developers />} />
 
               {/* MCP OAuth consent — reached from an external AI tool's
                   browser, so it must stay reachable pre-auth; ProtectedRoute

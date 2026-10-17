@@ -74,7 +74,9 @@ function configFromHubs(hubs) {
     });
   }
   rest.forEach((h, i) => {
-    const angle = (i / n) * Math.PI * 2 - Math.PI / 2 + ((i * 17) % 5) * 0.05;
+    // With one or two summits the first would stand straight behind the core
+    // and their labels collide; swing the ring so each stays readable.
+    const angle = (i / n) * Math.PI * 2 - Math.PI / 2 + (n <= 2 ? 1.05 : 0) + ((i * 17) % 5) * 0.05;
     const ring = i % 2 === 0 ? 15 : 21;
     const jitter = (((i * 53) % 7) / 7 - 0.5) * 2.4;
     const r = ring + jitter;

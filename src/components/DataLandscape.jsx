@@ -31,8 +31,6 @@ const MAPPED_SOURCES = [
   { id: 'grok', name: 'GROK', icon: AI_PROVIDERS.find((s) => s.id === 'grok')?.Logo, type: 'ai' },
 ];
 
-// The providers with a real OAuth backend (source_connections).
-const REAL_SOURCE_IDS = ['gmail', 'github', 'notion', 'slack', 'linear'];
 
 // An MCP client names itself when it registers (client_name), so a connected
 // adapter can be matched back to its summit. Without this the terrain had one
@@ -68,88 +66,54 @@ const ADAPTER_PATTERNS = {
   grok: /grok|xai/i,
 };
 
-const OFFLINE = MAPPED_SOURCES.map((s) => ({ ...s, count: 0, status: 'OFFLINE' }));
 
+const LABEL = { manual: 'YOU', app: 'YOU' };
+const iconFor = (id) => DATA_SOURCES.find((s) => s.id === id)?.Logo || AI_PROVIDERS.find((s) => s.id === id)?.Logo;
+
+/**
+ * Summits are built from what the account actually holds: every source_type
+ * with memories (memory_source_breakdown, RLS-scoped), plus any connected
+ * provider that has not delivered yet. Captures made by the person
+ * themselves (source_type 'manual') stand as "YOU". AI summits appear only for
+ * an AI that is connected or has written something — an unconnected
+ * "CHATGPT · 0" peak is decoration, not data.
+ */
 function useRealBeaconData() {
   const { user, isDemo } = useAuth();
-  const [state, setState] = useState({ sources: OFFLINE, totalItems: 0 });
+  const [state, setState] = useState({ sources: [], totalItems: 0 });
 
   useEffect(() => {
     if (isDemo || !user || !isSupabaseConfigured) return;
-
     let cancelled = false;
     async function load() {
-      // `source_connections` has no item_count column, so the per-provider
-      // memory totals are counted straight off `memory_items.source_type`.
-      const [sourceRes, itemsRes, keysRes, ...perProvider] = await Promise.all([
+      const [breakdownRes, sourceRes, keysRes, ...adapterCounts] = await Promise.all([
+        supabase.rpc('memory_source_breakdown', { p_user_id: user.id }),
         supabase.from('source_connections').select('provider, status').eq('user_id', user.id),
-        supabase.from('memory_items').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
-        supabase
-          .from('api_keys')
-          .select('id, name')
-          .eq('user_id', user.id)
-          .is('revoked_at', null)
-          .not('oauth_client_id', 'is', null),
-        ...REAL_SOURCE_IDS.map((p) =>
-          supabase
-            .from('memory_items')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', user.id)
-            .eq('source_type', p),
-        ),
-        // Every summit now measures the same thing: what that source or
-        // assistant put into the graph. Adapters used to be given the account
-        // total, so four of them stood at identical height and clicking one
-        // opened everything the account held.
-        ...ADAPTER_IDS.map((a) => {
-          const via = rememberedViaFilter(a);
-          const q = supabase
-            .from('memory_items')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', user.id);
-          return via ? q.or(via) : q;
-        }),
+        supabase.from('api_keys').select('id, name').eq('user_id', user.id).is('revoked_at', null).not('oauth_client_id', 'is', null),
+        ...ADAPTER_IDS.map((a) => supabase.from('memory_items').select('id', { count: 'exact', head: true }).eq('user_id', user.id).or(rememberedViaFilter(a))),
       ]);
       if (cancelled) return;
-
-      const byProvider = Object.fromEntries((sourceRes.data || []).map((r) => [r.provider, r]));
-      const countByProvider = Object.fromEntries(
-        REAL_SOURCE_IDS.map((p, i) => [p, perProvider[i]?.count ?? 0]),
-      );
-      const countByAdapter = Object.fromEntries(
-        ADAPTER_IDS.map((a, i) => [a, perProvider[REAL_SOURCE_IDS.length + i]?.count ?? 0]),
-      );
-      const totalItems = itemsRes.count ?? 0;
+      const counts = Object.fromEntries((breakdownRes.data || []).map((r) => [r.source_type, Number(r.item_count) || 0]));
+      const conn = Object.fromEntries((sourceRes.data || []).map((r) => [r.provider, r]));
+      const totalItems = Object.values(counts).reduce((a, b) => a + b, 0);
       const adapterNames = (keysRes.data || []).map((k) => k.name || '');
-
-      const sources = MAPPED_SOURCES.map((s) => {
-        if (REAL_SOURCE_IDS.includes(s.id)) {
-          const row = byProvider[s.id];
-          return {
-            ...s,
-            count: countByProvider[s.id] ?? 0,
-            status: row ? String(row.status).toUpperCase() : 'OFFLINE',
-          };
-        }
-        // Height is contribution, the same as it is for a source: what this
-        // assistant has written into the graph. Being connected is carried by
-        // the status, not by borrowing the account total.
-        const pattern = ADAPTER_PATTERNS[s.id];
-        const connected = pattern ? adapterNames.some((n) => pattern.test(n)) : false;
-        return {
-          ...s,
-          count: countByAdapter[s.id] ?? 0,
-          status: connected ? 'ONLINE' : 'OFFLINE',
-        };
+      const ids = [...new Set([...Object.keys(counts), ...Object.keys(conn)])].filter((id) => id && id !== 'app');
+      if (counts.app) counts.manual = (counts.manual || 0) + counts.app;
+      const sources = ids.map((id) => ({
+        id, name: LABEL[id] || (DATA_SOURCES.find((d) => d.id === id)?.name || id).toUpperCase(), icon: iconFor(id), type: 'source',
+        count: counts[id] || 0, status: conn[id] ? String(conn[id].status).toUpperCase() : 'ACTIVE',
+      }));
+      ADAPTER_IDS.forEach((a, i) => {
+        const count = adapterCounts[i]?.count ?? 0;
+        const connected = adapterNames.some((n) => ADAPTER_PATTERNS[a].test(n));
+        if (!connected && !count) return;
+        const meta = MAPPED_SOURCES.find((m) => m.id === a);
+        sources.push({ ...meta, count, status: connected ? 'ONLINE' : 'OFFLINE' });
       });
-
       setState({ sources, totalItems });
     }
-
     load();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [user, isDemo]);
 
   return state;
@@ -189,8 +153,8 @@ function useLeavesForHub(hubId) {
         .limit(500);
 
       if (hubId !== 'axon-core') {
-        if (REAL_SOURCE_IDS.includes(hubId)) {
-          q = q.eq('source_type', hubId);
+        if (!ADAPTER_IDS.includes(hubId)) {
+          q = hubId === 'manual' ? q.in('source_type', ['manual', 'app']) : q.eq('source_type', hubId);
         } else {
           const via = rememberedViaFilter(hubId);
           // An assistant with no filter of its own would show the whole

@@ -56,6 +56,8 @@ export default function ThreadsFacet({ initial }) {
         <motion.div key={open.key} initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }} transition={{ duration: 0.7, ease: [0.19, 1, 0.22, 1] }}>
           <ThreadView thread={open} onBack={() => { setOpenKey(null); load(); }} />
         </motion.div>
+      ) : openKey && !threads ? (
+        <motion.div key="opening" className="ax-facet" exit={{ opacity: 0 }} transition={{ duration: 0.3 }}><Settling rows={4} /></motion.div>
       ) : (
         <motion.div key="list" className="ax-facet" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.5 }}>
           <FacetHead eyebrow="Threads" title="Continuity, over time." sub="Each Thread is one strand: a project, a person, a decision. Everything any of your AIs keeps about it gathers here."

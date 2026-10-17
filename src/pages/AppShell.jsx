@@ -14,7 +14,7 @@ import CaptureFacet from './facets/CaptureFacet';
 import ThreadsFacet from './facets/ThreadsFacet';
 import YouFacet from './facets/YouFacet';
 import MemoryGraph from './MemoryGraph';
-import ConnectionsFacet from './ConnectionsFacet';
+import ConnectFacet from './facets/ConnectFacet';
 import '../styles/facets.css';
 
 /**
@@ -162,12 +162,12 @@ export default function AppShell() {
             <MemoryGraph asFacet />
           </div>
         ) : (
-          <FragmentPanel delay={0.05} style={{ position: 'absolute', ...panelStyle, opacity: arrived ? 1 : 0, transition: 'opacity 1.2s ease', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <FragmentPanel delay={0.05} style={{ position: 'absolute', ...panelStyle, ...(isMobile ? { clipPath: 'polygon(0 10px, calc(100% - 10px) 0, 100% calc(100% - 10px), 10px 100%)' } : {}), opacity: arrived ? 1 : 0, transition: 'opacity 1.2s ease', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div key={facet} style={{ flex: 1, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain', margin: isMobile ? '-4px -6px' : '-6px -10px', padding: isMobile ? '4px 6px 24px' : '6px 10px 24px' }}>
               {facet === 'recall' && <RecallFacet onOpen={open} />}
               {facet === 'capture' && <CaptureFacet initial={initial} />}
               {facet === 'threads' && <ThreadsFacet initial={initial} />}
-              {facet === 'connections' && <ConnectionsFacet />}
+              {facet === 'connections' && <ConnectFacet />}
               {facet === 'you' && <YouFacet onOpen={open} />}
             </div>
           </FragmentPanel>

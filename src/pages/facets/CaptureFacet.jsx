@@ -105,7 +105,7 @@ export default function CaptureFacet({ initial }) {
           <div className="ax-section-label"><span>Thread (optional)</span></div>
           <div className="ax-chips">
             <button className={`ax-chip${!thread ? ' is-on' : ''}`} onClick={() => setThread(null)}>None</button>
-            {threads.map((t) => <button key={t.id} className={`ax-chip${thread === t.key ? ' is-on' : ''}`} onClick={() => setThread(t.key)}>{t.name || t.key}</button>)}
+            {[...threads].sort((a, b) => (b.key === initial?.thread) - (a.key === initial?.thread)).map((t) => <button key={t.id} className={`ax-chip${thread === t.key ? ' is-on' : ''}`} onClick={() => setThread(t.key)}>{t.name || t.key}</button>)}
           </div>
         </div>
       )}
