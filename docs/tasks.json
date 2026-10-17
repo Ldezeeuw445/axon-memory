@@ -778,7 +778,7 @@
       "objective": "Server-side entitlement normalization + webhook idempotency/replay tests",
       "phase": "A11",
       "priority": "P2",
-      "status": "queued",
+      "status": "waiting_approval",
       "owner_agent": "grok-bot",
       "dependencies": [
         "A11-1"
@@ -787,19 +787,26 @@
         "Replay of same Stripe event is no-op; entitlement view single truth"
       ],
       "files_or_services_touched": [
-        "stripe-webhook",
-        "subscriptions",
-        "plan_features"
+        "docs/BILLING.md",
+        "tests/billing/webhook-replay.ts",
+        "supabase/functions/_shared/billing.ts (proposed, not wired)",
+        "supabase/functions/_shared/billing.test.ts",
+        "scripts/rls-isolation-http.mjs (billing area)",
+        "package.json test:billing"
       ],
-      "started_at": null,
-      "last_progress_at": null,
-      "attempts": 0,
-      "tests_run": [],
+      "started_at": "2026-10-17T15:12:00+02:00",
+      "last_progress_at": "2026-10-17T15:25:00+02:00",
+      "attempts": 1,
+      "tests_run": [
+        "test:billing 17/17 (real stripe-webhook, local, signed events; 5 recorded DEFECTs)",
+        "billing.test.ts 6/6",
+        "live: 6 entitlement checks"
+      ],
       "build_result": null,
       "deployment_result": null,
-      "verification_result": null,
-      "blocker": null,
-      "next_action": "Add processed_events table (additive)",
+      "verification_result": "Entitlement truth holds (user_plan_status over profiles.plan_tier + plan_features; users cannot change it). Replay is NOT a no-op for checkout, and 4 ordering/Lifetime defects exist in the live webhook.",
+      "blocker": "Fixing the webhook changes live billing behaviour: needs Luka's approval (docs/BILLING.md).",
+      "next_action": "On approval: additive migration stripe_events + profiles.billing_event_at, wire _shared/billing.ts into stripe-webhook, flip DEFECT rows in test:billing, deploy.",
       "rollback_reference": "git revert"
     },
     {
@@ -840,7 +847,7 @@
       "objective": "Notion connector: fix title parsing crash (\"titleProp?.title?.map is not a function\") seen on 2 live connections",
       "phase": "A8",
       "priority": "P1",
-      "status": "queued",
+      "status": "done",
       "owner_agent": "grok-bot",
       "dependencies": [
         "A8-1"
@@ -849,18 +856,26 @@
         "Both Notion connections read again; parser handles every Notion title shape; unit test"
       ],
       "files_or_services_touched": [
-        "supabase/functions/_shared/source-sync.ts"
+        "supabase/functions/_shared/source-sync.ts",
+        "supabase/functions/_shared/notion.test.ts",
+        "edge functions sync-source v57, cron-sync-sources v49, oauth-callback v43"
       ],
-      "started_at": null,
-      "last_progress_at": null,
-      "attempts": 0,
-      "tests_run": [],
+      "started_at": "2026-10-17T14:52:00+02:00",
+      "last_progress_at": "2026-10-17T15:03:00+02:00",
+      "attempts": 1,
+      "tests_run": [
+        "deno test 80/80 with type-checking on",
+        "live HTTP isolation 198/198",
+        "SDK 12/12",
+        "isolation.sql 249/249"
+      ],
       "build_result": null,
-      "deployment_result": null,
-      "verification_result": null,
+      "deployment_result": "cron-sync-sources v49, sync-source v57, oauth-callback v43 deployed 14:55 CEST",
+      "verification_result": "15:00 CEST scheduled read: notion f73d0ff2 and ef2bbe7e connected, 10 fetched / 8 new each, 0 Untitled (each workspace had one database, the shape that crashed)",
       "blocker": null,
       "next_action": null,
-      "rollback_reference": null
+      "rollback_reference": null,
+      "notes": "notionTitle(): databases keep their name in top-level rich text; their title property is a schema object. Also fixed pre-existing TS7053 in refreshAccessToken: deno test passes with type-checking on."
     },
     {
       "id": "A8-3",
@@ -868,7 +883,7 @@
       "objective": "GitHub connector: repo selection in Connect (2 live connections fail with \"no repositories chosen\")",
       "phase": "A8",
       "priority": "P2",
-      "status": "queued",
+      "status": "done",
       "owner_agent": "grok-bot",
       "dependencies": [
         "A8-1"
@@ -877,19 +892,30 @@
         "Choose repos per connection in the app; failing connections recover without reconnecting"
       ],
       "files_or_services_touched": [
+        "supabase/functions/github-repos (new, v1)",
+        "supabase/functions/_shared/github-repos.ts",
+        "supabase/functions/_shared/connectors.ts (error kind setup)",
+        "src/components/app/RepoPicker.jsx",
         "src/pages/facets/ConnectFacet.jsx",
-        "supabase/functions"
+        "scripts/rls-isolation-http.mjs",
+        "connectors v2, disconnect-source v26, api-v1 v5",
+        "Pages axon-app 38d6429c, axon-memory 1f93bb65"
       ],
-      "started_at": null,
-      "last_progress_at": null,
-      "attempts": 0,
-      "tests_run": [],
+      "started_at": "2026-10-17T14:52:00+02:00",
+      "last_progress_at": "2026-10-17T15:10:00+02:00",
+      "attempts": 1,
+      "tests_run": [
+        "deno github-repos tests",
+        "live: 6 github-repos ownership checks",
+        "Playwright 390x844 (mocked GitHub list) -> /workspace/axon-shots/a8/"
+      ],
       "build_result": null,
       "deployment_result": null,
-      "verification_result": null,
+      "verification_result": "Live; Luka's 2 GitHub connections (188f8cce, 1ab8aa20) recover once he chooses repositories in Connect (not chosen on his behalf).",
       "blocker": null,
       "next_action": null,
-      "rollback_reference": null
+      "rollback_reference": null,
+      "notes": "List uses the connection's token (never returned); choice written with the caller's JWT under RLS; only repos GitHub lists can be added; max 10; stopping removes only the project_repos row."
     }
   ]
 }
