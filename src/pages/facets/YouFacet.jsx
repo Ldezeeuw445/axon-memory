@@ -7,6 +7,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { usePlan } from '../../hooks/usePlan';
 import { PLAN_CATALOG } from '../../lib/planCatalog';
 import { FacetHead, Paused, ago, providerName } from '../../components/app/ui';
+import RetiredMemories from '../../components/app/RetiredMemories';
+import RecallLog from '../../components/app/RecallLog';
 
 /** Profile and privacy: what you have, who can read it, and how to take it back. */
 export default function YouFacet({ onOpen }) {
@@ -108,6 +110,16 @@ export default function YouFacet({ onOpen }) {
           <button className="ax-btn-quiet" onClick={() => onOpen?.('connections')}>Manage and revoke</button>
         </section>
       </div>
+
+      <section className="ax-section">
+        <div className="ax-section-label"><span>What your AIs read</span></div>
+        {user && <RecallLog userId={user.id} />}
+      </section>
+
+      <section className="ax-section">
+        <div className="ax-section-label"><span>Retired</span></div>
+        {user && <RetiredMemories userId={user.id} />}
+      </section>
 
       <section className="ax-section">
         <div className="ax-section-label"><span>Your data</span></div>

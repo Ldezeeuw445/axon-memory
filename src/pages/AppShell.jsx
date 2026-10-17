@@ -13,6 +13,7 @@ import RecallFacet from './facets/RecallFacet';
 import CaptureFacet from './facets/CaptureFacet';
 import ThreadsFacet from './facets/ThreadsFacet';
 import YouFacet from './facets/YouFacet';
+import { flushCaptureQueue } from '../lib/axonApi';
 import MemoryGraph from './MemoryGraph';
 import ConnectFacet from './facets/ConnectFacet';
 import '../styles/facets.css';
@@ -70,6 +71,18 @@ export default function AppShell() {
     return () => window.removeEventListener('resize', r);
   }, []);
 
+  // Outbox (A2-2): what was captured offline goes up on sign-in and whenever
+  // the connection returns — nobody has to press anything for it.
+  useEffect(() => {
+    if (!user) return undefined;
+    const run = async () => {
+      const r = await flushCaptureQueue();
+      window.dispatchEvent(new CustomEvent('axon:outbox', { detail: r }));
+    };
+    run();
+    window.addEventListener('online', run);
+    return () => window.removeEventListener('online', run);
+  }, [user]);
   useEffect(() => { if (!loading && !user) navigate('/login', { replace: true, state: { from: `${location.pathname}${location.search}` } }); }, [loading, user]);
 
   // Keep the address honest so a refresh or a shared link opens the same facet.
@@ -93,7 +106,6 @@ export default function AppShell() {
 
   if (!user) return <div className="full-screen" style={{ background: '#020203' }} />;
 
-  const reading = facet && facet !== 'terrain';
   const panelStyle = isMobile
     ? { top: 'calc(64px + env(safe-area-inset-top))', bottom: 'calc(88px + env(safe-area-inset-bottom))', left: 10, right: 10, padding: '22px 18px' }
     : { top: 84, bottom: 104, left: 'max(32px, calc(50% - 420px))', right: 'max(32px, calc(50% - 420px))', padding: '34px 36px' };

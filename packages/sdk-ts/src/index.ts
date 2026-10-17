@@ -8,7 +8,7 @@
  * Works in Node 18+, Deno, Bun and browsers (uses global fetch). Zero dependencies.
  */
 
-export type Channel = "direct" | "agent" | "connector" | "app" | "unknown";
+export type Channel = "direct" | "agent" | "connector" | "unknown";
 export type Confidence = "high" | "medium" | "low";
 export type LifecycleState = "active" | "superseded" | "retired";
 

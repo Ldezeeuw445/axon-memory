@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Mic, X, ArrowRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { axon } from '../../lib/axonApi';
 import { FacetHead, MemoryCard, Settling, Paused, ago, providerName } from '../../components/app/ui';
+import FirstRecall from '../../components/app/FirstRecall';
 import { useVoice } from '../../components/app/useVoice';
 
 /**
@@ -65,6 +66,7 @@ export default function RecallFacet({ onOpen }) {
       const facets = [...facetCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([f]) => f);
       const activeBy = [...new Set((recalls.data || []).filter((r) => Date.now() - new Date(r.last_recalled_at) < 7 * 86400e3).map((r) => r.client_label).filter(Boolean))].slice(0, 4);
       if (!off) setHome({
+        everRecalled: (recalls.data || []).length > 0,
         threads: ths, total: total.count ?? list.length, facets, activeBy,
         strengthened: strengthened.map((s) => ({ ...s, m: byId.get(s.memory_item_id) })).filter((s) => s.m),
         recent: list.slice(0, 4),
@@ -148,6 +150,7 @@ export default function RecallFacet({ onOpen }) {
             )}
             {home && home.total > 0 && (
               <>
+                {!home.everRecalled && <FirstRecall userId={user.id} />}
                 {home.activeBy.length > 0 && (
                   <div className="ax-meta" style={{ fontSize: 12.5 }}>
                     <span style={{ width: 7, height: 7, borderRadius: 4, background: 'var(--color-accent)', boxShadow: '0 0 12px rgba(255,183,51,0.6)' }} />

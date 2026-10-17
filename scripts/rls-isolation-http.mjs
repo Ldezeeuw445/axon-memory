@@ -368,6 +368,37 @@ async function main() {
       check('api', 'v1: forged token → 401', forged.status === 401, `status ${forged.status}`);
     }
 
+    // ── /v1 with the app's own session JWT (A9-1): same tenant rules as a key ──
+    {
+      const DIRECT = `${URL_}/functions/v1/api-v1/v1`;
+      const v1s = (jwt, method, path, body) => fetch(`${DIRECT}${path}`, { method,
+        headers: { Authorization: `Bearer ${jwt}`, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+      const me = await v1s(jwtA, 'GET', '/me');
+      const meb = me.ok ? await j(me) : {};
+      check('api', 'v1 session: /me acts as A with token kind session', me.ok && JSON.stringify(meb).includes(a.id) && JSON.stringify(meb).includes('session'), `status ${me.status}`);
+      const g = await v1s(jwtA, 'GET', `/memories/${bItem}`);
+      check('api', "v1 session: A's JWT GETs B's memory → 404", g.status === 404, `status ${g.status}`);
+      const rc = await v1s(jwtA, 'POST', '/recall', { query: tokB });
+      check('api', "v1 session: A's JWT recall has no B data", rc.ok && !has(await j(rc), [contentB, titleB, bItem]), `status ${rc.status}`);
+      for (const [verb, path] of [['POST', `/memories/${bItem}/retire`], ['DELETE', `/memories/${bItem}`]]) {
+        const r = await v1s(jwtA, verb, path, verb === 'POST' ? {} : undefined);
+        check('api', `v1 session: A ${verb} ${path.replace(bItem, '<B>')} → 404`, r.status === 404, `status ${r.status}`);
+      }
+      const own = await v1s(jwtB, 'GET', `/memories/${bItem}`);
+      check('control', "v1 session: B's JWT still reads its memory, active", own.ok && (await j(own)).state === 'active', `status ${own.status}`);
+      const [h, p] = jwtA.split('.');
+      const forgedJwt = `${h}.${p}.${'A'.repeat(43)}`;
+      const fj = await v1s(forgedJwt, 'GET', '/me');
+      check('api', 'v1 session: JWT with a forged signature → 401', fj.status === 401, `status ${fj.status}`);
+      const cap = await v1s(jwtA, 'POST', '/memories', { content: `A app capture ${tokA}`, idempotency_key: `app:rls-${tokA}` });
+      const capb = cap.ok ? await j(cap) : {};
+      const ce = capb.capture_id ? await v1s(jwtA, 'GET', `/captures/${capb.capture_id}`) : null;
+      const ceb = ce?.ok ? await j(ce) : {};
+      const chan = ceb.channel ?? ceb.capture?.channel;
+      check('control', 'v1 session: app capture is stored as direct, recorded on channel app', cap.status === 201 && capb.memory?.source?.channel === 'direct' && chan === 'app', `status ${cap.status} source ${capb.memory?.source?.channel} capture ${chan}`);
+      if (capb.memory_id) await v1s(jwtA, 'DELETE', `/memories/${capb.memory_id}`);
+    }
+
     // ── Connector runtime contract (A8-1) ──
     if (a.connectors) {
       const cx = a.connectors;

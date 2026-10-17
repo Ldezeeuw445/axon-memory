@@ -45,23 +45,40 @@ export const axon = {
   connectors: () => call('GET', '/connectors'),
 };
 
-// ── Offline capture queue (spec §32). A capture made without a connection is
-// kept on the device, with its idempotency key, and sent when the connection
-// returns — never lost, never stored twice.
-const QKEY = 'axon.captureQueue.v1';
-export function queuedCaptures() {
-  try { return JSON.parse(localStorage.getItem(QKEY) || '[]'); } catch { return []; }
+// ── Offline capture (spec §32, A2-2). A capture made without a connection is
+// kept on the device in IndexedDB (lib/outbox.js: survives the tab closing,
+// keeps order, stops at the first failure) with its idempotency key, and sent
+// when the connection returns — never lost, never stored twice.
+import { outbox } from './outbox';
+
+const LEGACY_QKEY = 'axon.captureQueue.v1'; // the first A9 build kept the queue in localStorage
+async function adoptLegacyQueue() {
+  try {
+    const old = JSON.parse(localStorage.getItem(LEGACY_QKEY) || '[]');
+    if (!old.length) return;
+    for (const item of old) if (!(await outbox.add('capture', item.body))) return;
+    localStorage.removeItem(LEGACY_QKEY);
+  } catch { /* nothing to adopt */ }
 }
-function saveQueue(q) { localStorage.setItem(QKEY, JSON.stringify(q)); }
-export function enqueueCapture(body) { saveQueue([...queuedCaptures(), { body, at: new Date().toISOString() }]); }
+
+/** Keeps one capture for later. Resolves false when the device could not keep it. */
+export const enqueueCapture = (body) => outbox.add('capture', body);
+export const queuedCount = () => outbox.count();
+
+/**
+ * Sends what is waiting, oldest first. A capture the API refuses outright
+ * (400/403/404/409/410 — it will never succeed as written) is let go so it
+ * cannot block everything behind it; anything retryable or offline stops the
+ * flush and waits for the next chance.
+ */
 export async function flushCaptureQueue() {
-  const q = queuedCaptures();
-  if (!q.length) return 0;
-  const left = [];
-  let sent = 0;
-  for (const item of q) {
-    try { await axon.capture(item.body); sent += 1; } catch (e) { if (e.retryable || e.status === 0) left.push(item); }
-  }
-  saveQueue(left);
-  return sent;
+  await adoptLegacyQueue();
+  let dropped = 0;
+  const res = await outbox.flush(async (item) => {
+    try { await axon.capture(item.payload); return true; } catch (e) {
+      if (e.status === 0 || e.retryable || e.status === 401 || e.status === 429 || e.status >= 500) return false;
+      dropped += 1; return true;
+    }
+  });
+  return { ...res, dropped };
 }

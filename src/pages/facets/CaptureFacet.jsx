@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, Link2, Share2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { axon, enqueueCapture, flushCaptureQueue, queuedCaptures } from '../../lib/axonApi';
+import { axon, enqueueCapture, queuedCount } from '../../lib/axonApi';
 import { FacetHead, Paused } from '../../components/app/ui';
 import { useVoice } from '../../components/app/useVoice';
 
@@ -24,7 +24,7 @@ export default function CaptureFacet({ initial }) {
   const [threads, setThreads] = useState([]);
   const [state, setState] = useState(null); // {kind:'kept'|'queued'|'duplicate'|'paused', text}
   const [busy, setBusy] = useState(false);
-  const [pending, setPending] = useState(queuedCaptures().length);
+  const [pending, setPending] = useState(0);
   const areaRef = useRef(null);
   const voice = useVoice((t) => setText((v) => (v ? `${v.trimEnd()} ${t}` : t)));
 
@@ -34,12 +34,17 @@ export default function CaptureFacet({ initial }) {
       .then(({ data }) => setThreads(data || []));
   }, [user]);
 
-  // Send anything kept offline the moment the connection is back.
   useEffect(() => {
-    const flush = async () => { const n = await flushCaptureQueue(); if (n) setState({ kind: 'kept', text: `${n} kept while offline ${n === 1 ? 'is' : 'are'} now in your Core.` }); setPending(queuedCaptures().length); };
-    flush();
-    window.addEventListener('online', flush);
-    return () => window.removeEventListener('online', flush);
+    // The shell flushes the outbox (on sign-in and on 'online'); this view only
+    // reflects how much is still waiting.
+    const look = (e) => {
+      const n = e?.detail?.sent;
+      if (n) setState({ kind: 'kept', text: `${n} kept while offline ${n === 1 ? 'is' : 'are'} now in your Core.` });
+      queuedCount().then(setPending);
+    };
+    look();
+    window.addEventListener('axon:outbox', look);
+    return () => window.removeEventListener('axon:outbox', look);
   }, []);
 
   const detected = useMemo(() => (!link && text.match(URL_RE)?.[0]) || null, [text, link]);
@@ -63,8 +68,10 @@ export default function CaptureFacet({ initial }) {
       setText(''); setLink(''); setShowLink(false);
     } catch (e) {
       if (e.status === 0) {
-        enqueueCapture(body); setPending(queuedCaptures().length);
-        setState({ kind: 'queued', text: 'Kept on this device. It reaches your Core when the connection returns.' });
+        const kept = await enqueueCapture(body); setPending(await queuedCount());
+        setState(kept
+          ? { kind: 'queued', text: 'Kept on this device. It reaches your Core when the connection returns.' }
+          : { kind: 'paused', text: 'There is no connection, and this browser would not let AXON keep it here. Copy it somewhere safe for now.' });
         setText(''); setLink(''); setShowLink(false);
       } else {
         setState({ kind: 'paused', text: e.message });

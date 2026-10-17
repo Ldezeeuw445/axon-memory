@@ -117,7 +117,7 @@ export default function ConnectFacet() {
   const [newKey, setNewKey] = useState(null);
 
   const loadKeys = async () => {
-    const { data } = await supabase.from('api_keys').select('id, name, key_prefix, oauth_client_id, created_at, last_used_at')
+    const { data } = await supabase.from('api_keys').select('id, name, display_name, key_prefix, oauth_client_id, created_at, last_used_at')
       .eq('user_id', user.id).is('revoked_at', null).order('created_at', { ascending: false });
     setKeys(data || []);
   };
@@ -213,7 +213,7 @@ export default function ConnectFacet() {
               <div key={k.id} className="ax-row" style={{ cursor: 'default' }}>
                 <span className="ax-thread-dot" style={{ background: k.last_used_at && Date.now() - new Date(k.last_used_at) < 7 * 864e5 ? 'var(--color-accent)' : 'rgba(255,255,255,0.25)' }} />
                 <div className="ax-row-main">
-                  <div className="ax-row-title">{k.name || 'An AI you connected'}</div>
+                  <div className="ax-row-title">{k.display_name || k.name || 'An AI you connected'}</div>
                   <div className="ax-row-sub">{k.last_used_at ? `Last read ${ago(k.last_used_at)}` : 'Has not read anything yet'} · allowed {ago(k.created_at)}</div>
                 </div>
                 <button className="ax-btn-quiet" onClick={() => revoke(k)} disabled={busy === k.id}>Withdraw</button>

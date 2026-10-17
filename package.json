@@ -16,7 +16,9 @@
     "test:eval": "node scripts/sql-suite.mjs tests/eval/recall_eval.sql",
     "test:naming": "node scripts/check-plan-names.mjs",
     "test:sdk": "cd packages/sdk-ts && npm test",
-    "test:sdk-integration": "cd packages/sdk-ts && npm run test:integration"
+    "test:sdk-integration": "cd packages/sdk-ts && npm run test:integration",
+    "test:web": "vitest run",
+    "test:lexicon": "node scripts/check-lexicon.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.8",
@@ -36,6 +38,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
     "oxlint": "^1.71.0",
-    "vite": "^8.1.1"
+    "vite": "^8.1.1",
+    "vitest": "^3.2.7"
   }
 }
