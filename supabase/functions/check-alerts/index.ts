@@ -12,6 +12,7 @@
 // regardless of delivery status, so a missing webhook never means "invisible."
 import { jsonResponse } from "../_shared/cors.ts";
 import { supabaseAdmin } from "../_shared/supabase-admin.ts";
+import { decide, lastState, probe, TARGETS } from "../_shared/uptime.ts";
 
 const BATCH_LIMIT = 20;
 
@@ -20,6 +21,8 @@ function severityEmoji(alertType: string): string {
   // A source that has been down for a day is a customer whose product is not
   // working, which is a different kind of urgent from a cost cap.
   if (alertType === "source_stuck") return "\u{1F50C}"; // 🔌
+  if (alertType === "uptime_down") return "\u{1F534}"; // 🔴
+  if (alertType === "uptime_recovered") return "\u{2705}"; // ✅
   return "⚠️"; // ⚠️
 }
 
@@ -35,6 +38,29 @@ Deno.serve(async (req: Request) => {
   const admin = supabaseAdmin();
   const webhookUrl = Deno.env.get("SLACK_ALERT_WEBHOOK_URL");
 
+  // Uptime watch (§37 step 15): probe the front doors, record outages and
+  // recoveries once each. In-app only (list-alerts / admin view) unless
+  // UPTIME_ALERTS_DELIVER=1 opts them into the delivery channel below.
+  let uptime: { name: string; ok: boolean; ms: number }[] = [];
+  try {
+    const results = await Promise.all(TARGETS.map((t) => probe(t, fetch)));
+    uptime = results.map(({ name, ok, ms }) => ({ name, ok, ms }));
+    const { data: recent } = await admin
+      .from("system_alerts")
+      .select("alert_type, metadata")
+      .in("alert_type", ["uptime_down", "uptime_recovered"])
+      .order("created_at", { ascending: false })
+      .limit(50);
+    const fresh = decide(results, lastState(recent ?? []));
+    if (fresh.length) {
+      const deliver = Deno.env.get("UPTIME_ALERTS_DELIVER") === "1";
+      const { error: insertError } = await admin.from("system_alerts").insert(fresh.map((a) => ({ ...a, notified: !deliver })));
+      if (insertError) console.error("check-alerts: uptime insert failed", insertError.message);
+    }
+  } catch (err) {
+    console.error("check-alerts: uptime watch failed", err instanceof Error ? err.message : String(err));
+  }
+
   const { data: alerts, error } = await admin
     .from("system_alerts")
     .select("id, alert_type, message, metadata, created_at")
@@ -48,12 +74,12 @@ Deno.serve(async (req: Request) => {
   }
 
   if (!alerts || alerts.length === 0) {
-    return jsonResponse({ ok: true, pending: 0, delivered: 0, note: "nothing to do" });
+    return jsonResponse({ ok: true, pending: 0, delivered: 0, uptime, note: "nothing to do" });
   }
 
   if (!webhookUrl) {
     console.log(`check-alerts: ${alerts.length} alert(s) pending, no SLACK_ALERT_WEBHOOK_URL set — leaving un-notified`);
-    return jsonResponse({ ok: true, pending: alerts.length, delivered: 0, note: "no delivery channel configured" });
+    return jsonResponse({ ok: true, pending: alerts.length, delivered: 0, uptime, note: "no delivery channel configured" });
   }
 
   let delivered = 0;
@@ -85,5 +111,5 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  return jsonResponse({ ok: true, pending: alerts.length, delivered, failed: failures.length });
+  return jsonResponse({ ok: true, pending: alerts.length, delivered, failed: failures.length, uptime });
 });
