@@ -22,7 +22,7 @@ export default function Developers() {
   return (
     <div className="hm-page">
       <header className="hm-nav">
-        <Link to="/" className="hm-brand"><img src="/app-icon-1024.png" alt="" width="28" height="28" /> AXON</Link>
+        <Link to="/" className="hm-brand"><img src="/brand/axon-mark-96.webp" alt="" width="28" height="28" /> AXON</Link>
         <nav className="hm-nav-links"><Link to="/">Home</Link><a href="https://github.com/Ldezeeuw445/axon-memory/blob/main/docs/API.md" target="_blank" rel="noreferrer">Full reference</a></nav>
       </header>
       <main className="hm-doc">
