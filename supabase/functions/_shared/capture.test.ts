@@ -50,6 +50,9 @@ Deno.test("idempotency: stored/duplicate return, failed/stale retry, fresh in-pr
   assertEquals(decideOnExisting(ev("indexed", "m"), NOW), "return");
   assertEquals(decideOnExisting(ev("duplicate", "m"), NOW), "return");
   assertEquals(decideOnExisting(ev("stored", "m"), NOW), "reindex");
+  // indexing handed to the background seconds ago: answer, don't embed twice; after a minute, re-run it
+  assertEquals(decideOnExisting({ ...ev("stored", "m", 5_000), error_code: "index_queued" }, NOW), "return");
+  assertEquals(decideOnExisting({ ...ev("stored", "m", 120_000), error_code: "index_queued" }, NOW), "reindex");
   assertEquals(decideOnExisting(ev("failed", null), NOW), "retry");
   assertEquals(decideOnExisting(ev("received", null, 10_000), NOW), "in_progress");
   assertEquals(decideOnExisting(ev("received", null, 5 * 60_000), NOW), "retry");
@@ -62,6 +65,8 @@ Deno.test("outcome text tells an assistant what happened and how to retry", () =
     "Already saved (id: m); not stored twice.");
   const pending = describeOutcome({ ok: true, status: "stored", id: "m", created_at: null, capture_id: "c", index: "pending", attempts: 1 });
   assert(pending.includes("indexing is pending"));
+  const queued = describeOutcome({ ok: true, status: "stored", id: "m", created_at: null, capture_id: "c", index: "queued", attempts: 1 });
+  assert(!queued.includes("pending"));
   const failed = describeOutcome({ ok: false, status: "failed", capture_id: "c1", stage: "store", code: "store_failed", error: "timeout", retryable: true, http: 503 });
   assert(failed.includes('retry_capture({ capture_id: "c1" })'));
   const invalid = describeOutcome({ ok: false, status: "failed", capture_id: "c2", stage: "normalize", code: "invalid", error: "content (string) is required", retryable: false, http: 400 });

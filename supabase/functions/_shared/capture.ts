@@ -23,7 +23,9 @@ const KEY_PATTERN = /^[A-Za-z0-9._:\-]{8,200}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DEDUPE_WINDOW_MS = 10 * 60_000;
 const STALE_RECEIVED_MS = 2 * 60_000;
-const INDEX_TIMEOUT_MS = 6_000;
+const INDEX_TIMEOUT_MS = 6_000; // when indexing inline (tests / no background runtime)
+const BACKGROUND_INDEX_TIMEOUT_MS = 25_000;
+const QUEUED_GRACE_MS = 60_000;
 
 export interface CaptureContext {
   userId: string;
@@ -61,7 +63,8 @@ export type CaptureOutcome =
     id: string;
     created_at: string | null;
     capture_id: string | null;
-    index: "indexed" | "pending";
+    /** queued = running in the background right now; pending = it did not land and will be retried. */
+    index: "indexed" | "queued" | "pending";
     attempts: number;
   }
   | {
@@ -131,19 +134,34 @@ export function originKeyFor(sourceLabel: string | null | undefined): string {
   return slugFromLabel(sourceLabel) ?? "manual";
 }
 
-export type ExistingEvent = { id: string; status: string; memory_id: string | null; attempts: number; updated_at: string };
+export type ExistingEvent = { id: string; status: string; memory_id: string | null; attempts: number; updated_at: string; error_code?: string | null };
 
 /** What to do when a capture with this idempotency key was seen before. */
 export function decideOnExisting(ev: ExistingEvent, now = Date.now()): "return" | "reindex" | "retry" | "in_progress" | "deleted" {
   if (ev.status === "indexed" || ev.status === "duplicate") return ev.memory_id ? "return" : "deleted";
-  if (ev.status === "stored") return ev.memory_id ? "reindex" : "deleted";
+  if (ev.status === "stored") {
+    if (!ev.memory_id) return "deleted";
+    // Indexing was handed to the background moments ago; don't pay for it twice.
+    if (ev.error_code === "index_queued" && now - Date.parse(ev.updated_at) < QUEUED_GRACE_MS) return "return";
+    return "reindex";
+  }
   if (ev.status === "failed") return "retry";
   return now - Date.parse(ev.updated_at) > STALE_RECEIVED_MS ? "retry" : "in_progress";
 }
 
 // ── Orchestration ────────────────────────────────────────────────────────────
 
-type Deps = { index?: typeof indexMemory; now?: () => number };
+type Deps = {
+  index?: typeof indexMemory;
+  now?: () => number;
+  /** Runs work after the response (EdgeRuntime.waitUntil on Supabase). null = index inline. */
+  background?: ((p: Promise<unknown>) => void) | null;
+};
+
+function defaultBackground(): ((p: Promise<unknown>) => void) | null {
+  const er = (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } }).EdgeRuntime;
+  return er?.waitUntil ? (p) => er.waitUntil!(p) : null;
+}
 
 function failure(
   capture_id: string | null, stage: CaptureStage, code: Extract<CaptureOutcome, { ok: false }>["code"],
@@ -210,7 +228,7 @@ export async function capture(admin: SupabaseClient, ctx: CaptureContext, input:
 }
 
 async function findByKey(admin: SupabaseClient, userId: string, key: string): Promise<ExistingEvent | null> {
-  const { data } = await admin.from("capture_events").select("id, status, memory_id, attempts, updated_at")
+  const { data } = await admin.from("capture_events").select("id, status, memory_id, attempts, updated_at, error_code")
     .eq("user_id", userId).eq("idempotency_key", key).maybeSingle();
   return (data as ExistingEvent | null) ?? null;
 }
@@ -233,7 +251,7 @@ async function resolveExisting(
   const { data: mem } = await admin.from("memory_items").select("id, title, content, created_at").eq("id", ev.memory_id!)
     .eq("user_id", ctx.userId).maybeSingle();
   if (!mem) return failure(ev.id, "done", "deleted", "the memory this capture created was deleted; it will not be re-created", false, 410);
-  let index: "indexed" | "pending" = ev.status === "stored" ? "pending" : "indexed";
+  let index: "indexed" | "queued" | "pending" = ev.status !== "stored" ? "indexed" : ev.error_code === "index_queued" ? "queued" : "pending";
   if (decision === "reindex") {
     index = await withTimeout((deps.index ?? indexMemory)(admin, ctx.userId, mem.id, mem.title, mem.content), INDEX_TIMEOUT_MS, "pending");
     if (index === "indexed") await updateEvent(admin, ev.id, { status: "indexed", stage: "done", error: null, retryable: false });
@@ -307,20 +325,33 @@ async function runPipeline(
   // link: entity links are written by the memory_items_sync_entities trigger in the same insert; observe them.
   mark("link");
 
-  // index
-  const index = await withTimeout((deps.index ?? indexMemory)(admin, ctx.userId, saved.id, value.title, value.content), INDEX_TIMEOUT_MS, "pending");
-  mark("index");
-  timings.total_ms = Math.round(now() - t0);
-  if (eventId) {
-    await updateEvent(admin, eventId, {
-      status: index === "indexed" ? "indexed" : "stored",
-      stage: index === "indexed" ? "done" : "index",
-      memory_id: saved.id, payload: null, timings,
-      error: index === "indexed" ? null : "stored; vector index pending",
-      error_code: index === "indexed" ? null : "index_pending",
-      retryable: index !== "indexed",
-    });
+  // index: in the background when the runtime allows it, so a save answers
+  // as soon as it is stored; the event row records how indexing went.
+  const finishIndex = async (timeoutMs: number) => {
+    const index = await withTimeout((deps.index ?? indexMemory)(admin, ctx.userId, saved.id, value.title, value.content), timeoutMs, "pending" as const);
+    mark("index");
+    timings.total_ms = Math.round(now() - t0);
+    if (eventId) {
+      await updateEvent(admin, eventId, {
+        status: index === "indexed" ? "indexed" : "stored",
+        stage: index === "indexed" ? "done" : "index",
+        memory_id: saved.id, payload: null, timings,
+        error: index === "indexed" ? null : "stored; vector index pending",
+        error_code: index === "indexed" ? null : "index_pending",
+        retryable: index !== "indexed",
+      });
+    }
+    return index;
+  };
+  const background = deps.background === undefined ? defaultBackground() : deps.background;
+  if (background && eventId) {
+    timings.stored_total_ms = Math.round(now() - t0);
+    await updateEvent(admin, eventId, { status: "stored", stage: "index", memory_id: saved.id, payload: null, timings,
+      error: null, error_code: "index_queued", retryable: false });
+    background(finishIndex(BACKGROUND_INDEX_TIMEOUT_MS).catch((err) => console.error("capture: background index failed", err)));
+    return { ok: true, status: "stored", id: saved.id, created_at: saved.created_at, capture_id: eventId, index: "queued", attempts };
   }
+  const index = await finishIndex(INDEX_TIMEOUT_MS);
   return { ok: true, status: index === "indexed" ? "indexed" : "stored", id: saved.id, created_at: saved.created_at, capture_id: eventId, index, attempts };
 }
 
@@ -347,7 +378,7 @@ export async function captureStatus(admin: SupabaseClient, userId: string, limit
     admin.rpc("capture_health", { p_hours: 24, p_user_id: userId }),
     admin.from("capture_events")
       .select("id, status, stage, error, error_code, retryable, attempts, channel, client_label, created_at, updated_at, memory_id")
-      .eq("user_id", userId).or("status.eq.failed,status.eq.stored,status.eq.received")
+      .eq("user_id", userId).or("status.eq.failed,and(status.eq.stored,error_code.eq.index_pending),status.eq.received")
       .order("updated_at", { ascending: false }).limit(Math.max(1, Math.min(50, limit))),
   ]);
   return { health: health ?? null, needs_attention: open ?? [] };
@@ -357,7 +388,7 @@ export async function captureStatus(admin: SupabaseClient, userId: string, limit
 export function describeOutcome(o: CaptureOutcome): string {
   if (o.ok) {
     if (o.status === "duplicate") return `Already saved (id: ${o.id}); not stored twice.`;
-    const idx = o.index === "indexed" ? "" : " Semantic indexing is pending and will be retried; keyword recall works now.";
+    const idx = o.index === "pending" ? " Semantic indexing is pending and can be retried; keyword recall works now." : "";
     return `Saved to Axon Memory (id: ${o.id}). This is now visible to every AI assistant connected to this account.${idx}`;
   }
   const retry = o.retryable

@@ -299,13 +299,23 @@ async function main() {
       const tokC = `rlscap${randomBytes(5).toString('hex')}`;
       const key = `phone-queue:${tokC}`;
       const body1 = { content: `A captured offline ${tokC}`, idempotency_key: key, channel: 'offline', occurred_at: new Date(Date.now() - 3600_000).toISOString() };
+      const tC = Date.now();
       const c1 = await fn(a.apiKey, 'remember', body1); const c1b = await j(c1);
+      const c1ms = Date.now() - tC;
       check('capture', 'REST capture returns id, status and capture_id', c1.ok && c1b.id && c1b.capture_id && ['indexed', 'stored'].includes(c1b.status), JSON.stringify(c1b));
       const c2 = await fn(a.apiKey, 'remember', body1); const c2b = await j(c2);
       check('capture', 'same idempotency key again -> same memory, not stored twice', c2.ok && c2b.id === c1b.id && c2b.status === 'duplicate', JSON.stringify(c2b));
       const rows = await j(await rest(jwtA, `memory_items?select=id,occurred_at,origin_key&content=eq.${encodeURIComponent(body1.content)}`));
       check('capture', 'exactly one row for the queued capture, with its original occurred_at', Array.isArray(rows) && rows.length === 1
         && Math.abs(Date.parse(rows[0].occurred_at) - Date.parse(body1.occurred_at)) < 2000, JSON.stringify(rows));
+      check('capture', 'save answers without waiting for the vector index (< 3 s)', c1ms < 3000, `${c1ms} ms, index ${c1b.index}`);
+      let embedded = false;
+      for (let i = 0; i < 15 && !embedded; i++) {
+        const e = await j(await rest(jwtA, `memories?select=has_embedding&id=eq.${c1b.id}`));
+        embedded = Array.isArray(e) && e[0]?.has_embedding === true;
+        if (!embedded) await new Promise((r) => setTimeout(r, 2000));
+      }
+      check('capture', 'background indexing lands (memory gets its vector)', embedded, '');
       const prov = await j(await rest(jwtA, `memories?select=owner_id,capture_channel,source_application&id=eq.${c1b.id}`));
       check('capture', 'stored memory has owner + provenance', Array.isArray(prov) && prov[0]?.owner_id === a.id && prov[0]?.capture_channel === 'agent' && !!prov[0]?.source_application, JSON.stringify(prov));
       const d1 = await fn(a.apiKey, 'remember', { content: `A double send ${tokC}` }); const d1b = await j(d1);
