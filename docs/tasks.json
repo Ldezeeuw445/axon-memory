@@ -45,13 +45,13 @@
         ".github/workflows/ci.yml"
       ],
       "started_at": "2026-10-16T22:30:00+02:00",
-      "last_progress_at": "2026-10-16T22:30:00+02:00",
+      "last_progress_at": "2026-10-17T12:40:00+02:00",
       "attempts": 1,
       "tests_run": [],
       "build_result": null,
       "deployment_result": null,
       "verification_result": null,
-      "blocker": "GitHub Actions jobs never start (likely Actions disabled/billing); gh not authenticated on box",
+      "blocker": "GitHub annotation on PR #5 run 39023360655: \"The job was not started because your account is locked due to a billing issue.\" Owner must resolve GitHub billing (github.com/settings/billing).",
       "next_action": "Owner checks GitHub Actions enabled/billing for repo; meanwhile run same checks on box",
       "rollback_reference": "git revert"
     },
