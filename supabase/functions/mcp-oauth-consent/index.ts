@@ -7,7 +7,7 @@
 import { handlePreflight, jsonResponse } from "../_shared/cors.ts";
 import { getUserFromRequest } from "../_shared/auth.ts";
 import { supabaseAdmin } from "../_shared/supabase-admin.ts";
-import { newAuthorizationCode, codeExpiresAt, redirectUriAllowed } from "../_shared/oauth.ts";
+import { newAuthorizationCode, codeExpiresAt, pkceRequestError, redirectUriAllowed } from "../_shared/oauth.ts";
 
 Deno.serve(async (req: Request) => {
   const preflight = handlePreflight(req);
@@ -36,8 +36,10 @@ Deno.serve(async (req: Request) => {
   if (!client || !redirectUriAllowed(client.redirect_uris, redirect_uri)) {
     return jsonResponse({ error: "invalid_client" }, { status: 400, origin });
   }
-  if (client.is_public && !code_challenge) {
-    return jsonResponse({ error: "invalid_request", error_description: "PKCE code_challenge required for public clients" }, { status: 400, origin });
+  // S256 only, checked again here because this is where the code is minted (A5-4).
+  const pkceError = pkceRequestError({ isPublic: client.is_public !== false, challenge: code_challenge, method: code_challenge_method });
+  if (pkceError) {
+    return jsonResponse({ error: "invalid_request", error_description: pkceError }, { status: 400, origin });
   }
 
   if (decision !== "approve") {
@@ -70,7 +72,7 @@ Deno.serve(async (req: Request) => {
     user_id: auth.user.id,
     redirect_uri,
     code_challenge: code_challenge || null,
-    code_challenge_method: code_challenge_method || "S256",
+    code_challenge_method: "S256",
     scope: scope || "memory.read memory.write",
     expires_at: codeExpiresAt(),
   });

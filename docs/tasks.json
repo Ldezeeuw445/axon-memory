@@ -414,6 +414,34 @@
       "rollback_reference": "drop the *_parent_owned_* / *_keys_owned_* policies"
     },
     {
+      "id": "A5-5",
+      "product": "axon-memory",
+      "objective": "MCP OAuth: access-token expiry + refresh_token grant, existing tokens grandfathered",
+      "phase": "A5",
+      "priority": "P1",
+      "status": "queued",
+      "owner_agent": "grok-bot",
+      "dependencies": [
+        "A5-4"
+      ],
+      "acceptance_criteria": [
+        "New OAuth tokens expire and can be refreshed (rotation)",
+        "Existing tokens keep working (NULL expiry)",
+        "Expired token rejected with 401 + WWW-Authenticate"
+      ],
+      "files_or_services_touched": [],
+      "started_at": null,
+      "last_progress_at": null,
+      "attempts": 0,
+      "tests_run": [],
+      "build_result": null,
+      "deployment_result": null,
+      "verification_result": null,
+      "blocker": null,
+      "next_action": "Additive api_keys columns + token endpoint refresh grant",
+      "rollback_reference": "git revert + redeploy previous bundle"
+    },
+    {
       "id": "A6-1",
       "product": "axon-memory",
       "objective": "MCP canonical lifecycle tools: capture/recall/retire/delete (+supersede) with health endpoint",

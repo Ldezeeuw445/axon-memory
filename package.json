@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test": "deno test supabase/functions/_shared/*.test.ts",
+    "test": "deno test --allow-env supabase/functions/_shared/*.test.ts",
     "smoke-test": "node scripts/smoke-test.mjs",
     "test:rls-http": "node scripts/rls-isolation-http.mjs",
     "test:sql": "node scripts/sql-suite.mjs",
