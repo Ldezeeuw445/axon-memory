@@ -614,7 +614,7 @@ export async function buildContextPack(
  * runs, and a graph annotation is never worth failing a recall over — if the
  * table is not there yet, or the write loses a race, the pack still returns.
  */
-async function recordRecalls(
+export async function recordRecalls(
   admin: SupabaseClient,
   userId: string,
   itemIds: string[],

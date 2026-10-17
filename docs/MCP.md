@@ -10,6 +10,9 @@ Endpoint: **`https://mcp.axon-memory.com/`**. Transport is MCP Streamable HTTP (
 - `initialize` and `notifications/*` need no auth (they carry no user data). `tools/list` and `tools/call` do.
 - Rate limit: 60 `tools/call` per minute per key (`take_rate_limit_token`). An over-limit call returns a tool error that says when to retry.
 
+## REST alternative
+The same capture, recall and lifecycle operations are available as a versioned REST API at `https://mcp.axon-memory.com/v1` (see `API.md`), with the same tokens and the same rate-limit budget.
+
 ## Health
 `GET https://mcp.axon-memory.com/health` is unauthenticated. It returns `{status, service, version, protocol, database, db_ms, tools[], time}` and contains no user data.
 

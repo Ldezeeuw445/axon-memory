@@ -509,7 +509,7 @@
       "objective": "Versioned public API (/v1) + TypeScript SDK + integration tests",
       "phase": "A7",
       "priority": "P2",
-      "status": "queued",
+      "status": "done",
       "owner_agent": "grok-bot",
       "dependencies": [
         "A6-1"
@@ -518,18 +518,35 @@
         "SDK capture/recall/delete pass against prod test user"
       ],
       "files_or_services_touched": [
-        "packages/sdk-ts",
-        "openapi-actions"
+        "supabase/functions/api-v1 (new, v2)",
+        "supabase/functions/_shared/api-v1.ts",
+        "supabase/functions/api-v1/openapi.ts",
+        "supabase/functions/_shared/capture.ts (optional source_ref, additive)",
+        "supabase/functions/_shared/memory-core.ts (export recordRecalls)",
+        "cloudflare/mcp-gateway/worker.js (/v1/* route)",
+        "packages/sdk-ts (new)",
+        "scripts/rls-isolation-http.mjs (+7 v1 checks)",
+        "scripts/rls-fixtures-sql.mjs (thread + read-only key)",
+        "docs/API.md",
+        "mcp-server v75, context-pack v63, remember v55 (shared code)"
       ],
-      "started_at": null,
-      "last_progress_at": null,
-      "attempts": 0,
-      "tests_run": [],
-      "build_result": null,
-      "deployment_result": null,
-      "verification_result": null,
+      "started_at": "2026-10-17T13:14:00+02:00",
+      "last_progress_at": "2026-10-17T13:25:00+02:00",
+      "attempts": 1,
+      "tests_run": [
+        "deno test 43/43 (api-v1.test.ts 5)",
+        "worker tests 5/5",
+        "SDK unit 5/5",
+        "SDK live integration 12/12 tests against gateway + direct (capture/provenance/thread/idempotency/recall trace/cross-tenant 404 on every verb/supersede/retire/restore/delete/no resurrection/read-only scope/validation/auth)",
+        "live HTTP isolation 157/157",
+        "isolation.sql 240/240",
+        "residue 0"
+      ],
+      "build_result": "api-v1 bundle 62.5 KB; SDK tsc build ok",
+      "deployment_result": "api-v1 v2 live at https://mcp.axon-memory.com/v1 (Worker redeployed after verifying deployed == repo)",
+      "verification_result": "spec §19 items 1-7 covered",
       "blocker": null,
-      "next_action": "Define OpenAPI v1",
+      "next_action": "Python SDK later (spec: 'Python can follow'); optional api.axon-memory.com hostname",
       "rollback_reference": "git revert"
     },
     {

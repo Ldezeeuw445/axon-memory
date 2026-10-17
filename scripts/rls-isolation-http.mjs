@@ -350,6 +350,24 @@ async function main() {
       check('capture', 'capture_status over MCP returns health', !!csj?.health && typeof csj.health.attempts === 'number', cs.text.slice(0, 120));
     }
 
+    // ── Public API v1 (A7-1), through the gateway ──
+    {
+      const v1 = (key, method, path, body) => fetch(`${GATEWAY}/v1${path}`, { method,
+        headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+      const g = await v1(a.apiKey, 'GET', `/memories/${bItem}`);
+      check('api', "v1: A GETs B's memory → 404", g.status === 404, `status ${g.status}`);
+      const rc = await v1(a.apiKey, 'POST', '/recall', { query: tokB });
+      check('api', 'v1: A recall has no B data', rc.ok && !has(await j(rc), [contentB, titleB, bItem]), `status ${rc.status}`);
+      for (const [verb, path] of [['POST', `/memories/${bItem}/retire`], ['DELETE', `/memories/${bItem}`], ['POST', `/memories/${bItem}/supersede`]]) {
+        const r = await v1(a.apiKey, verb, path, verb === 'POST' ? { content: `A hijack ${tokA}` } : undefined);
+        check('api', `v1: A ${verb} ${path.replace(bItem, '<B>')} → 404`, r.status === 404, `status ${r.status}`);
+      }
+      const own = await v1(b.apiKey, 'GET', `/memories/${bItem}`);
+      check('control', 'v1: B still has its memory, active', own.ok && (await j(own)).state === 'active', `status ${own.status}`);
+      const forged = await v1('axon_live_' + 'e'.repeat(48), 'GET', '/me');
+      check('api', 'v1: forged token → 401', forged.status === 401, `status ${forged.status}`);
+    }
+
     // ── MCP OAuth (A5-4 PKCE S256-only, A5-5 expiry + refresh, grandfathering) ──
     if (a.oauth) {
       const o = a.oauth;
