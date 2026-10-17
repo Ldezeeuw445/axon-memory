@@ -26,7 +26,7 @@ Spec §20: connection status, scope, last successful sync, errors, imported obje
 ## Fields
 `id, provider, name, account, status, health, synchronized, supported, summary, connected_at, last_success_at, last_attempt_at, consecutive_failures, error {kind, message, at, action} | null, imported {items, last_run {fetched, stored} | null}, scope {access: read-only, requested[], granted[] | null, explanation, note?}, cursor {kind, value}, provenance {source_type, connection_id, note}, revoke {available, method, manage_url, keeps_imported_memories}`.
 
-- `error.message` is redacted: bearer tokens, provider token prefixes and any 40+ character opaque string become `[redacted]`. Max 300 chars. Kinds: auth, permission, rate_limit, provider, storage, unsupported, unknown.
+- `error.message` is redacted: bearer tokens, provider token prefixes and any 40+ character opaque string become `[redacted]`. Max 300 chars. Kinds: auth, permission, setup (a choice is still yours to make, e.g. which GitHub repositories), rate_limit, provider, storage, unsupported, unknown.
 - `imported.items` = memory_items whose `source_connection_id` is this connection.
 - `scope.granted` is recorded from the provider's token response on (re)connect. It is null for connections made before A8-1 or when the provider does not report it. `note` discloses grants broader than what AXON uses (GitHub `repo`, Supabase app permissions).
 - `provenance`: every imported memory carries `source.channel = connector`, `source.provider`, `source.account` and `source.connection_id` (see `RECALL.md` / `API.md`). Items are deduplicated per connection by the provider's own id.

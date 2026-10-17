@@ -6,7 +6,7 @@
 // never drift apart or duplicate/dedupe differently.
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { decryptToken, encryptToken } from "./crypto.ts";
-import { PROVIDERS } from "./providers.ts";
+import { PROVIDERS, type Provider } from "./providers.ts";
 import { isSupportedProvider } from "./connectors.ts";
 import { embedAndStore } from "./embeddings.ts";
 
@@ -100,7 +100,9 @@ function isAuthFailure(message: string): boolean {
 }
 
 async function refreshAccessToken(provider: string, refreshToken: string): Promise<string> {
-  const cfg = PROVIDERS[provider];
+  // Any string can arrive here from a row; the lookup has to admit it may miss.
+  const providers: Partial<Record<string, (typeof PROVIDERS)[Provider]>> = PROVIDERS;
+  const cfg = providers[provider];
   if (!cfg) throw new Error(`no provider config for ${provider}`);
 
   const res = await fetch(cfg.tokenUrl, {
@@ -450,7 +452,7 @@ export async function seedGithubRepositories(
 
 /* The same matte set the map uses. A seeded project that arrives in a colour
    nothing else on the terrain wears would announce itself as machine-made. */
-const SEED_COLOURS = [
+export const SEED_COLOURS = [
   "#e0b45e", "#ed905e", "#a9c46c", "#69c27e",
   "#5ec2b0", "#63b4d8", "#8aa8e8", "#b195e8",
 ];
@@ -907,19 +909,52 @@ async function syncNotion(token: string): Promise<MemoryDraft[]> {
   const { results = [] } = await res.json();
 
   return results.map((page: any) => {
-    const titleProp = Object.values(page.properties ?? {}).find(
-      (p: any) => p.type === "title",
-    ) as any;
-    const title = titleProp?.title?.map((t: any) => t.plain_text).join("") || "Untitled";
+    const title = notionTitle(page);
     return {
       external_id: page.id,
       title,
       content: `${title}\n\n${page.url ?? ""}`,
       content_type: "page",
       occurred_at: page.last_edited_time ?? new Date().toISOString(),
-      metadata: { url: page.url },
+      metadata: { url: page.url, notion_object: page.object === "database" ? "database" : "page" },
     } as MemoryDraft;
   });
+}
+
+/**
+ * The title of whatever Notion's search returned, page or database.
+ *
+ * Search answers with both kinds and they keep their titles in different
+ * places. A page has a property of type "title" whose `title` is rich text — an
+ * array. A database has a property of type "title" too, but there it is the
+ * column's schema and `title` is an empty object; the database's own name is
+ * rich text at the top level. Reading every result as a page called `.map` on
+ * that object and threw, which took down the whole run — two connections sat
+ * in error with "titleProp?.title?.map is not a function" and read nothing.
+ *
+ * So: the top-level title first (databases), then a title property that really
+ * is an array (pages), and "Untitled" otherwise. One odd item must never cost
+ * the rest of the run.
+ */
+export function notionTitle(item: unknown): string {
+  const text = (rich: unknown): string =>
+    Array.isArray(rich)
+      ? rich.map((t) => (t && typeof t === "object" && typeof (t as any).plain_text === "string")
+        ? (t as any).plain_text
+        : (t && typeof t === "object" && typeof (t as any).text?.content === "string") ? (t as any).text.content : "").join("").trim()
+      : "";
+  if (!item || typeof item !== "object") return "Untitled";
+  const o = item as Record<string, unknown>;
+  const top = text(o.title);
+  if (top) return top;
+  const props = o.properties && typeof o.properties === "object" ? Object.values(o.properties as Record<string, unknown>) : [];
+  for (const p of props) {
+    if (p && typeof p === "object" && (p as any).type === "title") {
+      const t = text((p as any).title);
+      if (t) return t;
+    }
+  }
+  return "Untitled";
 }
 
 /**

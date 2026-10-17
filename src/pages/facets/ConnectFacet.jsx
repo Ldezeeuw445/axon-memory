@@ -8,6 +8,7 @@ import { usePlan } from '../../hooks/usePlan';
 import { DATA_SOURCES } from '../../lib/logos';
 import { MCP_GATEWAY_URL, CHATGPT_ACTION_CLIENT } from '../../lib/platformClients';
 import { FacetHead, Settling, Paused, ago, providerName } from '../../components/app/ui';
+import RepoPicker from '../../components/app/RepoPicker';
 
 /**
  * Connect — both directions of the same promise (spec §12, §20):
@@ -55,12 +56,16 @@ function CopyLine({ value, mask }) {
 function errorSentence(c) {
   if (!c.error) return null;
   if (c.error.kind === 'auth') return `${c.name} no longer lets AXON in. Reconnect it to continue.`;
+  if (c.error.kind === 'setup') return `Choose which repositories AXON reads from this GitHub. Until then it reads nothing here.`;
   if (c.error.kind === 'permission') return `${c.name} withheld a permission AXON needs. Reconnect and allow it.`;
   return `The last read from ${c.name} was interrupted${c.consecutive_failures > 1 ? ` (${c.consecutive_failures} times in a row)` : ''}. ${c.error.action || 'AXON will try again on its own.'}`;
 }
 
-function SourceConnection({ c, busy, onRead, onDisconnect, onReconnect }) {
+function SourceConnection({ c, busy, onRead, onDisconnect, onReconnect, onChosen }) {
   const [open, setOpen] = useState(false);
+  const isGithub = c.provider === 'github';
+  const [picking, setPicking] = useState(false);
+  const needsChoice = isGithub && c.error?.kind === 'setup';
   const s = STATE[c.health] || STATE.pending;
   const needsYou = c.error && (c.error.kind === 'auth' || c.error.kind === 'permission');
   const kept = c.imported?.items;
@@ -81,12 +86,20 @@ function SourceConnection({ c, busy, onRead, onDisconnect, onReconnect }) {
         <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
           {needsYou ? (
             <button className="ax-btn" onClick={() => onReconnect(c.provider)} disabled={busy}>Reconnect</button>
-          ) : c.supported ? (
+          ) : needsChoice && !picking ? (
+            <button className="ax-btn" onClick={() => setPicking(true)} disabled={busy}>Choose repositories</button>
+          ) : c.supported && !needsChoice ? (
             <button className="ax-btn-quiet" onClick={() => onRead(c)} disabled={busy}>{busy ? 'Reading…' : 'Read now'}</button>
           ) : null}
+          {isGithub && !needsYou && !needsChoice && (
+            <button className="ax-btn-quiet" onClick={() => setPicking((v) => !v)}>{picking ? 'Close' : 'Repositories'}</button>
+          )}
           <button className="ax-btn-quiet" onClick={() => setOpen((v) => !v)}>{open ? 'Less' : 'Permissions'}</button>
           <button className="ax-btn-quiet" onClick={() => onDisconnect(c)} disabled={busy}>Disconnect</button>
         </div>
+      )}
+      {picking && c.health !== 'disconnected' && (
+        <RepoPicker connection={c} onReconnect={onReconnect} onDone={(res) => { setPicking(false); onChosen?.(c, res); }} />
       )}
       {open && (
         <div className="ax-meta" style={{ marginTop: 10, lineHeight: 1.6, display: 'block' }}>
@@ -160,6 +173,12 @@ export default function ConnectFacet() {
     } catch {
       setNote(`The read from ${c.name} was interrupted. AXON will try again on its own.`);
     } finally { await loadSources(); setBusy(null); }
+  };
+  // A new choice is read straight away, so the connection recovers now rather than at the next half hour.
+  const chosen = async (c, res) => {
+    const n = res?.chosen?.length ?? 0;
+    setNote(n ? `AXON will read ${n} ${n === 1 ? 'repository' : 'repositories'} from GitHub. Reading them now.` : 'AXON no longer reads any GitHub repository. What it already kept stays.');
+    if (n) await read(c); else await loadSources();
   };
   const disconnect = async (c) => {
     if (!window.confirm(`Disconnect ${c.name}${c.account ? ` (${c.account})` : ''}? Memories already kept stay yours.`)) return;
@@ -274,7 +293,7 @@ export default function ConnectFacet() {
                   </div>
                   {conns.map((c) => (
                     <div key={c.id} style={{ paddingLeft: 14 }}>
-                      <SourceConnection c={c} busy={busy === c.id} onRead={read} onDisconnect={disconnect} onReconnect={connect} />
+                      <SourceConnection c={c} busy={busy === c.id} onRead={read} onDisconnect={disconnect} onReconnect={connect} onChosen={chosen} />
                     </div>
                   ))}
                 </div>

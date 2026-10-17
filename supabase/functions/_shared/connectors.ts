@@ -150,7 +150,7 @@ export function deriveHealth(row: ConnectionRow, now = Date.now()): Health {
   return "healthy";
 }
 
-export type ErrorKind = "auth" | "permission" | "rate_limit" | "provider" | "storage" | "unsupported" | "unknown";
+export type ErrorKind = "auth" | "permission" | "setup" | "rate_limit" | "provider" | "storage" | "unsupported" | "unknown";
 
 /** Tokens and long opaque strings never leave the server, even to the owner. */
 export function redactError(message: string | null | undefined): string | null {
@@ -167,6 +167,8 @@ export function redactError(message: string | null | undefined): string | null {
 export function classifyError(message: string | null | undefined): { kind: ErrorKind; action: string } {
   const m = String(message ?? "");
   if (/^unsupported:|not supported/i.test(m)) return { kind: "unsupported", action: "Nothing to do yet; AXON cannot sync this source." };
+  // A choice the person has not made yet — not a broken grant, so never "reconnect".
+  if (/no repositories chosen/i.test(m)) return { kind: "setup", action: "Choose which repositories AXON reads." };
   if (/permission not granted|insufficient|scope|\b403\b|forbidden|missing_scope|not_in_channel/i.test(m)) {
     return { kind: "permission", action: "Reconnect and grant every requested permission." };
   }
