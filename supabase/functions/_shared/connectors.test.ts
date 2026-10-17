@@ -58,6 +58,7 @@ Deno.test("classifyError and redactError", () => {
   assertEquals(classifyError("permission not granted: gmail.readonly").kind, "permission");
   assertEquals(classifyError("gmail list failed: 403 (insufficientPermissions)").kind, "permission");
   assertEquals(classifyError("refresh failed: invalid_grant").kind, "auth");
+  assertEquals(classifyError("github: no repositories chosen. Pick which repos to sync and which project each belongs to.").kind, "setup");
   assertEquals(classifyError("slack failed (429): ratelimited").kind, "rate_limit");
   assertEquals(classifyError("memory_items upsert failed: x").kind, "storage");
   assertEquals(classifyError("notion failed (503): down").kind, "provider");

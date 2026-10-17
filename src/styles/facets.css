@@ -103,3 +103,10 @@ textarea.ax-field { resize: none; line-height: 1.55; min-height: 150px; }
   .ax-title { font-size: 32px; }
   .ax-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
 }
+
+/* A8-3 repository picker */
+.ax-repo-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 11px 6px; background: none; border: 0; border-bottom: 1px solid rgba(255,255,255,0.06); color: inherit; font: inherit; cursor: pointer; transition: background 160ms ease; border-radius: 10px; }
+.ax-repo-row:hover:not(:disabled) { background: rgba(255,255,255,0.03); }
+.ax-repo-row:disabled { opacity: 0.4; cursor: default; }
+.ax-repo-check { width: 20px; height: 20px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.22); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; color: #120c00; transition: background 180ms ease, border-color 180ms ease; }
+.ax-repo-row[data-on] .ax-repo-check { background: var(--color-accent); border-color: var(--color-accent); box-shadow: 0 0 12px rgba(255,183,51,0.35); }
