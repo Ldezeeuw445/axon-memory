@@ -20,7 +20,9 @@
     "test:web": "vitest run",
     "test:lexicon": "node scripts/check-lexicon.mjs",
     "test:billing": "deno run -A tests/billing/webhook-replay.ts",
-    "test:oauth-e2e": "node scripts/oauth-consent-e2e.mjs"
+    "test:oauth-e2e": "node scripts/oauth-consent-e2e.mjs",
+    "perf:recall": "node scripts/perf-recall.mjs",
+    "perf:budget": "node scripts/bundle-budget.mjs dist"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.8",

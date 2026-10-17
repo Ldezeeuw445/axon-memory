@@ -44,15 +44,17 @@ const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) 
  * return. `onProgress` reports 0..1 each frame so the shell can bring its
  * spatial content in as the camera arrives, instead of after a hard cut.
  */
-export default function CoreGateway({ active, children, apertureRef, onProgress, baseScale = 1 }) {
+export default function CoreGateway({ active, children, apertureRef, onProgress, baseScale = 1, startAt }) {
   const { camera } = useThree();
   const shell = useRef(null);
   // Already inside on mount means the viewer arrived by link — an OAuth
   // callback landing on ?facet=connections, say. Playing the journey there
   // would make them sit out eleven seconds of cinema to find out whether their
   // connection worked. The journey is for people who chose to take it.
-  const t = useRef(active ? GATEWAY_DURATION : 0);
-  if (apertureRef && apertureRef.current === 0 && active) apertureRef.current = 1;
+  // `startAt` lets a Core built late (the shell opened on a facet) begin on the
+  // far side, so going back to it plays the return rather than a cut.
+  const t = useRef(startAt ?? (active ? GATEWAY_DURATION : 0));
+  if (apertureRef && apertureRef.current === 0 && (active || startAt)) apertureRef.current = 1;
   const restZ = useRef(null);
 
   useFrame((_, delta) => {

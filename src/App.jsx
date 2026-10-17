@@ -1,24 +1,32 @@
-import React from 'react';
+import React, { Suspense } from 'react';
+import { lazyPage } from './lib/lazyPage';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './contexts/AuthContext';
 import { isAppHost, APP_HOME } from './lib/host';
 
-import Splash from './pages/Splash';
-import Home from './pages/Home';
 import AppShell from './pages/AppShell';
 import Login from './pages/Login';
-import Onboarding from './pages/Onboarding';
-import Settings from './pages/Settings';
-import Subscription from './pages/Subscription';
 import ConnectAuthorize from './pages/ConnectAuthorize';
-import ConnectError from './pages/ConnectError';
-import Developers from './pages/Developers';
-import Privacy from './pages/Privacy';
-import Terms from './pages/Terms';
-import AdminAlerts from './pages/AdminAlerts';
-import NotFound from './pages/NotFound';
+
+// Everything that is not the product's first screen loads on demand, so the
+// app on a phone downloads the shell and Recall, not the landing page's 3D,
+// the docs or billing (perf, A-perf-1).
+const Splash = lazyPage(() => import('./pages/Splash'));
+const Home = lazyPage(() => import('./pages/Home'));
+const Onboarding = lazyPage(() => import('./pages/Onboarding'));
+const Settings = lazyPage(() => import('./pages/Settings'));
+const Subscription = lazyPage(() => import('./pages/Subscription'));
+const ConnectError = lazyPage(() => import('./pages/ConnectError'));
+const Developers = lazyPage(() => import('./pages/Developers'));
+const Privacy = lazyPage(() => import('./pages/Privacy'));
+const Terms = lazyPage(() => import('./pages/Terms'));
+const AdminAlerts = lazyPage(() => import('./pages/AdminAlerts'));
+const NotFound = lazyPage(() => import('./pages/NotFound'));
+
+/** The void, while a page's code arrives. No spinner, by canon. */
+const Quiet = () => <div className="full-screen" style={{ background: '#020203' }} />;
 
 /** Sends a legacy route into the shell, preserving any query the callback added. */
 function FacetRedirect({ facet }) {
@@ -45,6 +53,7 @@ function AppLayout() {
       <BrowserRouter>
         <div className="full-screen">
           <ErrorBoundary>
+            <Suspense fallback={<Quiet />}>
             <Routes>
               {/* Public */}
               <Route path="/" element={<HomeRoute />} />
@@ -88,6 +97,7 @@ function AppLayout() {
 
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </Suspense>
           </ErrorBoundary>
         </div>
       </BrowserRouter>

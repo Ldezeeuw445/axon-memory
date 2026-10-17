@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { callFunction } from '../lib/functions';
 
@@ -10,14 +10,19 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const loadProfile = useCallback(async (userId) => {
+  // getSession and the INITIAL_SESSION event both report the same person on
+  // load; one profile read is enough (perf, A-perf-1).
+  const profileFor = useRef(null);
+  const loadProfile = useCallback(async (userId, { force = false } = {}) => {
     if (!isSupabaseConfigured || !supabase || !userId) return;
+    if (!force && profileFor.current === userId) return;
+    profileFor.current = userId;
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
     setProfile(data ?? null);
   }, []);
 
   const refreshProfile = useCallback(async () => {
-    if (user?.id) await loadProfile(user.id);
+    if (user?.id) await loadProfile(user.id, { force: true });
   }, [user, loadProfile]);
 
   useEffect(() => {
@@ -40,7 +45,7 @@ export function AuthProvider({ children }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) loadProfile(session.user.id);
-      else setProfile(null);
+      else { profileFor.current = null; setProfile(null); }
     });
 
     return () => subscription.unsubscribe();
