@@ -128,7 +128,7 @@
       "objective": "Observable capture pipeline with mandatory owner+provenance",
       "phase": "A2",
       "priority": "P1",
-      "status": "queued",
+      "status": "done",
       "owner_agent": "grok-bot",
       "dependencies": [
         "A1-1"
@@ -138,18 +138,35 @@
         "Failed capture visible and retryable"
       ],
       "files_or_services_touched": [
-        "supabase/functions/remember",
-        "_shared/memory-core.ts"
+        "supabase/migrations/20261017104221_capture_pipeline.sql",
+        "supabase/functions/_shared/capture.ts",
+        "supabase/functions/_shared/capture.test.ts",
+        "supabase/functions/_shared/embeddings.ts",
+        "supabase/functions/_shared/memory-core.ts",
+        "supabase/functions/_shared/mcp-lifecycle.ts",
+        "supabase/functions/mcp-server/index.ts",
+        "supabase/functions/remember/index.ts",
+        "tests/schema/capture_pipeline.sql",
+        "scripts/rls-isolation-http.mjs",
+        "scripts/rls-fixtures-sql.mjs",
+        "docs/CAPTURE.md",
+        "edge functions mcp-server v72, remember v53, context-pack v60"
       ],
-      "started_at": null,
-      "last_progress_at": null,
-      "attempts": 0,
-      "tests_run": [],
-      "build_result": null,
-      "deployment_result": null,
-      "verification_result": null,
+      "started_at": "2026-10-17T12:50:00+02:00",
+      "last_progress_at": "2026-10-17T13:05:00+02:00",
+      "attempts": 1,
+      "tests_run": [
+        "tests/schema/capture_pipeline.sql 26/26 (dry-run + prod)",
+        "deno test 33/33 (capture.test.ts 6)",
+        "live rls-isolation-http 130/130 (18 capture checks incl. idempotent offline capture, dedupe, visible failures, cross-tenant retry refused, retry from payload, background index lands, save 1.3 s)",
+        "tests/rls/isolation.sql 240/240 (now includes capture_events)",
+        "residue 0"
+      ],
+      "build_result": "deno check OK for deployed functions (sync-source has 2 pre-existing type errors, untouched)",
+      "deployment_result": "Migration 20261017104221 applied (capture_events + RLS, provenance trigger + validated check, capture_health, capture_events_prune + daily pg_cron job). mcp-server v72, remember v53, context-pack v60",
+      "verification_result": "Every capture leaves a capture_events row with stage/timings; failures visible via capture_status / GET /remember?status and retryable via retry_capture / retry_capture_id; idempotency_key makes queue flushes safe; owner + provenance enforced in DB",
       "blocker": null,
-      "next_action": "Add capture_events log",
+      "next_action": "App UI for capture failures belongs to A9 (mobile surfaces)",
       "rollback_reference": "git revert"
     },
     {
