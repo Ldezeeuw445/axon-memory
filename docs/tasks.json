@@ -850,8 +850,8 @@
       ],
       "build_result": "vite build ok (index-nUaD4goP.js, live)",
       "deployment_result": null,
-      "verification_result": "All suites green, no tenant leak. §37: 10/15 automated, 5 partial (1 sign-up e2e needs a real inbox; 4 consent click unscripted; 12 no physical device; 13 no relationship view; 14 billing defects need approval). Nothing failed.",
-      "blocker": "Remaining partials need: Luka to choose a bot inbox name (step 1), approval of the billing fix (step 14), a device run (step 12). 4 and 13 are follow-up engineering.",
+      "verification_result": "Gate 2026-10-17: local 10/10, SDK 12/12, HTTP isolation 204/204, isolation.sql 249/249, schema 26/44/45, eval 24/24, MCP health ok, domains 200. §37: 12/15 automated (step 4 consent click e2e 14/14 via npm run test:oauth-e2e, PR #22; step 13 Terrain 'How it connects' from real rows, PR #23). Partial: 1 (needs bot inbox), 12 (no physical device), 14 (billing fix awaits approval).",
+      "blocker": "Step 1 needs the bot's own inbox claimed (parent/user approval). Step 14 billing fix awaits Luka. CI (A0-2) billing-locked.",
       "next_action": "Script the OAuth consent click with Playwright (step 4); relationship layer on Terrain from entity_links (step 13).",
       "rollback_reference": "git revert"
     },
