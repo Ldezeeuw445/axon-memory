@@ -7,6 +7,11 @@ Approved by Luka on 2026-10-17 and connected in A11-3:
 
 No Stripe price, product, webhook endpoint or live billing setting was changed.
 
+Deployed 2026-10-17 18:27 CEST:
+- stripe-webhook v25 and stripe-checkout v25;
+- mcp-server v76, api-v1 v6, remember v56 and context-pack v64;
+- migration `20261017162611_stripe_events_ledger`.
+
 ## Where the plan lives (single source of truth)
 
 - **Stored:** `profiles.plan_tier` (enum `starter|pro|ultra|lifetime_founder`; "ultra" is shown as Power). Only the service role writes it, via `stripe-webhook`.

@@ -778,7 +778,7 @@
       "objective": "Server-side entitlement normalization + webhook idempotency/replay tests",
       "phase": "A11",
       "priority": "P2",
-      "status": "waiting_approval",
+      "status": "done",
       "owner_agent": "grok-bot",
       "dependencies": [
         "A11-1"
@@ -795,7 +795,7 @@
         "package.json test:billing"
       ],
       "started_at": "2026-10-17T15:12:00+02:00",
-      "last_progress_at": "2026-10-17T15:25:00+02:00",
+      "last_progress_at": "2026-10-17T18:35:00+02:00",
       "attempts": 1,
       "tests_run": [
         "test:billing 17/17 (real stripe-webhook, local, signed events; 5 recorded DEFECTs)",
@@ -807,7 +807,52 @@
       "verification_result": "Entitlement truth holds (user_plan_status over profiles.plan_tier + plan_features; users cannot change it). Replay is NOT a no-op for checkout, and 4 ordering/Lifetime defects exist in the live webhook.",
       "blocker": "Fixing the webhook changes live billing behaviour: needs Luka's approval (docs/BILLING.md).",
       "next_action": "On approval: additive migration stripe_events + profiles.billing_event_at, wire _shared/billing.ts into stripe-webhook, flip DEFECT rows in test:billing, deploy.",
-      "rollback_reference": "git revert"
+      "rollback_reference": "git revert",
+      "notes": "2026-10-17: approved by Luka and connected in A11-3 (#28): stripe-webhook v25 on the reducer with stripe_events ledger; replay 23/23 (7 former defects fixed)."
+    },
+    {
+      "id": "A11-3",
+      "product": "axon-memory",
+      "objective": "Billing live: webhook on the tested reducer + event ledger, plan checked on every key/OAuth call, Lifetime checkout guard",
+      "phase": "A11",
+      "priority": "P1",
+      "status": "done",
+      "owner_agent": "grok-bot",
+      "dependencies": [
+        "A11-2"
+      ],
+      "acceptance_criteria": [
+        "Replayed/stale Stripe events are no-ops; Lifetime never lost via a subscription event",
+        "Starter key/token refused per call (402 plan_required) on MCP, /v1, remember, context-pack",
+        "Lifetime member gets 409 from stripe-checkout before any Stripe call",
+        "No current real client or key loses access"
+      ],
+      "files_or_services_touched": [
+        "supabase/functions/stripe-webhook",
+        "supabase/functions/stripe-checkout",
+        "supabase/functions/_shared/{billing,entitlement,mcp-auth}.ts",
+        "mcp-server",
+        "api-v1",
+        "remember",
+        "context-pack",
+        "migration 20261017162611_stripe_events_ledger",
+        "src/pages/Subscription.jsx"
+      ],
+      "started_at": "2026-10-17T17:30:00+02:00",
+      "last_progress_at": "2026-10-17T18:35:00+02:00",
+      "attempts": 1,
+      "tests_run": [
+        "test:billing 17/17 (real stripe-webhook, local, signed events; 5 recorded DEFECTs)",
+        "billing.test.ts 6/6",
+        "live: 6 entitlement checks"
+      ],
+      "build_result": null,
+      "deployment_result": null,
+      "verification_result": "Entitlement truth holds (user_plan_status over profiles.plan_tier + plan_features; users cannot change it). Replay is NOT a no-op for checkout, and 4 ordering/Lifetime defects exist in the live webhook.",
+      "blocker": "Fixing the webhook changes live billing behaviour: needs Luka's approval (docs/BILLING.md).",
+      "next_action": "On approval: additive migration stripe_events + profiles.billing_event_at, wire _shared/billing.ts into stripe-webhook, flip DEFECT rows in test:billing, deploy.",
+      "rollback_reference": "git revert",
+      "notes": "Deployed 2026-10-17 18:27 CEST: stripe-webhook v25, stripe-checkout v25, mcp-server v76, api-v1 v6, remember v56, context-pack v64. Live suites after deploy: SDK 12/12, HTTP 211/211 (7 new billing checks), isolation 251/251, residue 0. 6 real profiles unchanged; all 14 unrevoked credentials (Lifetime members) remain allowed. Signed live webhook events not possible without reading STRIPE_WEBHOOK_SECRET; live verified unsigned/bad-signature → 400."
     },
     {
       "id": "A12-1",
