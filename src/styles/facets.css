@@ -110,3 +110,27 @@ textarea.ax-field { resize: none; line-height: 1.55; min-height: 150px; }
 .ax-repo-row:disabled { opacity: 0.4; cursor: default; }
 .ax-repo-check { width: 20px; height: 20px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.22); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; color: #120c00; transition: background 180ms ease, border-color 180ms ease; }
 .ax-repo-row[data-on] .ax-repo-check { background: var(--color-accent); border-color: var(--color-accent); box-shadow: 0 0 12px rgba(255,183,51,0.35); }
+
+/* §37 step 13 — Terrain: how it connects */
+.ax-links-svg { animation: ax-links-in 900ms ease both; }
+@keyframes ax-links-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .ax-links-svg { animation: none; } }
+.ax-links-svg line, .ax-links-svg g, .ax-links-svg circle { transition: opacity 220ms ease; }
+.ax-links-label { font-size: 9.5px; fill: rgba(255,255,255,0.62); letter-spacing: 0.01em; paint-order: stroke; stroke: rgba(2,2,3,0.85); stroke-width: 3px; pointer-events: none; }
+.ax-links-label-thread { font-size: 11px; fill: rgba(255,217,138,0.95); font-weight: 500; }
+.ax-links-note { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); width: min(320px, 84%); text-align: center; color: var(--color-text-secondary); font-size: 14px; line-height: 1.6; }
+.ax-links-legend { position: absolute; left: 14px; right: 14px; bottom: 14px; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 11.5px; color: rgba(255,255,255,0.55); pointer-events: none; }
+.ax-links-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.ax-links-legend i { width: 14px; height: 1.5px; display: inline-block; }
+.ax-links-legend i.dia { width: 7px; height: 7px; border: 1px solid #FFB733; transform: rotate(45deg); background: transparent; }
+.ax-links-legend i.dash { background: repeating-linear-gradient(90deg, #FFD98A 0 3px, transparent 3px 6px); }
+.ax-links-count { margin-left: auto; color: rgba(255,255,255,0.4); }
+.ax-links-sheet { position: absolute; left: 12px; right: 12px; bottom: 12px; max-width: 420px; margin: 0 auto; padding: 16px 16px 12px; background: rgba(8,10,14,0.92); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); animation: ax-links-in 220ms ease both; }
+.ax-links-text { font-size: 14.5px; line-height: 1.55; color: rgba(255,255,255,0.92); padding-right: 24px; }
+.ax-links-rel { display: flex; flex-direction: column; margin-top: 10px; }
+.ax-links-rel button { display: flex; gap: 10px; align-items: baseline; text-align: left; background: none; border: 0; border-top: 1px solid rgba(255,255,255,0.06); padding: 8px 0; color: inherit; font: inherit; cursor: pointer; }
+.ax-links-rel button .ax-meta { flex-shrink: 0; width: 120px; }
+.ax-links-rel-label { font-size: 13px; color: rgba(255,255,255,0.85); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ax-terrain-switch { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 15; display: inline-flex; padding: 3px; border-radius: 999px; background: rgba(8,10,14,0.72); border: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(10px); }
+.ax-terrain-switch button { border: 0; background: none; color: rgba(255,255,255,0.6); font: inherit; font-size: 12.5px; padding: 7px 13px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
+.ax-terrain-switch button[aria-pressed="true"] { color: #120c00; background: #FFB733; }

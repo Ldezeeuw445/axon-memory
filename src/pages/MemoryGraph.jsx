@@ -5,6 +5,8 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import FragmentPanel from '../components/FragmentPanel';
 import { DATA_SOURCES, AI_PROVIDERS } from '../lib/logos';
 import { useAuth } from '../contexts/AuthContext';
+import { useSearchParams } from 'react-router-dom';
+import MemoryLinks from '../components/app/MemoryLinks';
 
 const TYPE_COLORS = {
   document:  '#00f3ff',
@@ -53,6 +55,10 @@ export default function MemoryGraph({ asFacet }) {
   // gave no number, which is a caption rather than an answer.
   const [shares, setShares] = useState(null);
   const sourceMemories = useSourceMemories(selectedSource, user?.id);
+  // Two readings of the same memory: where it comes from, and how it connects.
+  const [params, setParams] = useSearchParams();
+  const view = params.get('view') === 'links' ? 'links' : 'sources';
+  const setView = (v) => setParams((p) => { if (v === 'links') p.set('view', 'links'); else p.delete('view'); return p; }, { replace: true });
 
   useEffect(() => {
     if (!user || !supabase) return;
@@ -83,13 +89,16 @@ export default function MemoryGraph({ asFacet }) {
         }}
       >
         
-        {/* 3D Data Landscape */}
+        <div className="ax-terrain-switch" role="group" aria-label="Terrain view">
+          <button type="button" aria-pressed={view === 'sources'} onClick={() => setView('sources')}>Where it comes from</button>
+          <button type="button" aria-pressed={view === 'links'} onClick={() => { setSelectedSource(null); setView('links'); }}>How it connects</button>
+        </div>
         <div style={{ flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden', borderRadius: asFacet ? 0 : 10, background: 'transparent' }}>
-          <DataLandscape onNodeSelect={(id) => setSelectedSource(id)} />
+          {view === 'links' ? <MemoryLinks /> : <DataLandscape onNodeSelect={(id) => setSelectedSource(id)} />}
         </div>
 
         {/* Selected Source Sidebar */}
-        {selectedSource && (() => {
+        {view === 'sources' && selectedSource && (() => {
           const sourceInfo = [...DATA_SOURCES, ...AI_PROVIDERS].find(x => x.id === selectedSource)
             || (selectedSource === 'manual' ? { name: 'You', tagline: 'What you captured yourself, here or through an AI you use.', color: '#FFB733' } : { name: selectedSource.charAt(0).toUpperCase() + selectedSource.slice(1), tagline: 'A connected source.', color: '#FFB733' });
           
