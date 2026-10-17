@@ -28,6 +28,7 @@ Capture health per user or overall: `select public.capture_health(24);` (service
 | Schema + eval SQL | `npm run test:sql` / `npm run test:eval` | Needs a DB URL. Without one, run each file through Supabase `execute_sql`. Each file is `begin; … rollback;` |
 | Isolation SQL | `tests/rls/isolation.sql` via `execute_sql` | rolled back, fixture users `@rls-test.invalid`. Every row must be `ok = true` |
 | Isolation HTTP | `node scripts/rls-fixtures-sql.mjs fixtures.json > provision.sql` → run `provision.sql` via `execute_sql` → `SUPABASE_URL=… SUPABASE_ANON_KEY=… RLS_FIXTURES=fixtures.json npm run test:rls-http` | Creates and deletes its own throwaway users. Afterwards check residue: `select count(*) from auth.users where email like '%@rls-test.invalid'` must be 0 |
+| SDK | `npm run test:sdk` (unit). `AXON_FIXTURES=fixtures.json npm run test:sdk-integration` (live, run **before** the HTTP suite, which deletes the fixture users) | |
 | Build | `npm run build` | needs `.env` with `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` |
 
 ## Migrations

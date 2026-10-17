@@ -24,8 +24,8 @@ There is one source of truth: Postgres. There is no separate graph or vector sto
 |---|---|---|
 | Web app | `src/` (React 19, Vite 8, react-router 7, three.js terrain) | Built to `dist/`. Both Pages projects serve **the same build**. `/` renders the landing page, except on the app host (`isAppHost()`), where it redirects into the app. `landing/` is a separate sub-project that is **not deployed** today |
 | Android | TWA shell around app.axon-memory.com (`ANDROID.md`) | A web deploy updates the phone. The APK is rebuilt only for icon, name or URL changes |
-| MCP gateway | `cloudflare/mcp-gateway/worker.js` | Path rewrites only: `/.well-known/oauth-*` → `oauth-metadata`, `/register`, `/authorize`, `/token` → `mcp-oauth-*`, `/health` → `mcp-server?health=1`, `/` → `mcp-server`. It has no auth logic. It forwards redirects with `redirect: "manual"` |
-| Edge functions | `supabase/functions/*` (23) | See the table below. Shared code is in `_shared/` |
+| MCP gateway | `cloudflare/mcp-gateway/worker.js` | Path rewrites only: `/v1/*` → `api-v1` (public REST API, A7-1), `/.well-known/oauth-*` → `oauth-metadata`, `/register`, `/authorize`, `/token` → `mcp-oauth-*`, `/health` → `mcp-server?health=1`, `/` → `mcp-server`. It has no auth logic. It forwards redirects with `redirect: "manual"` |
+| Edge functions | `supabase/functions/*` (24) | See the table below. Shared code is in `_shared/` |
 | Database | `supabase/migrations/*` | Repo migrations equal applied migrations. Prod assigns the version timestamp, and the repo file is renamed to match |
 | Scheduled jobs | pg_cron | `axon-sync-sources` */30 (cron-sync-sources), `axon-check-alerts` */5 (check-alerts), `sweep-rate-limit-buckets` 04:17, `capture-events-prune` 03:17 |
 | Billing | Stripe (`stripe-checkout`, `stripe-portal`, `stripe-webhook`) | Entitlement truth: `subscriptions` + `plan_features`, read through `user_plan_status`. Internal tier keys are `starter/pro/ultra/lifetime_founder`. `ultra` is shown as **Power** (`_shared/plans.ts` `PLAN_DISPLAY_NAMES`) |
@@ -35,6 +35,7 @@ There is one source of truth: Postgres. There is no separate graph or vector sto
 | Function | verify_jwt | Caller | Purpose |
 |---|---|---|---|
 | mcp-server | no (own Bearer auth) | AI clients via gateway | MCP JSON-RPC: tools/list, tools/call, unauthenticated `?health` |
+| api-v1 | no (own Bearer auth) | REST clients, SDK | Versioned public API `/v1` (`API.md`) |
 | context-pack | no (own Bearer auth) | REST, GPT actions | Ranked context pack (`buildContextPack`) |
 | remember | no (own Bearer auth) | REST, app, offline queue | Capture endpoint: idempotency, status, retry |
 | openapi-actions | no | ChatGPT actions | OpenAPI document |

@@ -14,7 +14,9 @@
     "test:sql": "node scripts/sql-suite.mjs",
     "test:worker": "node --test cloudflare/mcp-gateway/worker.test.mjs",
     "test:eval": "node scripts/sql-suite.mjs tests/eval/recall_eval.sql",
-    "test:naming": "node scripts/check-plan-names.mjs"
+    "test:naming": "node scripts/check-plan-names.mjs",
+    "test:sdk": "cd packages/sdk-ts && npm test",
+    "test:sdk-integration": "cd packages/sdk-ts && npm run test:integration"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.8",
