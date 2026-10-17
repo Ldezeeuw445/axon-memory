@@ -61,7 +61,7 @@
       "objective": "Add missing spec docs (ARCHITECTURE, MEMORY_MODEL, SECURITY, MCP, RUNBOOK, ACCEPTANCE, CLAUDE.md)",
       "phase": "A0",
       "priority": "P1",
-      "status": "queued",
+      "status": "done",
       "owner_agent": "grok-bot",
       "dependencies": [
         "A0-1"
@@ -70,18 +70,26 @@
         "All §36 docs exist and reflect live system"
       ],
       "files_or_services_touched": [
-        "docs/",
-        "CLAUDE.md"
+        "docs/ARCHITECTURE.md",
+        "docs/MEMORY_MODEL.md",
+        "docs/SECURITY.md",
+        "docs/MCP.md",
+        "docs/RUNBOOK.md",
+        "docs/ACCEPTANCE.md",
+        "CLAUDE.md",
+        "README.md"
       ],
-      "started_at": null,
-      "last_progress_at": null,
-      "attempts": 0,
-      "tests_run": [],
-      "build_result": null,
-      "deployment_result": null,
-      "verification_result": null,
+      "started_at": "2026-10-17T13:45:00+02:00",
+      "last_progress_at": "2026-10-17T14:10:00+02:00",
+      "attempts": 1,
+      "tests_run": [
+        "facts cross-checked against live: list_edge_functions (23, versions + verify_jwt), pg_class/pg_cron/pg_extension inventory (38 tables all RLS, 4 cron jobs), get_advisors security, mcp.axon-memory.com/health + oauth metadata, Pages domains"
+      ],
+      "build_result": "docs only",
+      "deployment_result": "none needed",
+      "verification_result": "All §36 docs present (OPERATING_MANUAL/PRODUCT_LANGUAGE/LEXICON in Docs/axon). ACCEPTANCE.md: §37 steps 2,3,5-11,15 automated; 1,4 partial; 12-14 open.",
       "blocker": null,
-      "next_action": "Write from this audit",
+      "next_action": "Keep docs in step per CLAUDE.md rule 7. New gaps found: OAuth advertises PKCE 'plain'; OAuth access tokens never expire (both untracked, proposed follow-ups).",
       "rollback_reference": "git revert"
     },
     {

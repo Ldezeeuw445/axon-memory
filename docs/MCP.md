@@ -1,0 +1,40 @@
+# AXON MCP (as live, 2026-10-17)
+
+Endpoint: **`https://mcp.axon-memory.com/`**. Transport is MCP Streamable HTTP (JSON-RPC over POST) and the protocol is `2025-06-18`. The Cloudflare Worker `axon-mcp-gateway` only routes. The server is the Supabase function `mcp-server` (`supabase/functions/mcp-server/index.ts`).
+
+## Authentication
+- Discovery: `/.well-known/oauth-protected-resource` and `/.well-known/oauth-authorization-server` (both served by `oauth-metadata`). An unauthenticated `tools/*` call gets 401 with `WWW-Authenticate: Bearer resource_metadata=…`.
+- OAuth 2.1: dynamic client registration `/register`, then `/authorize` (the user signs in and approves on app.axon-memory.com/connect/authorize through `mcp-oauth-consent`), then `/token` (authorization_code + PKCE). Scopes: `memory.read`, `memory.write`.
+- The access token is an `api_keys` row (only the SHA-256 is stored) carrying `oauth_client_id` and `scope`. Revoking it in the app disconnects that client.
+- Personal developer keys (`axon_live_…`, created in the app, Power plan or higher) work as Bearer tokens too. They have no scope, which means full access.
+- `initialize` and `notifications/*` need no auth (they carry no user data). `tools/list` and `tools/call` do.
+- Rate limit: 60 `tools/call` per minute per key (`take_rate_limit_token`). An over-limit call returns a tool error that says when to retry.
+
+## Health
+`GET https://mcp.axon-memory.com/health` is unauthenticated. It returns `{status, service, version, protocol, database, db_ms, tools[], time}` and contains no user data.
+
+## Tools
+Canonical lifecycle (spec §18), all scoped to the token's user:
+
+| Tool | Scope | What it does |
+|---|---|---|
+| `capture` (alias of `remember`) | write | Store a memory with provenance (channel `agent`, origin from the client label). Args: `content`, optional `title`, `project`, `facets`, `occurred_at`, `idempotency_key`. Returns the memory id, capture id and index state, or a visible failure with a capture id to retry |
+| `recall` (alias of `recall_context`) | read | Ranked context pack: profile, sources, entities and memories, each traced as memory / source / confidence / why it matched. Inferences come back separately and cite their memories. Args: `query`, `project`, `facets`, `limit_tokens` |
+| `supersede` | write | Replace an older memory with a newer one (`new_id`, or `content` to capture the replacement). The old one is kept as history and leaves recall |
+| `retire` | write | Take a memory out of active recall (reversible) |
+| `restore` | write | Bring a retired or superseded memory back |
+| `delete` | write | Permanent deletion with full propagation (`confirm: true` required) |
+| `capture_status` | read | 24-hour capture health plus failed and pending captures |
+| `retry_capture` | write | Retry a failed capture from its stored payload |
+
+Threads and context: `set_thread` (write), `list_projects`, `list_sources`.
+Work tracking (legacy "workspace" surface): `list_tasks`, `add_task`, `add_phase`, `mark_built`, `mark_tested`, `add_catch`, `list_work`, `claim_work`, `complete_work`.
+
+A read-only connection (scope without `memory.write`) gets a tool error on every write tool.
+
+## Tests
+- `scripts/rls-isolation-http.mjs`: MCP through the function URL **and** the public gateway, cross-tenant attempts on every lifecycle verb, capture idempotency and retry.
+- `supabase/functions/_shared/mcp-lifecycle.test.ts` and `cloudflare/mcp-gateway/worker.test.mjs`.
+
+## Changing it
+Do not guess transports or endpoints (spec §18). Bump `version` in the health payload when the tool surface changes, and update this file in the same PR.
