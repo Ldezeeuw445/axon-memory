@@ -50,7 +50,7 @@ export default function Login() {
       <div className="glass-card" style={{ maxWidth: 400, width: '90%', padding: '36px 32px' }}>
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <img src="/app-icon-1024.png" alt="AXON" style={{ width: 64, height: 64, borderRadius: 16, marginBottom: 12, boxShadow: '0 0 24px rgba(255,183,51,0.18)' }} />
+          <img src="/brand/axon-mark-256.webp" alt="AXON" width="64" height="64" fetchPriority="high" style={{ width: 64, height: 64, borderRadius: 16, marginBottom: 12, boxShadow: '0 0 24px rgba(255,183,51,0.18)' }} />
           <h1 className="gradient-text" style={{ fontSize: 24, fontWeight: 900, letterSpacing: '2px' }}>AXON</h1>
           <p style={{ color: 'var(--color-text-secondary)', fontSize: 13, marginTop: 3 }}>One memory. Every AI.</p>
         </div>

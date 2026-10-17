@@ -82,7 +82,7 @@ export default function Home() {
   return (
     <div className="hm-page" ref={page}>
       <header className={`hm-nav ${scrolled ? 'is-scrolled' : ''}`}>
-        <a href="#top" className="hm-brand"><img src="/app-icon-1024.png" alt="" width="28" height="28" /> AXON</a>
+        <a href="#top" className="hm-brand"><img src="/brand/axon-mark-96.webp" alt="" width="28" height="28" /> AXON</a>
         <nav className="hm-nav-links" aria-label="Sections">
           <a href="#how">How it works</a>
           <a href="#privacy">Privacy</a>

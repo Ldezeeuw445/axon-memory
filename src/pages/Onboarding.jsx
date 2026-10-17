@@ -99,7 +99,7 @@ export default function Onboarding() {
 
         {step === 0 && (
           <div style={{ textAlign: 'center' }}>
-            <img src="/app-icon-1024.png" alt="AXON" style={{ width: 80, height: 80, borderRadius: 18, marginBottom: 20, objectFit: 'cover' }} />
+            <img src="/brand/axon-mark-256.webp" alt="AXON" width="80" height="80" decoding="async" style={{ width: 80, height: 80, borderRadius: 18, marginBottom: 20, objectFit: 'cover' }} />
             <h2 style={{ fontSize: 28, fontWeight: 800, marginBottom: 8 }} className="gradient-text">Welcome to AXON</h2>
             <p style={{ color: 'var(--color-text-secondary)', marginBottom: 28, lineHeight: 1.6 }}>
               The universal AI memory layer. Connect once, and every AI tool you use gets instant access to your knowledge.

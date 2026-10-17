@@ -21,7 +21,7 @@ export default function Splash() {
           overflow: 'hidden', boxShadow: '0 0 40px rgba(0,243,255,0.25), 0 0 80px rgba(191,111,255,0.15)',
           animation: 'pulse 2.2s ease-in-out infinite',
         }}>
-          <img src="/app-icon-1024.png" alt="AXON" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img src="/brand/axon-mark-256.webp" alt="AXON" width="100" height="100" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
 
         <div style={{ textAlign: 'center' }}>

@@ -153,7 +153,7 @@ export default function AppShell() {
       <div style={{ position: 'absolute', inset: 0, zIndex: 10 }}>
         <header style={{ position: 'absolute', top: 'calc(14px + env(safe-area-inset-top))', left: isMobile ? 16 : 28, right: isMobile ? 16 : 28, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 200 }}>
           <button onClick={() => toggle(null)} style={{ all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }} aria-label="Your Core">
-            <img src="/axon_logo.png" alt="" style={{ width: 34, height: 34, borderRadius: 9 }} />
+            <img src="/brand/axon-mark-96.webp" alt="" width="34" height="34" style={{ width: 34, height: 34, borderRadius: 9 }} />
             <span className="title-text" style={{ fontSize: 14, letterSpacing: '0.22em', fontWeight: 600 }}>AXON</span>
           </button>
           {!isMobile && (
