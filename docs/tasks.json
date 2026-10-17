@@ -67,7 +67,7 @@
         "A0-1"
       ],
       "acceptance_criteria": [
-        "All \u00a736 docs exist and reflect live system"
+        "All §36 docs exist and reflect live system"
       ],
       "files_or_services_touched": [
         "docs/",
@@ -239,7 +239,7 @@
       "objective": "Adversarial tenant isolation suite (rows, RPC, semantic, threads, MCP, API, export)",
       "phase": "A5",
       "priority": "P0",
-      "status": "queued",
+      "status": "done",
       "owner_agent": "grok-bot",
       "dependencies": [
         "A0-1"
@@ -249,17 +249,23 @@
       ],
       "files_or_services_touched": [
         "tests/rls/",
-        "scripts/"
+        "scripts/rls-isolation.mjs",
+        "scripts/rls-isolation-http.mjs",
+        "scripts/rls-fixtures-sql.mjs",
+        ".github/workflows/ci.yml"
       ],
-      "started_at": null,
-      "last_progress_at": null,
-      "attempts": 0,
-      "tests_run": [],
-      "build_result": null,
+      "started_at": "2026-10-17T11:50:00+02:00",
+      "last_progress_at": "2026-10-17T12:30:00+02:00",
+      "attempts": 1,
+      "tests_run": [
+        "tests/rls/isolation.sql on prod (rolled back): 175/175 leak checks pass, 0 leaks; 6 integrity + 6 hygiene findings → fixed in A5-4/A5-2; 220/220 after",
+        "scripts/rls-isolation-http.mjs on prod (disposable users): 84/84 before and after migrations, zero residue"
+      ],
+      "build_result": "npm run lint (warnings only, pre-existing) + npm run build OK",
       "deployment_result": null,
-      "verification_result": null,
-      "blocker": null,
-      "next_action": "Two disposable test users; run against prod read paths",
+      "verification_result": "No tenant-isolation leak found on any path: rows, views, joins, RPC, semantic recall, threads, relationships, storage, REST, context-pack API, remember API, MCP (direct + gateway), delete-account. Exports: no endpoint exists yet (case reserved).",
+      "blocker": "CI job added (tenant-isolation) but GitHub Actions does not start (A0-2) and secrets SUPABASE_DB_URL / SUPABASE_SERVICE_ROLE_KEY are not set in the repo; suite runs on the box meanwhile.",
+      "next_action": "Owner: enable Actions + add SUPABASE_DB_URL secret; add export case when data export ships.",
       "rollback_reference": "git revert"
     },
     {
@@ -268,7 +274,7 @@
       "objective": "Fix advisor findings: revoke anon EXECUTE on SECURITY DEFINER fns, move extension out of public, document deny-all tables",
       "phase": "A5",
       "priority": "P0",
-      "status": "queued",
+      "status": "done",
       "owner_agent": "grok-bot",
       "dependencies": [
         "A5-1"
@@ -277,17 +283,21 @@
         "get_advisors security clean or documented exceptions"
       ],
       "files_or_services_touched": [
-        "supabase/migrations"
+        "supabase/migrations/20261017095946_revoke_trigger_secdef_execute.sql",
+        "tests/rls/README.md"
       ],
-      "started_at": null,
-      "last_progress_at": null,
-      "attempts": 0,
-      "tests_run": [],
+      "started_at": "2026-10-17T12:10:00+02:00",
+      "last_progress_at": "2026-10-17T12:30:00+02:00",
+      "attempts": 1,
+      "tests_run": [
+        "tests/rls/isolation.sql dry-run with migration (rolled back) 220/220, then on prod after apply 220/220",
+        "HTTP suite 84/84 after apply"
+      ],
       "build_result": null,
-      "deployment_result": null,
-      "verification_result": null,
+      "deployment_result": "Applied to prod ktaditgtbubonrahyiig as 20261017095946",
+      "verification_result": "get_advisors security: 0 SECURITY DEFINER findings. Remaining documented exceptions: deny-all tables (service-role only), vector in public (moving breaks semantic recall), leaked-password protection (A5-3).",
       "blocker": null,
-      "next_action": "Additive REVOKE migration (tightens security only)",
+      "next_action": "None",
       "rollback_reference": "git revert"
     },
     {
@@ -315,6 +325,38 @@
       "blocker": "Auth setting may require dashboard",
       "next_action": "Dashboard-only setting; owner or MCP if supported",
       "rollback_reference": "git revert"
+    },
+    {
+      "id": "A5-4",
+      "product": "axon-memory",
+      "objective": "Block cross-tenant parent references (rows pointing at another user's workspace/project/entity/key)",
+      "phase": "A5",
+      "priority": "P0",
+      "status": "done",
+      "owner_agent": "grok-bot",
+      "dependencies": [
+        "A5-1"
+      ],
+      "acceptance_criteria": [
+        "Authenticated user cannot insert/update rows whose parent belongs to another user",
+        "Legit own-data writes unaffected"
+      ],
+      "files_or_services_touched": [
+        "supabase/migrations/20261017095947_tenant_parent_ownership_checks.sql"
+      ],
+      "started_at": "2026-10-17T12:10:00+02:00",
+      "last_progress_at": "2026-10-17T12:30:00+02:00",
+      "attempts": 1,
+      "tests_run": [
+        "isolation.sql integrity section 6/6 + legit-write control, before and after apply",
+        "HTTP suite 84/84"
+      ],
+      "build_result": "n/a (SQL only)",
+      "deployment_result": "Applied to prod as 20261017095947 (restrictive RLS policies, additive)",
+      "verification_result": "Found by A5-1: A could plant tasks/catch/work in B's workspace and file memories/threads/links under B's project/entity if it knew B's uuid; service-role MCP reads by workspace_id would have surfaced planted tasks to B's assistants. Zero such rows existed in prod. Now refused.",
+      "blocker": null,
+      "next_action": "None",
+      "rollback_reference": "drop the *_parent_owned_* / *_keys_owned_* policies"
     },
     {
       "id": "A6-1",
@@ -491,7 +533,7 @@
     {
       "id": "A11-1",
       "product": "axon-memory",
-      "objective": "Plan naming Ultra\u2192Power (display only, keep internal key)",
+      "objective": "Plan naming Ultra→Power (display only, keep internal key)",
       "phase": "A11",
       "priority": "P1",
       "status": "queued",
@@ -562,7 +604,7 @@
         "A0-2"
       ],
       "acceptance_criteria": [
-        "All suites green; acceptance flow \u00a737 passes end-to-end"
+        "All suites green; acceptance flow §37 passes end-to-end"
       ],
       "files_or_services_touched": [
         "scripts/",

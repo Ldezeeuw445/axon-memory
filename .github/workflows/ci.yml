@@ -60,3 +60,32 @@ jobs:
             exit 0
           fi
           node scripts/smoke-test.mjs
+
+  tenant-isolation:
+    name: Tenant isolation (spec §17 release gate)
+    runs-on: ubuntu-latest
+    if: ${{ github.repository_owner == github.event.pull_request.head.repo.owner.login || github.event_name == 'push' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Database layer: one transaction, throwaway fixtures, ROLLBACK. Needs
+      # the SUPABASE_DB_URL secret (Settings -> Database -> connection string).
+      - name: RLS / RPC / semantic / storage isolation (SQL, rolled back)
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then echo "::warning::SUPABASE_DB_URL secret not set — SQL isolation suite skipped."; exit 0; fi
+          sudo apt-get install -y -qq postgresql-client >/dev/null
+          node scripts/rls-isolation.mjs
+      # Network layer: PostgREST, Storage, context-pack, remember, MCP (direct
+      # + gateway), delete-account. Two disposable users, deleted at the end.
+      - name: REST / API / MCP isolation (live, disposable users)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then echo "::warning::Supabase secrets not set — HTTP isolation suite skipped."; exit 0; fi
+          node scripts/rls-isolation-http.mjs

@@ -9,7 +9,9 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "deno test supabase/functions/_shared/*.test.ts",
-    "smoke-test": "node scripts/smoke-test.mjs"
+    "smoke-test": "node scripts/smoke-test.mjs",
+    "test:rls": "node scripts/rls-isolation.mjs",
+    "test:rls-http": "node scripts/rls-isolation-http.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.8",
