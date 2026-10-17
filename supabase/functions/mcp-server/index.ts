@@ -19,7 +19,7 @@
 // Public: this is the gateway every assistant and tool talks to.
 import { handlePublicPreflight as handlePreflight, publicCorsHeaders } from "../_shared/cors.ts";
 import { supabaseAdmin } from "../_shared/supabase-admin.ts";
-import { sourceLabelFor, resolveBearerToken } from "../_shared/mcp-auth.ts";
+import { planRefusal, sourceLabelFor, resolveBearerToken } from "../_shared/mcp-auth.ts";
 import { buildContextPack, rememberMemory, listSourcesForUser, resolveProjectId } from "../_shared/memory-core.ts";
 import { addCatch, addPhase, addTask, listTasks, markTask, listWork, claimWork, completeWork } from "../_shared/workspace.ts";
 import { mcpOrigin } from "../_shared/oauth.ts";
@@ -375,6 +375,12 @@ Deno.serve(async (req: Request) => {
   const resolved = await resolveBearerToken(req);
   if (!resolved) {
     return unauthorized(cors, !!req.headers.get("authorization"));
+  }
+  // A11-3: the plan is re-read on every call; a downgraded account's AI gets a
+  // clear answer instead of silently keeping access granted under a plan it left.
+  const refusal = planRefusal(resolved);
+  if (refusal) {
+    return new Response(JSON.stringify({ jsonrpc: "2.0", id: id ?? null, error: { code: -32002, message: refusal.message, data: { error: refusal.error } } }), { status: refusal.status, headers: { ...cors, "Content-Type": "application/json" } });
   }
 
   if (method === "tools/list") {

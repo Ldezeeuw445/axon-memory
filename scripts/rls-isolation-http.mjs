@@ -461,28 +461,53 @@ async function main() {
     }
 
     // ── Entitlement truth (A11-2): the plan can only change server-side ──
-    {
-      const planOf = async () => (await j(await rest(jwtA, `user_plan_status?select=plan_tier,has_api_access,has_axon_ai&user_id=eq.${a.id}`)))?.[0];
+    if (fx.c) {
+      // C is the Starter fixture (A and B are on Power so their keys pass the per-call plan check).
+      const c = fx.c;
+      const jwtC = await login(c);
+      const planOf = async () => (await j(await rest(jwtC, `user_plan_status?select=plan_tier,has_api_access,has_axon_ai&user_id=eq.${c.id}`)))?.[0];
       const before = await planOf();
-      check('control', 'entitlement: A reads its own plan status (starter)', before?.plan_tier === 'starter' && before?.has_api_access === false, JSON.stringify(before));
-      const up = await rest(jwtA, `profiles?id=eq.${a.id}`, { method: 'PATCH', body: JSON.stringify({ plan_tier: 'lifetime_founder' }), headers: { Prefer: 'return=minimal' } });
+      check('control', 'entitlement: C reads its own plan status (starter)', before?.plan_tier === 'starter' && before?.has_api_access === false, JSON.stringify(before));
+      const up = await rest(jwtC, `profiles?id=eq.${c.id}`, { method: 'PATCH', body: JSON.stringify({ plan_tier: 'lifetime_founder' }), headers: { Prefer: 'return=minimal' } });
       await up.body?.cancel();
-      const cust = await rest(jwtA, `profiles?id=eq.${a.id}`, { method: 'PATCH', body: JSON.stringify({ stripe_customer_id: 'cus_forged', stripe_subscription_id: 'sub_forged' }), headers: { Prefer: 'return=minimal' } });
+      const cust = await rest(jwtC, `profiles?id=eq.${c.id}`, { method: 'PATCH', body: JSON.stringify({ stripe_customer_id: 'cus_forged', stripe_subscription_id: 'sub_forged' }), headers: { Prefer: 'return=minimal' } });
       await cust.body?.cancel();
-      const pf = await rest(jwtA, 'plan_features?tier=eq.starter&feature_key=eq.api_access', { method: 'PATCH', body: JSON.stringify({ enabled: true }), headers: { Prefer: 'return=representation' } });
+      const pf = await rest(jwtC, 'plan_features?tier=eq.starter&feature_key=eq.api_access', { method: 'PATCH', body: JSON.stringify({ enabled: true }), headers: { Prefer: 'return=representation' } });
       const pfBody = await j(pf);
-      const pfIns = await rest(jwtA, 'plan_features', { method: 'POST', body: JSON.stringify({ tier: 'starter', feature_key: 'rls_forged', enabled: true }) });
+      const pfIns = await rest(jwtC, 'plan_features', { method: 'POST', body: JSON.stringify({ tier: 'starter', feature_key: 'rls_forged', enabled: true }) });
       await pfIns.body?.cancel();
-      const subIns = await rest(jwtA, 'subscriptions', { method: 'POST', body: JSON.stringify({ user_id: a.id, status: 'active', plan: 'ultra', stripe_customer_id: 'cus_forged' }) });
+      const subIns = await rest(jwtC, 'subscriptions', { method: 'POST', body: JSON.stringify({ user_id: c.id, status: 'active', plan: 'ultra', stripe_customer_id: 'cus_forged' }) });
       await subIns.body?.cancel();
       const after = await planOf();
-      check('billing', 'entitlement: A cannot raise its own plan_tier', !up.ok && after?.plan_tier === 'starter', `status ${up.status} → ${after?.plan_tier}`);
-      check('billing', 'entitlement: A cannot forge Stripe ids on its profile', !cust.ok, `status ${cust.status}`);
-      check('billing', 'entitlement: A cannot change the plan_features matrix', (!pf.ok || (Array.isArray(pfBody) && pfBody.length === 0)) && !pfIns.ok && after?.has_api_access === false, `patch ${pf.status} insert ${pfIns.status}`);
-      check('billing', 'entitlement: A cannot write its own subscription row', !subIns.ok, `status ${subIns.status}`);
-      const key = await fn(jwtA, 'api-keys-create', { name: 'rls starter key' });
+      check('billing', 'entitlement: C cannot raise its own plan_tier', !up.ok && after?.plan_tier === 'starter', `status ${up.status} → ${after?.plan_tier}`);
+      check('billing', 'entitlement: C cannot forge Stripe ids on its profile', !cust.ok, `status ${cust.status}`);
+      check('billing', 'entitlement: C cannot change the plan_features matrix', (!pf.ok || (Array.isArray(pfBody) && pfBody.length === 0)) && !pfIns.ok && after?.has_api_access === false, `patch ${pf.status} insert ${pfIns.status}`);
+      check('billing', 'entitlement: C cannot write its own subscription row', !subIns.ok, `status ${subIns.status}`);
+      const key = await fn(jwtC, 'api-keys-create', { name: 'rls starter key' });
       check('billing', 'entitlement: server refuses a personal key on Starter (402/403)', key.status === 402 || key.status === 403, `status ${key.status}`);
       await key.body?.cancel();
+      // A11-3: the plan is checked on every call, not only when access was granted.
+      const v1c = await fetch(`${GATEWAY}/v1/recall`, { method: 'POST', headers: { Authorization: `Bearer ${c.apiKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ query: 'x' }) });
+      const v1b = await j(v1c);
+      check('billing', 'per call: a Starter personal key is refused by /v1 (402 plan_required)', v1c.status === 402 && JSON.stringify(v1b).includes('plan_required'), `status ${v1c.status}`);
+      const mk = await mcp(GATEWAY, c.apiKey, 'tools/list', {});
+      check('billing', 'per call: a Starter personal key is refused by MCP (402)', mk.status === 402, `status ${mk.status}`);
+      await mk.body?.cancel?.();
+      const mo = await mcp(GATEWAY, c.oauthKey, 'tools/list', {});
+      const moBody = await j(mo);
+      check('billing', 'per call: a Starter OAuth token is refused by MCP with a plan message (402)', mo.status === 402 && /not part of Starter/.test(JSON.stringify(moBody)), `status ${mo.status}`);
+      const rem = await fn(c.apiKey, 'remember', { content: 'rls starter remember' });
+      check('billing', 'per call: a Starter key cannot write through remember (402)', rem.status === 402, `status ${rem.status}`);
+      await rem.body?.cancel();
+      const cp = await fn(c.oauthKey, 'context-pack', {});
+      check('billing', 'per call: a Starter token cannot read a context pack (402)', cp.status === 402, `status ${cp.status}`);
+      await cp.body?.cancel();
+      const aOk = await fetch(`${GATEWAY}/v1/recall`, { method: 'POST', headers: { Authorization: `Bearer ${a.apiKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ query: 'x' }) });
+      check('control', 'per call: a Power personal key still works on /v1', aOk.ok, `status ${aOk.status}`);
+      await aOk.body?.cancel();
+      const cDel = await fn(jwtC, 'delete-account', {});
+      check('control', 'C deletes own account (cleanup)', cDel.ok, `status ${cDel.status}`);
+      await cDel.body?.cancel();
     }
 
     // ── MCP OAuth (A5-4 PKCE S256-only, A5-5 expiry + refresh, grandfathering) ──

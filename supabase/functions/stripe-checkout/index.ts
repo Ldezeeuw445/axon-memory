@@ -11,6 +11,7 @@
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { PLANS, isValidTier } from "../_shared/plans.ts";
+import { checkoutRefusal } from "../_shared/billing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -63,12 +64,19 @@ Deno.serve(async (req) => {
 
     const { data: profile, error: profileErr } = await supabase
       .from("profiles")
-      .select("id, stripe_customer_id, email")
+      .select("id, stripe_customer_id, email, plan_tier")
       .eq("id", user.id)
       .single();
 
     if (profileErr || !profile) {
       return json({ error: "Profile not found for this user" }, 404);
+    }
+
+    // A11-3: a Lifetime member is never sent to a checkout (no Stripe call is
+    // made, no customer created). 409 with a sentence the app can show as is.
+    const refusal = checkoutRefusal(profile.plan_tier as string | null, tier);
+    if (refusal) {
+      return json({ error: "already_lifetime", message: refusal }, 409);
     }
 
     // Reuse an existing Stripe customer, or create one and persist it.

@@ -20,6 +20,8 @@ export default function Subscription() {
   const cancelled = location.pathname.endsWith('/cancel');
 
   const currentTier = plan.status?.plan_tier || 'starter';
+  // Lifetime already includes every plan; the server refuses a checkout too (A11-3).
+  const hasLifetime = currentTier === 'lifetime_founder';
 
   const handleSubscribe = async (tier) => {
     if (isDemo) { setError('Connect Supabase to enable real billing.'); return; }
@@ -118,6 +120,10 @@ export default function Subscription() {
                 {isCurrent ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '11px', background: 'rgba(37,194,160,0.1)', borderRadius: '10px', color: '#25c2a0', fontWeight: 700, justifyContent: 'center' }}>
                     <CheckCircle size={16} /> Active
+                  </div>
+                ) : hasLifetime ? (
+                  <div style={{ padding: '11px', borderRadius: '10px', textAlign: 'center', fontSize: '13px', color: 'var(--color-text-secondary)', background: 'rgba(255,255,255,0.04)' }}>
+                    Included in your Lifetime plan
                   </div>
                 ) : (
                   <button

@@ -1,7 +1,6 @@
 /**
- * A11-2 — PROPOSED Stripe → entitlement reducer. Not wired into
- * stripe-webhook: changing how the live webhook writes plans changes live
- * billing behaviour and waits for Luka's approval (docs/BILLING.md).
+ * Stripe → entitlement reducer (A11-2, wired into stripe-webhook in A11-3
+ * after Luka's approval on 2026-10-17; docs/BILLING.md).
  *
  * Pure: given the profile as stored, the event, and what has already been
  * processed, it returns the profile patch to write, or null for "nothing to
@@ -84,4 +83,16 @@ export function decide(
     default:
       return { action: "skip", reason: "event type not handled" };
   }
+}
+
+/**
+ * A11-3 — refuse a checkout that can only take money for nothing. A Lifetime
+ * member already has every feature for good: a subscription on top would bill
+ * them monthly for what they own, and a second Lifetime would charge twice.
+ */
+export function checkoutRefusal(current: string | null | undefined, requested: PlanTier): string | null {
+  if (current !== "lifetime_founder") return null;
+  return requested === "lifetime_founder"
+    ? "You already have Lifetime. There is nothing more to buy."
+    : "You have Lifetime, which already includes everything in every plan. No subscription is needed.";
 }

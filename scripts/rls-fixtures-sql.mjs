@@ -11,7 +11,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 const out = process.argv[2] ?? '/tmp/rls-fixtures.json';
 const fx = {};
 let sql = 'begin;\n';
-for (const who of ['a', 'b']) {
+for (const who of ['a', 'b', 'c']) {
   const id = randomUUID();
   const email = `rlshttp${who}${randomBytes(6).toString('hex')}@rls-test.invalid`;
   const password = `R1s!${randomBytes(12).toString('hex')}`;
@@ -88,6 +88,18 @@ values ('${ids.stuck}', '${a.id}', 'gmail', 'syncing', '${a.connectors.label}', 
        ('${ids.bConn}', '${b.id}', 'github', 'syncing', '${a.connectors.bLabel}', 'rls-${tag}-4', null, now(), null, null, 0, null, null);
 insert into public.memory_items (user_id, source_type, content_type, title, content, source_connection_id, external_id, origin_key)
 values ('${a.id}', 'gmail', 'email', 'rls connector item ${tag}', 'imported via rls connector ${tag}', '${ids.stuck}', 'rls-ext-${tag}', 'gmail');
+`;
+}
+// A11-3: plans are checked on every key/token call. A and B run the isolation
+// suites, so they get Power (every feature); C stays on Starter and holds a
+// personal key plus an OAuth token, to prove both are refused per call.
+{
+  const sha = (v) => createHash('sha256').update(v).digest('hex');
+  const c = fx.c;
+  c.oauthKey = `axon_live_${randomBytes(24).toString('hex')}`;
+  sql += `update public.profiles set plan_tier = 'ultra' where id in ('${fx.a.id}', '${fx.b.id}');
+insert into public.api_keys (user_id, name, key_prefix, key_hash, oauth_client_id, scope, access_expires_at)
+values ('${c.id}', 'rls-test starter oauth', '${c.oauthKey.slice(0, 14)}', '${sha(c.oauthKey)}', '${fx.a.oauth.clientId}', 'memory.read memory.write', now() + interval '1 hour');
 `;
 }
 sql += 'commit;\n';

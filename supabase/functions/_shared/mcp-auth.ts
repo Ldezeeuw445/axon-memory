@@ -6,6 +6,7 @@
 import { supabaseAdmin } from "./supabase-admin.ts";
 import { sha256Hex } from "./crypto.ts";
 import { accessTokenExpired } from "./oauth.ts";
+import { entitlementFor, planMessage, type Entitlement } from "./entitlement.ts";
 
 export type ResolvedKey = {
   userId: string;
@@ -22,7 +23,15 @@ export type ResolvedKey = {
    * called KEY 1 is worse than filing them as anonymous.
    */
   viaOauthClient: boolean;
+  /** A11-3: whether the owner's plan still includes this kind of access, read on every call. */
+  entitlement: Entitlement;
 };
+
+/** The one refusal every key-authenticated function returns when the plan says no (402, like api-keys-create). */
+export function planRefusal(resolved: ResolvedKey): { status: 402; error: "plan_required"; message: string } | null {
+  if (resolved.entitlement.entitled) return null;
+  return { status: 402, error: "plan_required", message: planMessage(resolved.entitlement) };
+}
 
 export function bearerFromRequest(req: Request): string | null {
   const header = req.headers.get("authorization") ?? req.headers.get("Authorization");
@@ -49,7 +58,12 @@ export async function resolveBearerToken(req: Request): Promise<ResolvedKey | nu
   // an OAuth client to use its refresh token.
   if (accessTokenExpired(data.access_expires_at)) return null;
 
-  await admin.from("api_keys").update({ last_used_at: new Date().toISOString() }).eq("id", data.id);
+  const [, plan] = await Promise.all([
+    admin.from("api_keys").update({ last_used_at: new Date().toISOString() }).eq("id", data.id),
+    admin.from("user_plan_status").select("plan_tier, has_axon_ai, has_api_access").eq("user_id", data.user_id).maybeSingle(),
+  ]);
+  if (plan.error) console.error("plan read failed; keeping access granted at consent/creation", plan.error.message);
+  const entitlement = entitlementFor(plan.data ?? null, !!data.oauth_client_id, !!plan.error);
 
   return {
     userId: data.user_id,
@@ -57,6 +71,7 @@ export async function resolveBearerToken(req: Request): Promise<ResolvedKey | nu
     scope: data.scope,
     clientLabel: data.name,
     viaOauthClient: !!data.oauth_client_id,
+    entitlement,
   };
 }
 

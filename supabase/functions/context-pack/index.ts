@@ -9,7 +9,7 @@
 import { handlePublicPreflight as handlePreflight, publicJsonResponse as jsonResponse } from "../_shared/cors.ts";
 import { getUserFromRequest } from "../_shared/auth.ts";
 import { supabaseAdmin } from "../_shared/supabase-admin.ts";
-import { resolveBearerToken } from "../_shared/mcp-auth.ts";
+import { planRefusal, resolveBearerToken } from "../_shared/mcp-auth.ts";
 import { buildContextPack } from "../_shared/memory-core.ts";
 
 async function resolveUser(req: Request) {
@@ -22,7 +22,7 @@ async function resolveUser(req: Request) {
 
   const resolved = await resolveBearerToken(req);
   if (!resolved) return null;
-  return { userId: resolved.userId, apiKeyId: resolved.apiKeyId, clientLabel: resolved.clientLabel };
+  return { userId: resolved.userId, apiKeyId: resolved.apiKeyId, clientLabel: resolved.clientLabel, refusal: planRefusal(resolved) };
 }
 
 Deno.serve(async (req: Request) => {
@@ -32,6 +32,7 @@ Deno.serve(async (req: Request) => {
 
   const identity = await resolveUser(req);
   if (!identity) return jsonResponse({ error: "Unauthorized" }, { status: 401, origin });
+  if ("refusal" in identity && identity.refusal) return jsonResponse({ error: identity.refusal.error, message: identity.refusal.message }, { status: identity.refusal.status, origin });
 
   const url = new URL(req.url);
 
