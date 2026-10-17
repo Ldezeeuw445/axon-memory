@@ -14,9 +14,10 @@ A user must never retrieve another user's Memory. Any failing isolation check bl
 | Suite | What | Last result |
 |---|---|---|
 | `tests/rls/isolation.sql` | rolled back. Rows, joins, views, RPCs, semantic + keyword recall, threads, relations, storage, exports, hygiene (no anon-executable SECDEF) | 240/240 |
-| `scripts/rls-isolation-http.mjs` | live HTTP with throwaway `@rls-test.invalid` users: PostgREST, RPC, Storage, context-pack, MCP (function + gateway), lifecycle verbs, capture, exports, account deletion | 130/130 |
+| `scripts/rls-isolation-http.mjs` | live HTTP with throwaway `@rls-test.invalid` users: PostgREST, RPC, Storage, context-pack, MCP (function + gateway), OAuth (PKCE, refresh, expiry, grandfathering), lifecycle verbs, capture, exports, account deletion | 150/150 |
 
 ## Secrets and tokens
+- MCP OAuth (A5-4/A5-5): PKCE is **S256 only**, and public clients must send it. Before `plain` was removed, every stored grant was checked: all 13 used S256. New grants get a 24 h access token (`expires_in`) plus a rotating refresh token (90 days, bound to the client, single use, compare-and-swap rotation). An expired token gets `401 WWW-Authenticate: Bearer error="invalid_token"`. Tokens issued earlier have `access_expires_at = NULL` and keep working (grandfathered). TTLs can be overridden with `OAUTH_ACCESS_TTL_SECONDS` / `OAUTH_REFRESH_TTL_SECONDS`.
 - API keys and OAuth access tokens: only `sha256(token)` and a prefix are stored (`api_keys`). Revoked via `revoked_at`.
 - Connector OAuth tokens: AES-GCM at rest with the `ENCRYPTION_KEY` project secret (`_shared/crypto.ts`).
 - Stripe webhook: signature verified (`constructEventAsync`) before anything is processed.
@@ -34,8 +35,7 @@ MCP `tools/call`: 60 per minute per key. Capture payload limits and validation a
 ## Known gaps (tracked, not yet fixed)
 | Gap | Risk | Task |
 |---|---|---|
-| OAuth metadata advertises PKCE `plain` alongside `S256` | A weaker challenge method is accepted if a client asks for it (`_shared/oauth.ts`) | not yet tracked (proposed follow-up) |
-| OAuth access tokens do not expire (revocation only) | A leaked token stays valid until revoked | not yet tracked (proposed follow-up) |
+| The 13 OAuth tokens issued before A5-5 have no expiry (kept on purpose so no connected client is cut off) | A leaked old token stays valid until revoked | Reconnecting the client replaces it with an expiring one. Force-expiring them needs Luka's approval |
 | Leaked-password protection disabled in Supabase Auth (advisor WARN) | Weak or breached passwords are accepted | A5-3 (waiting for Luka's approval) |
 | `vector` extension lives in `public` (advisor WARN) | Cosmetic. Moving it would rewrite dependent columns, so it is left alone | none (would be destructive) |
 | CI billing-locked | No automatic gate on main. All verification is manual (see `RUNBOOK.md`) | A0-2 |
