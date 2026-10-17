@@ -445,6 +445,17 @@ async function main() {
       const afterById = Object.fromEntries((after.body?.connectors ?? []).map((c) => [c.id, c]));
       check('connector', 'after revoke the connector reads disconnected', afterById[cx.unsupported]?.health === 'disconnected', afterById[cx.unsupported]?.health);
       check('connector', "A's other connector untouched by B's revoke attempt", afterById[cx.stuck]?.health === 'stuck' && afterById[cx.stuck]?.status === 'syncing', afterById[cx.stuck]?.status);
+      // A8-3 repository picker: same ownership rules as sync/disconnect.
+      const gr = (jwt, q) => fn(jwt, `github-repos${q}`, null, 'GET');
+      check('connector', "github-repos: A GET <B's connection> → 404", (await gr(jwtA, `?connection_id=${cx.bConn}`)).status === 404);
+      const grPost = await fn(jwtA, 'github-repos', { connection_id: cx.bConn, repos: [] });
+      check('connector', "github-repos: A POST choice on <B's connection> → 404", grPost.status === 404, `status ${grPost.status}`);
+      const grOwnNoToken = await gr(jwtB, `?connection_id=${cx.bConn}`);
+      check('connector', 'github-repos: own connection without access → 409 reconnect, nothing guessed', grOwnNoToken.status === 409 && (await j(grOwnNoToken))?.error === 'reconnect', `status ${grOwnNoToken.status}`);
+      check('control', 'github-repos: non-GitHub connection → 404', (await gr(jwtA, `?connection_id=${cx.stuck}`)).status === 404);
+      check('control', 'github-repos: bad id → 400', (await gr(jwtA, '?connection_id=nope')).status === 400);
+      const grAnon = await fetch(`${URL_}/functions/v1/github-repos?connection_id=${cx.bConn}`);
+      check('connector', 'github-repos: no session → 401', grAnon.status === 401, `status ${grAnon.status}`);
       const { body: lbb } = await getList(jwtB);
       check('control', 'B lists its own connector and none of A\'s', (lbb?.connectors ?? []).some((c) => c.id === cx.bConn) && !has(lbb, [cx.label, cx.stuck]));
     }
