@@ -7,6 +7,7 @@ import { axon } from '../../lib/axonApi';
 import { FacetHead, MemoryCard, Settling, Paused, ago, providerName } from '../../components/app/ui';
 import FirstRecall from '../../components/app/FirstRecall';
 import { useVoice } from '../../components/app/useVoice';
+import { haptic } from '../../lib/haptics';
 
 /**
  * Home. One dominant way in — Recall — and below it what AXON is holding right
@@ -82,6 +83,7 @@ export default function RecallFacet({ onOpen }) {
     try {
       const r = await axon.recall({ query: query.trim() || undefined, facets: f ? [f] : undefined, limit: 20 });
       setResult(r);
+      haptic('tap');
     } catch (e) {
       setErr(e.status === 0 ? 'No connection right now. Recall works again the moment it returns.' : e.message);
     } finally { setBusy(false); }
@@ -90,7 +92,8 @@ export default function RecallFacet({ onOpen }) {
   const toggleFacet = (f) => { const next = facet === f ? null : f; setFacet(next); if (next || q.trim()) runRecall(q, next); else setResult(null); };
   const clear = () => { setQ(''); setFacet(null); setResult(null); setErr(null); inputRef.current?.focus(); };
   const firstName = (profile?.full_name || user?.user_metadata?.full_name || '').split(' ')[0];
-  const showing = !!result || busy;
+  // An error is shown in place of results (it was set but never rendered: offline recall looked like nothing happened).
+  const showing = !!result || busy || !!err;
 
   return (
     <div className="ax-facet">
@@ -98,7 +101,7 @@ export default function RecallFacet({ onOpen }) {
 
       <form className="ax-recall" onSubmit={(e) => { e.preventDefault(); runRecall(); }} role="search">
         <Search size={18} color="rgba(255,255,255,0.4)" />
-        <input ref={inputRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder="A decision, a person, a detail…" aria-label="Recall" enterKeyHint="search" />
+        <input ref={inputRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder="A decision, a person…" aria-label="Recall" enterKeyHint="search" />
         {(q || result) && <button type="button" className="ax-icon-btn" onClick={clear} aria-label="Clear"><X size={17} /></button>}
         {voice.supported && (
           <button type="button" className={`ax-icon-btn${voice.listening ? ' is-live' : ''}`} onClick={voice.toggle} aria-label={voice.listening ? 'Stop listening' : 'Speak'}><Mic size={18} /></button>

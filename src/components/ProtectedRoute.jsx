@@ -3,11 +3,14 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function ProtectedRoute({ children }) {
-  const { user, loading } = useAuth();
+  const { user, loading, recovering } = useAuth();
   const location = useLocation();
 
   // The void while the stored session is read (a few ms). No spinner, by canon.
   if (loading) return <div className="full-screen" style={{ background: '#020203' }} />;
+
+  // Arrived from a reset mail: choose the new password before anything else.
+  if (user && recovering) return <Navigate to="/login?mode=reset" replace />;
 
   if (!user) {
     // Preserve full path + query so flows like the MCP OAuth consent screen

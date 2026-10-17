@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { useLocation } from 'react-router-dom';
-import { CheckCircle, Zap, Shield, Cpu, Plug, Smartphone, Crown, AlertTriangle } from 'lucide-react';
+import { useLocation, Link } from 'react-router-dom';
+import { CheckCircle, Zap, Shield, Cpu, Plug, Smartphone, Crown, AlertTriangle, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { usePlan } from '../hooks/usePlan';
 import { callFunction } from '../lib/functions';
@@ -49,16 +49,17 @@ export default function Subscription() {
 
   return (
     <div className="page-container">
+      <Link to="/?facet=you" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--color-text-secondary)', textDecoration: 'none', marginBottom: 14, padding: '6px 0' }}><ArrowLeft size={15} /> Back to You</Link>
       <header className="page-header">
-        <h1 className="page-title">Subscription</h1>
-        <p className="page-subtitle">Simple, transparent pricing. Cancel anytime.</p>
+        <h1 className="page-title">Your plan</h1>
+        <p className="page-subtitle">One memory on every plan. Change or cancel any time.</p>
       </header>
 
       {justUpgraded && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(37,194,160,0.1)', border: '1px solid rgba(37,194,160,0.3)', borderRadius: '12px', padding: '14px 18px', marginBottom: '24px' }}>
           <CheckCircle size={20} color="#25c2a0" />
           <div>
-            <p style={{ fontWeight: 700, color: '#25c2a0' }}>Payment received — thank you! 🎉</p>
+            <p style={{ fontWeight: 700, color: '#25c2a0' }}>Payment received. Thank you.</p>
             <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>Your plan updates within a few seconds as Stripe confirms the subscription.</p>
           </div>
         </div>
@@ -86,8 +87,8 @@ export default function Subscription() {
           return (
             <div key={p.tier} className="glass-card" style={{
               position: 'relative',
-              border: p.recommended ? '1px solid rgba(0,243,255,0.3)' : undefined,
-              boxShadow: p.recommended ? '0 0 30px rgba(0,243,255,0.08)' : undefined,
+              border: p.recommended ? '1px solid rgba(255,183,51,0.3)' : undefined,
+              boxShadow: p.recommended ? '0 0 30px rgba(255,183,51,0.08)' : undefined,
             }}>
               {(isCurrent || p.recommended) && (
                 <div style={{

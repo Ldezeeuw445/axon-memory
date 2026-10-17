@@ -1,4 +1,5 @@
 import React from 'react';
+import BackLink from '../components/BackLink';
 import { ShieldCheck } from 'lucide-react';
 
 const Section = ({ title, children }) => (
@@ -11,6 +12,7 @@ const Section = ({ title, children }) => (
 export default function Privacy() {
   return (
     <div className="page-container">
+      <BackLink />
       <header className="page-header" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
         <ShieldCheck size={32} color="var(--color-neon-cyan)" />
         <div>

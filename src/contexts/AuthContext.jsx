@@ -9,6 +9,9 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Set when someone arrives from a password-reset mail: they are signed in
+  // only to choose a new password, so the app sends them to that form first.
+  const [recovering, setRecovering] = useState(() => typeof window !== 'undefined' && /type=recovery/.test(window.location.hash));
 
   // getSession and the INITIAL_SESSION event both report the same person on
   // load; one profile read is enough (perf, A-perf-1).
@@ -42,6 +45,7 @@ export function AuthProvider({ children }) {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (_event === 'PASSWORD_RECOVERY') setRecovering(true);
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) loadProfile(session.user.id);
@@ -58,6 +62,18 @@ export function AuthProvider({ children }) {
       password,
       options: { data: { full_name: fullName } },
     });
+  };
+
+  const sendPasswordReset = async (email) => {
+    if (!supabase) return { error: { message: 'Supabase not configured' } };
+    return supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/login?mode=reset` });
+  };
+
+  const setNewPassword = async (password) => {
+    if (!supabase) return { error: { message: 'Supabase not configured' } };
+    const r = await supabase.auth.updateUser({ password });
+    if (!r.error) setRecovering(false);
+    return r;
   };
 
   const signIn = async (email, password) => {
@@ -104,6 +120,9 @@ export function AuthProvider({ children }) {
       loading,
       signUp,
       signIn,
+      sendPasswordReset,
+      setNewPassword,
+      recovering,
       signInWithGoogle,
       signOut,
       deleteAccount,

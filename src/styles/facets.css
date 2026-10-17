@@ -138,3 +138,15 @@ textarea.ax-field { resize: none; line-height: 1.55; min-height: 150px; }
   .ax-links-legend { bottom: 104px; }
   .ax-links-sheet { bottom: 100px; max-height: 52vh; overflow-y: auto; }
 }
+
+/* Press feedback (polish 2026-10-17): every tappable surface answers the
+   finger within a frame, the way native controls do. Off for reduced motion. */
+.ax-btn, .ax-btn-quiet, .ax-chip, .ax-icon-btn, button.ax-card, a.ax-card, nav[aria-label="Facets"] button {
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms ease, background-color 160ms ease, border-color 160ms ease, opacity 160ms ease;
+}
+.ax-btn:active, .ax-btn-quiet:active, .ax-chip:active, button.ax-card:active, a.ax-card:active { transform: scale(0.975); }
+.ax-icon-btn:active, nav[aria-label="Facets"] button:active { transform: scale(0.92); }
+@media (prefers-reduced-motion: reduce) {
+  .ax-btn:active, .ax-btn-quiet:active, .ax-chip:active, button.ax-card:active, a.ax-card:active, .ax-icon-btn:active, nav[aria-label="Facets"] button:active { transform: none; }
+}

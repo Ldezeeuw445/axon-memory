@@ -16,6 +16,7 @@ const AppScene = lazyPage(() => import('./AppScene'));
 const MemoryGraph = lazyPage(() => import('./MemoryGraph'));
 import ConnectFacet from './facets/ConnectFacet';
 import '../styles/facets.css';
+import { haptic } from '../lib/haptics';
 
 /**
  * The product. One surface: the Core in the void, and its facets.
@@ -59,7 +60,7 @@ function useAfterFirstPaint(delay = 250) {
 }
 
 export default function AppShell() {
-  const { user, loading, signOut } = useAuth();
+  const { user, loading, signOut, recovering } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const params = new URLSearchParams(location.search);
@@ -102,6 +103,8 @@ export default function AppShell() {
     window.addEventListener('online', run);
     return () => window.removeEventListener('online', run);
   }, [user]);
+  // Arrived from a password-reset mail: choose the new password first.
+  useEffect(() => { if (recovering) navigate('/login?mode=reset', { replace: true }); }, [recovering]);
   useEffect(() => { if (!loading && !user) navigate('/login', { replace: true, state: { from: `${location.pathname}${location.search}` } }); }, [loading, user]);
 
   // Keep the address honest so a refresh or a shared link opens the same facet.
@@ -121,7 +124,7 @@ export default function AppShell() {
   }, [user, facet]);
 
   const open = (id, init = null) => { setMoved(true); setInitial(init); setFacet(id); };
-  const toggle = (id) => { setMoved(true); setInitial(null); setFacet((f) => (f === id ? null : id)); };
+  const toggle = (id) => { haptic('tap'); setMoved(true); setInitial(null); setFacet((f) => (f === id ? null : id)); };
 
   if (!user) return <div className="full-screen" style={{ background: '#020203' }} />;
 
