@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert@1";
-import { channelOf, confidenceOf, inferenceOf, sourceOf, traceMemory, type HybridRow } from "./recall.ts";
+import { channelOf, confidenceOf, inferenceOf, relevanceOf, sourceOf, traceMemory, type HybridRow } from "./recall.ts";
 
 const row = (o: Partial<HybridRow> = {}): HybridRow => ({
   id: "m1", content_type: "note", title: "T", content: "C", occurred_at: "2026-10-01T00:00:00Z", source_type: "manual", ...o,
@@ -56,4 +56,9 @@ Deno.test("inferences are labelled, point at their sources, and need 2+ sources 
   const many = inferenceOf({ statement: "x", category: "c", source_item_ids: ["1", "2", "3", "4", "5", "6", "7"] }, now);
   assertEquals(many.from.length, 5);
   assertEquals(many.from_total, 7);
+});
+
+Deno.test("relevance: raw similarity is reported when the question was embedded, and only then", () => {
+  assertEquals(relevanceOf({ id: "a", score: 0.734, matched_by: ["semantic"], semantic: 0.6789 } as HybridRow), { score: 0.73, matched_by: ["semantic"], similarity: 0.68 });
+  assertEquals(relevanceOf({ id: "a", score: 0.5, matched_by: ["lexical"], semantic: null } as HybridRow), { score: 0.5, matched_by: ["lexical"] });
 });

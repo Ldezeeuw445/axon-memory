@@ -10,7 +10,7 @@ Machine-readable contract: `GET /v1/openapi.json` (no auth). Function: `supabase
 - **Tenant boundary:** every call acts only on the token's own account. Another account's id answers `404 not_found` (it is never "forbidden", so nothing leaks about existence).
 - **Errors** are always `{ "error": { "code", "message", "retryable", …context } }`. Codes: `unauthorized` 401, `forbidden_scope` 403, `not_found` 404, `invalid` 400, `method_not_allowed` 405, `conflict` 409, `gone` 410, `rate_limited` 429 (with `Retry-After`), `capture_failed` 5xx, `server_error` 5xx.
 - **Rate limit:** 60 calls a minute per token, shared with MCP `tools/call`.
-- **One memory shape everywhere** (GET, capture result, recall item): `id, kind:"memory", title, content, content_type, state (active|superseded|retired), superseded_by?, thread {id,key}|null, facets[], source {channel, type, provider?, account?, client?, app?, url?, at, connection_id, api_key_id, ref {id,url}|null}, stated (true = said, false = inferred), confidence (high|medium|low), relevance? {score, matched_by[]} (recall only), created_at, updated_at`.
+- **One memory shape everywhere** (GET, capture result, recall item): `id, kind:"memory", title, content, content_type, state (active|superseded|retired), superseded_by?, thread {id,key}|null, facets[], source {channel, type, provider?, account?, client?, app?, url?, at, connection_id, api_key_id, ref {id,url}|null}, stated (true = said, false = inferred), confidence (high|medium|low), relevance? {score, matched_by[], similarity?} (recall only; similarity = raw cosine to the question when it was embedded), created_at, updated_at`.
 
 ## Endpoints
 | Method | Path | What |
