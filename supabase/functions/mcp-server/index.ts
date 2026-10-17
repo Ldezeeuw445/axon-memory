@@ -32,7 +32,7 @@ const TOOLS = [
   {
     name: "recall_context",
     description:
-      "Retrieve the user's remembered context from Axon Memory — profile, connected sources, entities, and relevant notes/messages/documents. Call this at the start of a conversation, or whenever you need to know something the user has told another assistant, connected app, or previously told you.",
+      "Retrieve the user's remembered context from Axon Memory — profile, connected sources, entities, and relevant memories ranked by hybrid recall, each with its id, source, confidence and why it matched; conclusions come back separately as inferences that cite their memories. Call this at the start of a conversation, or whenever you need to know something the user has told another assistant, connected app, or previously told you.",
     inputSchema: {
       type: "object",
       properties: {
@@ -42,6 +42,11 @@ const TOOLS = [
           type: "string",
           description:
             "Which project you are working on, e.g. \"trading-os\". Narrows the recall to that project plus anything that applies across all of them. Omit if you do not know — an unscoped recall is better than a wrong one. Call list_projects to see the keys.",
+        },
+        facets: {
+          type: "array",
+          items: { type: "string" },
+          description: "Optional lenses to favour, e.g. [\"trading\"] or [\"development\"]. Ranks matching memories higher; never hides the rest.",
         },
       },
     },
@@ -406,6 +411,7 @@ Deno.serve(async (req: Request) => {
           query: (args.query as string) ?? null,
           tokenBudget: (args.token_budget as number) ?? undefined,
           project: (args.project as string) ?? null,
+          facets: Array.isArray(args.facets) ? (args.facets as string[]) : null,
           apiKeyId: resolved.apiKeyId,
           // What the client called itself when it registered. This is the only
           // point in the system that knows WHICH assistant is reading, so it is

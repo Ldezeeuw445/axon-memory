@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Runs rolled-back SQL test suites (tests/rls/*.sql, tests/schema/*.sql) with psql.
+// Runs rolled-back SQL test suites (tests/rls, tests/schema, tests/eval) with psql.
 // Each suite prints rows: area, check_name, pass, severity, detail. Fails on any non-pass.
 // Usage: SUPABASE_DB_URL=… node scripts/sql-suite.mjs [file…]   (default: all suites)
 import { execFileSync } from 'node:child_process';
@@ -8,7 +8,7 @@ import { readdirSync } from 'node:fs';
 const db = process.env.SUPABASE_DB_URL;
 if (!db) { console.error('sql-suite: SUPABASE_DB_URL not set.'); process.exit(2); }
 const files = process.argv.slice(2).length ? process.argv.slice(2)
-  : ['tests/schema', 'tests/rls'].flatMap((d) => readdirSync(d).filter((f) => f.endsWith('.sql') && !f.startsWith('cleanup')).map((f) => `${d}/${f}`));
+  : ['tests/schema', 'tests/rls', 'tests/eval'].flatMap((d) => readdirSync(d).filter((f) => f.endsWith('.sql') && !f.startsWith('cleanup')).map((f) => `${d}/${f}`));
 let failed = 0;
 for (const file of files) {
   const out = execFileSync('psql', [db, '-X', '-q', '-t', '-A', '-F', '\t', '-v', 'ON_ERROR_STOP=1', '-f', file], { encoding: 'utf8' });

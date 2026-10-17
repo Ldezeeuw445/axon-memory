@@ -187,7 +187,7 @@
       "objective": "Hybrid recall ranking + eval fixtures + source trace",
       "phase": "A3",
       "priority": "P1",
-      "status": "queued",
+      "status": "done",
       "owner_agent": "grok-bot",
       "dependencies": [
         "A1-1"
@@ -197,19 +197,34 @@
         "Results distinguish memory/inference/source/confidence"
       ],
       "files_or_services_touched": [
-        "supabase/migrations",
-        "context-pack",
-        "mcp-server"
+        "supabase/migrations/20261017103036_recall_hybrid.sql",
+        "supabase/functions/_shared/recall.ts",
+        "supabase/functions/_shared/recall.test.ts",
+        "supabase/functions/_shared/memory-core.ts",
+        "supabase/functions/mcp-server/index.ts",
+        "supabase/functions/context-pack/index.ts",
+        "tests/eval/recall_eval.sql",
+        "scripts/rls-isolation-http.mjs",
+        "scripts/sql-suite.mjs",
+        "docs/RECALL.md",
+        "edge functions mcp-server v70, context-pack v60"
       ],
-      "started_at": null,
-      "last_progress_at": null,
-      "attempts": 0,
-      "tests_run": [],
-      "build_result": null,
-      "deployment_result": null,
-      "verification_result": null,
+      "started_at": "2026-10-17T12:25:00+02:00",
+      "last_progress_at": "2026-10-17T12:50:00+02:00",
+      "attempts": 1,
+      "tests_run": [
+        "tests/eval/recall_eval.sql: 13/13 hit@1 (legacy keyword path 6/10), MRR >= 0.95, isolation/trace/privilege checks, 5k-row latency 258 ms query / 136 ms overview (dry-run + prod)",
+        "deno test 27/27 (recall.test.ts 5)",
+        "live rls-isolation-http 111/111 after deploy (incl. 4 recall-trace checks)",
+        "tests/rls/isolation.sql 234/234 after deploy",
+        "security advisors: no new findings",
+        "residue 0"
+      ],
+      "build_result": "deno check OK (no frontend change)",
+      "deployment_result": "Migration 20261017103036 applied (pg_trgm in extensions schema + recall_or_tsquery + recall_hybrid, additive). mcp-server v70, context-pack v60 deployed",
+      "verification_result": "Packs report search_mode=hybrid; each memory carries kind/source/confidence/relevance(matched_by); facts are labelled inferences citing source memory ids; legend in how_to_use.reading; legacy path kept as fallback",
       "blocker": null,
-      "next_action": "Build eval fixtures from synthetic user",
+      "next_action": "None. Recall eval should run periodically (A12)",
       "rollback_reference": "git revert"
     },
     {

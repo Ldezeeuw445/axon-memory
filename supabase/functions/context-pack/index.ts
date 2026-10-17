@@ -67,6 +67,9 @@ Deno.serve(async (req: Request) => {
   // Absent means everything, which is the right default for a client that has
   // not said what it is working on.
   const project = pick("building");
+  // ?facets=trading,development or body.facets: ["trading"]. Ranks, never filters.
+  const facetsRaw = url.searchParams.get("facets") ?? (Array.isArray(body?.facets) ? body.facets.join(",") : null);
+  const facets = facetsRaw ? String(facetsRaw).split(",").map((f) => f.trim().toLowerCase()).filter(Boolean) : null;
 
   const admin = supabaseAdmin();
   const pack = await buildContextPack(admin, identity.userId, {
@@ -75,6 +78,7 @@ Deno.serve(async (req: Request) => {
     apiKeyId: identity.apiKeyId,
     clientLabel: identity.clientLabel,
     project,
+    facets,
   });
 
   return jsonResponse(pack, { origin });

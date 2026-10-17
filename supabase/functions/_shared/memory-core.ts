@@ -7,6 +7,7 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { embedAndStore, embedQuery } from "./embeddings.ts";
 import { adapterKeyFromLabel, slugFromLabel } from "./adapters.ts";
 import { openWorkForPack, standingRulesForPack } from "./workspace.ts";
+import { inferenceOf, RECALL_LEGEND, traceMemory, type TraceMaps } from "./recall.ts";
 
 const CHARS_PER_TOKEN = 4; // rough heuristic, good enough for budgeting
 
@@ -54,6 +55,8 @@ export async function buildContextPack(
      * should not be given a guess.
      */
     project?: string | null;
+    /** Facets to favour (A3-1), e.g. ["trading"]. Ranks, never filters. */
+    facets?: string[] | null;
   } = {},
 ) {
   const query = opts.query?.trim() || null;
@@ -110,7 +113,7 @@ export async function buildContextPack(
     (projectId
       ? admin
         .from("memory_facts")
-        .select("statement, category, last_confirmed_at")
+        .select("id, statement, category, last_confirmed_at, source_item_ids, derived_by")
         .eq("user_id", userId)
         .is("superseded_at", null)
         .or(`project_id.eq.${projectId},project_id.is.null`)
@@ -118,14 +121,14 @@ export async function buildContextPack(
         .limit(60)
       : admin
         .from("memory_facts")
-        .select("statement, category, last_confirmed_at")
+        .select("id, statement, category, last_confirmed_at, source_item_ids, derived_by")
         .eq("user_id", userId)
         .is("superseded_at", null)
         .order("last_confirmed_at", { ascending: false })
         .limit(60)),
     admin
       .from("source_connections")
-      .select("provider, status, external_account_label, last_synced_at")
+      .select("id, provider, status, external_account_label, last_synced_at")
       .eq("user_id", userId),
     admin.from("user_plan_status").select("has_semantic_search").eq("user_id", userId).maybeSingle(),
     admin
@@ -152,9 +155,43 @@ export async function buildContextPack(
   ]);
 
   let items: any[] = [];
-  let searchMode: "semantic" | "keyword" | "recency" = "recency";
+  let searchMode: "hybrid" | "semantic" | "keyword" | "recency" = "recency";
+  const facets = Array.isArray(opts.facets)
+    ? opts.facets.filter((f) => typeof f === "string" && /^[a-z0-9][a-z0-9-]{0,31}$/.test(f)).slice(0, 8)
+    : [];
 
-  if (query && planStatus?.has_semantic_search) {
+  /* A3-1: one ranked list from every signal at once (semantic when the plan
+     includes it, lexical, fuzzy, recency, Weight, Depth, provenance, Thread,
+     Facet) instead of whichever single search happened to return something.
+     The old three-way path below stays as the fallback if the RPC is missing
+     or errors, so a database hiccup degrades recall rather than breaking it. */
+  let usedHybrid = false;
+  const signals: string[] = [];
+  {
+    let queryVector: number[] | null = null;
+    if (query && planStatus?.has_semantic_search) {
+      queryVector = await embedQuery(admin, userId, query);
+    }
+    const { data: ranked, error: hybridError } = await admin.rpc("recall_hybrid", {
+      p_user_id: userId,
+      p_query: query,
+      p_query_embedding: queryVector,
+      p_project_id: projectId,
+      p_facets: facets.length ? facets : null,
+      p_limit: 60,
+    });
+    if (!hybridError && Array.isArray(ranked)) {
+      items = ranked;
+      usedHybrid = true;
+      searchMode = "hybrid";
+      signals.push(...(query ? ["lexical", "fuzzy"] : []), ...(queryVector ? ["semantic"] : []),
+        "recency", "weight", "depth", "provenance", ...(projectId ? ["thread"] : []), ...(facets.length ? ["facet"] : []));
+    } else if (hybridError) {
+      console.error("recall_hybrid failed, using legacy recall:", hybridError.message);
+    }
+  }
+
+  if (!usedHybrid && query && planStatus?.has_semantic_search) {
     // Real vector similarity search (Ultra/Lifetime tiers). Falls through to
     // keyword search below if embedding the query fails for any reason
     // (missing key, provider hiccup) — semantic search degrading to keyword
@@ -174,7 +211,7 @@ export async function buildContextPack(
     }
   }
 
-  if (items.length === 0) {
+  if (!usedHybrid && items.length === 0) {
     // Typed loosely on purpose. The recency path is a table read and the
     // keyword path below is an RPC, and supabase-js gives those two different
     // builder types that do not unify — the shapes of what they RETURN are the
@@ -248,7 +285,8 @@ export async function buildContextPack(
    * belong to no project" — notes, and anything an assistant wrote, still
    * travel as before.
    */
-  if (projectId && items.length > 0) {
+  // recall_hybrid applies this rule itself; the legacy paths need it here.
+  if (!usedHybrid && projectId && items.length > 0) {
     const ids = items.map((i: { id?: string }) => i.id).filter(Boolean);
     if (ids.length > 0) {
       const { data: shape } = await admin
@@ -288,6 +326,30 @@ export async function buildContextPack(
   const standingRules = await rulesWork;
   if (standingRules) charBudget = Math.max(200, charBudget - standingRules.text.length);
 
+  // Names for the source trace: which assistant wrote it, which account it
+  // was imported from, which Thread it belongs to. Two small lookups, only
+  // when there is something to describe.
+  const traceMaps: TraceMaps = {
+    connections: new Map((sources ?? []).map((s: { id: string; provider: string; external_account_label: string | null }) =>
+      [s.id, { provider: s.provider, account: s.external_account_label ?? null }])),
+  };
+  if (items.length > 0) {
+    const keyIds = [...new Set(items.map((i: { api_key_id?: string | null }) => i.api_key_id).filter(Boolean))] as string[];
+    const projIds = [...new Set(items.map((i: { project_id?: string | null }) => i.project_id).filter(Boolean))] as string[];
+    const [{ data: keyRows }, { data: projRows }] = await Promise.all([
+      keyIds.length
+        ? admin.from("api_keys").select("id, name, display_name").eq("user_id", userId).in("id", keyIds)
+        : Promise.resolve({ data: [] as { id: string; name: string | null; display_name: string | null }[] }),
+      projIds.length
+        ? admin.from("projects").select("id, key").eq("user_id", userId).in("id", projIds)
+        : Promise.resolve({ data: [] as { id: string; key: string }[] }),
+    ]);
+    traceMaps.clients = new Map((keyRows ?? []).map((k: { id: string; name: string | null; display_name: string | null }) =>
+      [k.id, k.display_name || k.name || "assistant"]));
+    traceMaps.threads = new Map((projRows ?? []).map((p: { id: string; key: string }) => [p.id, p.key]));
+  }
+  const TRACE_COST = 80; // chars of source/confidence/relevance per item, paid from the same budget
+
   const grouped: Record<string, unknown[]> = {};
   // The ids that actually went out, not the ids that were considered. An item
   // dropped for budget was never seen by the assistant, and recording it as
@@ -302,21 +364,17 @@ export async function buildContextPack(
     // it would throw a TypeError inside the one function every assistant
     // calls, taking down every recall on the account rather than skipping one
     // row. The guard costs nothing on the hottest path in the product.
-    const cost = (item.title?.length ?? 0) + (item.content?.length ?? 0);
+    const cost = (item.title?.length ?? 0) + (item.content?.length ?? 0) + TRACE_COST;
     if (used + cost > charBudget) continue;
     used += cost;
     included += 1;
     if (item.id) includedIds.push(item.id);
     grouped[item.content_type] ??= [];
-    grouped[item.content_type].push({
-      // The handle for retire / supersede / delete. Without it an assistant can
-      // be told a memory is wrong and have no way to act on it.
-      id: item.id,
-      title: item.title,
-      content: item.content,
-      source: item.source_type,
-      occurred_at: item.occurred_at,
-    });
+    // id is the handle for retire / supersede / delete; kind/source/
+    // confidence/relevance are the A3-1 trace. Legacy rows have no score, so
+    // their matched_by just names the path that found them.
+    if (!usedHybrid) item.matched_by ??= [searchMode];
+    grouped[item.content_type].push(traceMemory(item, traceMaps));
   }
 
   const entitySet = new Set<string>();
@@ -350,12 +408,16 @@ export async function buildContextPack(
     return `${Math.floor(days / 365)}y`;
   };
 
-  const knownFacts: Record<string, string[]> = {};
+  /* Conclusions are inferences, and say so. They used to arrive as bare
+     strings under `known`, indistinguishable from something the user said;
+     now each carries kind, the memory ids it rests on and a confidence. */
+  const inferred: Record<string, unknown[]> = {};
   for (const f of factRows ?? []) {
     const age = ageOf(f.last_confirmed_at ?? null);
-    (knownFacts[f.category] ??= []).push(
-      age ? `${f.statement} (last confirmed ${age} ago)` : f.statement,
-    );
+    (inferred[f.category] ??= []).push({
+      ...inferenceOf(f),
+      ...(age ? { last_confirmed: `${age} ago` } : {}),
+    });
   }
 
   const lastWrittenAt = lastWrite?.[0]?.created_at ?? null;
@@ -430,8 +492,9 @@ export async function buildContextPack(
       account: s.external_account_label,
       last_synced_at: s.last_synced_at,
     })),
-    // What is true about this person, grouped by kind.
-    known: knownFacts,
+    // What Axon concluded about this person, grouped by kind. Inferences, not
+    // quotes: each points at the memories it was drawn from.
+    inferred,
     entities: Array.from(entitySet).slice(0, 40),
     // What it was drawn from, and everything not yet distilled.
     memory: grouped,
@@ -440,6 +503,8 @@ export async function buildContextPack(
       approx_tokens: Math.round(used / CHARS_PER_TOKEN),
       token_budget: tokenBudget,
       search_mode: searchMode,
+      ...(signals.length ? { signals } : {}),
+      ...(facets.length ? { facets } : {}),
     },
     /**
      * What to do with this, said where an assistant will actually read it.
@@ -461,6 +526,7 @@ export async function buildContextPack(
      * it names the triggers and stops.
      */
     how_to_use: {
+      reading: RECALL_LEGEND,
       /**
        * A nudge that carries a fact, not a reminder of a rule.
        *
