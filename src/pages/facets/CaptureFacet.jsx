@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { axon, enqueueCapture, queuedCount } from '../../lib/axonApi';
 import { FacetHead, Paused } from '../../components/app/ui';
 import { useVoice } from '../../components/app/useVoice';
+import { haptic } from '../../lib/haptics';
 
 const URL_RE = /\bhttps?:\/\/[^\s<>"')]+/i;
 
@@ -64,11 +65,13 @@ export default function CaptureFacet({ initial }) {
     setBusy(true); setState(null);
     try {
       const r = await axon.capture(body);
+      haptic(r.duplicate ? 'tap' : 'success');
       setState(r.duplicate ? { kind: 'duplicate', text: 'Already in your Core — nothing kept twice.' } : { kind: 'kept', text: thread ? `Kept in ${threads.find((t) => t.key === thread)?.name || thread}.` : 'Kept.' });
       setText(''); setLink(''); setShowLink(false);
     } catch (e) {
       if (e.status === 0) {
         const kept = await enqueueCapture(body); setPending(await queuedCount());
+        haptic(kept ? 'success' : 'warn');
         setState(kept
           ? { kind: 'queued', text: 'Kept on this device. It reaches your Core when the connection returns.' }
           : { kind: 'paused', text: 'There is no connection, and this browser would not let AXON keep it here. Copy it somewhere safe for now.' });

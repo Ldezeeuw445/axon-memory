@@ -24,10 +24,11 @@
   --color-accent: #FFB733;
   --color-accent-strong: #FFD98A;
 
-  /* Still referenced by cinematic screens (stats, links, loading). Kept as
-     named tokens so those usages stay valid after the gold accent landed. */
-  --color-neon-cyan: #00f3ff;
-  --color-neon-purple: #bc13fe;
+  /* Legacy names still referenced by older screens (subscription, legal,
+     onboarding, consent). They now resolve to the golds so no screen shows
+     the retired cyan/purple (polish, 2026-10-17). */
+  --color-neon-cyan: #FFD98A;
+  --color-neon-purple: #FFB733;
   --color-bg-base: var(--color-void);
   --color-accent-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-strong) 100%);
   

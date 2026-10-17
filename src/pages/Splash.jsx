@@ -18,7 +18,7 @@ export default function Splash() {
         {/* App icon */}
         <div style={{
           width: 100, height: 100, borderRadius: 24,
-          overflow: 'hidden', boxShadow: '0 0 40px rgba(0,243,255,0.25), 0 0 80px rgba(191,111,255,0.15)',
+          overflow: 'hidden', boxShadow: '0 0 40px rgba(255,183,51,0.25), 0 0 80px rgba(255,217,138,0.15)',
           animation: 'pulse 2.2s ease-in-out infinite',
         }}>
           <img src="/brand/axon-mark-256.webp" alt="AXON" width="100" height="100" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -47,8 +47,8 @@ export default function Splash() {
           to   { opacity: 1; transform: scale(1) translateY(0); }
         }
         @keyframes pulse {
-          0%, 100% { transform: scale(0.97); box-shadow: 0 0 30px rgba(0,243,255,0.2); }
-          50%       { transform: scale(1.03); box-shadow: 0 0 50px rgba(0,243,255,0.4), 0 0 100px rgba(191,111,255,0.2); }
+          0%, 100% { transform: scale(0.97); box-shadow: 0 0 30px rgba(255,183,51,0.2); }
+          50%       { transform: scale(1.03); box-shadow: 0 0 50px rgba(255,183,51,0.4), 0 0 100px rgba(255,217,138,0.2); }
         }
         @keyframes dot {
           0%, 80%, 100% { transform: scale(0.6); opacity: 0.3; }

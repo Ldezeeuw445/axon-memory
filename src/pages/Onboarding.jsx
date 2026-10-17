@@ -126,7 +126,7 @@ export default function Onboarding() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
               {USE_CASES.map((uc) => (
                 <button key={uc.id} onClick={() => setUseCase(uc.id)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 10, border: `1px solid ${useCase === uc.id ? 'var(--color-neon-cyan)' : 'var(--color-border)'}`, background: useCase === uc.id ? 'rgba(0,243,255,0.08)' : 'rgba(255,255,255,0.02)', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}>
+                  style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 10, border: `1px solid ${useCase === uc.id ? 'var(--color-neon-cyan)' : 'var(--color-border)'}`, background: useCase === uc.id ? 'rgba(255,183,51,0.08)' : 'rgba(255,255,255,0.02)', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}>
                   <span style={{ fontSize: 22, width: 32, flexShrink: 0 }}>{uc.emoji}</span>
                   <div style={{ flex: 1 }}>
                     <div style={{ color: useCase === uc.id ? 'var(--color-neon-cyan)' : '#fff', fontWeight: 600, fontSize: 14 }}>{uc.label}</div>

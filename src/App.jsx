@@ -61,6 +61,7 @@ function AppLayout() {
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/docs" element={<Developers />} />
+              <Route path="/developers" element={<Navigate to="/docs" replace />} />
 
               {/* MCP OAuth consent — reached from an external AI tool's
                   browser, so it must stay reachable pre-auth; ProtectedRoute
