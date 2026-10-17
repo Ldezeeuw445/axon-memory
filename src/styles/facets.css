@@ -131,6 +131,10 @@ textarea.ax-field { resize: none; line-height: 1.55; min-height: 150px; }
 .ax-links-rel button { display: flex; gap: 10px; align-items: baseline; text-align: left; background: none; border: 0; border-top: 1px solid rgba(255,255,255,0.06); padding: 8px 0; color: inherit; font: inherit; cursor: pointer; }
 .ax-links-rel button .ax-meta { flex-shrink: 0; width: 120px; }
 .ax-links-rel-label { font-size: 13px; color: rgba(255,255,255,0.85); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ax-terrain-switch { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 15; display: inline-flex; padding: 3px; border-radius: 999px; background: rgba(8,10,14,0.72); border: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(10px); }
+.ax-terrain-switch { position: absolute; top: 72px; left: 50%; transform: translateX(-50%); z-index: 15; display: inline-flex; padding: 3px; border-radius: 999px; background: rgba(8,10,14,0.72); border: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(10px); }
 .ax-terrain-switch button { border: 0; background: none; color: rgba(255,255,255,0.6); font: inherit; font-size: 12.5px; padding: 7px 13px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
 .ax-terrain-switch button[aria-pressed="true"] { color: #120c00; background: #FFB733; }
+@media (max-width: 699px) {
+  .ax-links-legend { bottom: 104px; }
+  .ax-links-sheet { bottom: 100px; max-height: 52vh; overflow-y: auto; }
+}

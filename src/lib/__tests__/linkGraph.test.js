@@ -66,6 +66,6 @@ describe('layoutLinkGraph', () => {
     const one = layoutLinkGraph(g, { width: 300, height: 400 });
     const two = layoutLinkGraph(g, { width: 300, height: 400 });
     expect([...one.entries()]).toEqual([...two.entries()]);
-    for (const { x, y } of one.values()) { expect(x).toBeGreaterThanOrEqual(18); expect(x).toBeLessThanOrEqual(282); expect(y).toBeGreaterThanOrEqual(18); expect(y).toBeLessThanOrEqual(382); }
+    for (const { x, y } of one.values()) { expect(x).toBeGreaterThanOrEqual(17.99); expect(x).toBeLessThanOrEqual(282.01); expect(y).toBeGreaterThanOrEqual(17.99); expect(y).toBeLessThanOrEqual(382.01); }
   });
 });

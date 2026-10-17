@@ -77,7 +77,8 @@ function firstLine(s) {
 }
 
 /** Small seeded force layout. Threads and entities are heavier anchors. */
-export function layoutLinkGraph(graph, { width = 360, height = 520, iterations = 260, seed = 7 } = {}) {
+export function layoutLinkGraph(graph, { width = 360, height = 520, iterations = 260, seed = 7, inset = {} } = {}) {
+  const box = { top: inset.top ?? 18, right: inset.right ?? 18, bottom: inset.bottom ?? 18, left: inset.left ?? 18 };
   let s = seed;
   const rand = () => ((s = (s * 16807) % 2147483647) / 2147483647);
   const pos = new Map();
@@ -87,7 +88,7 @@ export function layoutLinkGraph(graph, { width = 360, height = 520, iterations =
     pos.set(n.id, { x: width / 2 + Math.cos(a) * width * r * rand(), y: height / 2 + Math.sin(a) * height * r * rand(), vx: 0, vy: 0, m: n.type === 'memory' ? 1 : 3, i });
   });
   const list = [...pos.values()];
-  const k = Math.sqrt((width * height) / Math.max(1, graph.nodes.length)) * 0.8;
+  const k = Math.sqrt((width * height) / Math.max(1, graph.nodes.length)) * 0.55;
   for (let it = 0; it < iterations; it++) {
     const t = 1 - it / iterations;
     for (let i = 0; i < list.length; i++) {
@@ -95,6 +96,7 @@ export function layoutLinkGraph(graph, { width = 360, height = 520, iterations =
         const p = list[i], q = list[j];
         let dx = p.x - q.x, dy = p.y - q.y;
         const d2 = dx * dx + dy * dy + 0.01;
+        if (d2 > 9 * k * k) continue; // far groups stop pushing, so separate threads stay in view
         const f = (k * k) / d2;
         dx *= f; dy *= f;
         p.vx += dx / p.m; p.vy += dy / p.m; q.vx -= dx / q.m; q.vy -= dy / q.m;
@@ -105,17 +107,22 @@ export function layoutLinkGraph(graph, { width = 360, height = 520, iterations =
       if (!p || !q) continue;
       const dx = q.x - p.x, dy = q.y - p.y;
       const d = Math.sqrt(dx * dx + dy * dy) + 0.01;
-      const f = (d * d) / k / d * 0.06;
+      const f = d / k; // Fruchterman-Reingold: pull grows with d², balances the push near k
       p.vx += dx * f / p.m; p.vy += dy * f / p.m; q.vx -= dx * f / q.m; q.vy -= dy * f / q.m;
     }
     for (const p of list) {
-      p.vx += (width / 2 - p.x) * 0.004; p.vy += (height / 2 - p.y) * 0.004;
+      p.vx += (width / 2 - p.x) * 0.05; p.vy += (height / 2 - p.y) * 0.05;
       const v = Math.sqrt(p.vx * p.vx + p.vy * p.vy) || 1;
       const step = Math.min(v, 12 * t + 0.5);
       p.x += (p.vx / v) * step; p.y += (p.vy / v) * step;
       p.vx *= 0.5; p.vy *= 0.5;
-      p.x = Math.max(18, Math.min(width - 18, p.x)); p.y = Math.max(18, Math.min(height - 18, p.y));
     }
   }
-  return new Map([...pos.entries()].map(([id, p]) => [id, { x: p.x, y: p.y }]));
+  // Fit the settled shape into the open area (inside the insets), keeping its proportions.
+  const xs = list.map((p) => p.x), ys = list.map((p) => p.y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+  const aw = Math.max(1, width - box.left - box.right), ah = Math.max(1, height - box.top - box.bottom);
+  const sc = Math.min(aw / Math.max(1, maxX - minX), ah / Math.max(1, maxY - minY), 2.2);
+  const ox = box.left + (aw - (maxX - minX) * sc) / 2, oy = box.top + (ah - (maxY - minY) * sc) / 2;
+  return new Map([...pos.entries()].map(([id, p]) => [id, { x: ox + (p.x - minX) * sc, y: oy + (p.y - minY) * sc }]));
 }

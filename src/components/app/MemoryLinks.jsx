@@ -45,20 +45,24 @@ function useLinkData(userId) {
             .or('project_id.not.is.null,superseded_by.not.is.null').order('occurred_at', { ascending: false }).limit(500),
           supabase.from('projects').select('id, name, colour').eq('user_id', userId),
           supabase.from('entities').select('id, name, kind').eq('user_id', userId).limit(1000),
-          supabase.from('entity_links').select('entity_id, memory_item_id').eq('user_id', userId).limit(3000),
-          supabase.from('memory_relations').select('from_memory_id, to_memory_id, kind').eq('user_id', userId).limit(2000),
+          // Memories reached through a named thing or a relation come back in the same request.
+          supabase.from('entity_links').select(`entity_id, memory_item_id, m:memory_items(${cols})`).eq('user_id', userId).limit(3000),
+          supabase.from('memory_relations').select(`from_memory_id, to_memory_id, kind, f:memory_items!memory_relations_from_memory_id_fkey(${cols}), t:memory_items!memory_relations_to_memory_id_fkey(${cols})`).eq('user_id', userId).limit(2000),
         ]);
         if (mem.error) throw mem.error;
-        const have = new Set((mem.data || []).map((m) => m.id));
-        // Memories reached only through a named thing, a relation or a replacement.
+        const all = new Map((mem.data || []).map((m) => [m.id, m]));
+        for (const l of links.data || []) if (l.m) all.set(l.m.id, l.m);
+        for (const r of rels.data || []) { if (r.f) all.set(r.f.id, r.f); if (r.t) all.set(r.t.id, r.t); }
+        const have = new Set(all.keys());
+        // Anything still missing (a newer memory outside any thread) is read in one more pass.
         const missing = [...new Set([
           ...(links.data || []).map((l) => l.memory_item_id),
           ...(rels.data || []).flatMap((r) => [r.from_memory_id, r.to_memory_id]),
           ...(mem.data || []).map((m) => m.superseded_by).filter(Boolean),
         ])].filter((id) => !have.has(id));
-        const extra = await chunked(missing.slice(0, 400), (ids) => supabase.from('memory_items').select(cols).in('id', ids));
+        const extra = missing.length ? await chunked(missing.slice(0, 400), (ids) => supabase.from('memory_items').select(cols).in('id', ids)) : [];
         if (!live) return;
-        setData({ memories: [...(mem.data || []), ...extra], projects: proj.data || [], entities: ents.data || [], entityLinks: links.data || [], relations: rels.data || [] });
+        setData({ memories: [...all.values(), ...extra], projects: proj.data || [], entities: ents.data || [], entityLinks: (links.data || []).map(({ entity_id, memory_item_id }) => ({ entity_id, memory_item_id })), relations: (rels.data || []).map(({ from_memory_id, to_memory_id, kind }) => ({ from_memory_id, to_memory_id, kind })) });
       } catch {
         if (live) setIssue('The links could not be read just now. Nothing about them changed.');
       }
@@ -84,7 +88,7 @@ export default function MemoryLinks() {
   }, []);
 
   const graph = useMemo(() => (data ? buildLinkGraph(data, { maxMemories: size.w < 500 ? 110 : 170 }) : null), [data, size.w]);
-  const pos = useMemo(() => (graph ? layoutLinkGraph(graph, { width: size.w, height: size.h }) : null), [graph, size.w, size.h]);
+  const pos = useMemo(() => (graph ? layoutLinkGraph(graph, { width: size.w, height: size.h, inset: size.w < 700 ? { top: 128, bottom: 170, left: 34, right: 34 } : { top: 110, bottom: 130, left: 90, right: 90 } }) : null), [graph, size.w, size.h]);
   const byId = useMemo(() => new Map((graph?.nodes || []).map((n) => [n.id, n])), [graph]);
   const near = useMemo(() => {
     if (!sel || !graph) return null;
@@ -174,7 +178,7 @@ export default function MemoryLinks() {
           <div className="ax-links-rel">
             {neighbours.slice(0, 6).map(({ e, other }, i) => (
               <button key={i} type="button" onClick={() => setSel(other.id)}>
-                <span className="ax-meta">{e.kind === 'supersedes' ? (e.a === sel ? 'replaces' : 'replaced by') : WORDS[e.kind]}</span>
+                <span className="ax-meta">{selected.type !== 'memory' && other.at ? ago(other.at) : e.kind === 'supersedes' ? (e.a === sel ? 'replaces' : 'replaced by') : WORDS[e.kind]}</span>
                 <span className="ax-links-rel-label">{other.label}</span>
               </button>
             ))}
