@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert@1";
-import { decide, type BillingEvent, type BillingProfile } from "./billing.ts";
+import { checkoutRefusal, decide, type BillingEvent, type BillingProfile } from "./billing.ts";
 import { PLANS } from "./plans.ts";
 
 const P = { pro: PLANS.pro.priceId, ultra: PLANS.ultra.priceId };
@@ -55,4 +55,11 @@ Deno.test("billing: ordinary paths still work", () => {
   assertEquals(decide(p, ev("customer.subscription.updated", sub("sub", "price_other"), 30), never).action, "skip");
   assertEquals(decide(null, ev("customer.subscription.updated", sub("sub", P.pro), 30), never).action, "skip");
   assertEquals(decide(p, ev("charge.refunded", {}, 30), never).action, "skip");
+});
+
+Deno.test("checkout: a Lifetime member cannot buy a subscription or Lifetime again; everyone else can buy anything", () => {
+  for (const t of ["starter", "pro", "ultra", "lifetime_founder"] as const) {
+    assertEquals(typeof checkoutRefusal("lifetime_founder", t), "string");
+    for (const cur of ["starter", "pro", "ultra", null]) assertEquals(checkoutRefusal(cur, t), null);
+  }
 });

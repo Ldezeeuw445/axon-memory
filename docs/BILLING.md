@@ -1,6 +1,11 @@
-# Billing and entitlements (A11-2)
+# Billing and entitlements (A11-2, A11-3)
 
-Read and tested only. No Stripe price, product, webhook endpoint or live billing setting was changed. `stripe-webhook` v24, `stripe-checkout` v24 and `stripe-portal` v22 run unchanged. The deployed code matches the repo, apart from comments and the additive display-name exports in `_shared/plans.ts`.
+Approved by Luka on 2026-10-17 and connected in A11-3:
+- the webhook runs on the tested reducer;
+- the plan is checked on every key and OAuth call;
+- a Lifetime member cannot open a subscription checkout.
+
+No Stripe price, product, webhook endpoint or live billing setting was changed.
 
 ## Where the plan lives (single source of truth)
 
@@ -28,40 +33,62 @@ Read and tested only. No Stripe price, product, webhook endpoint or live billing
 |---|---|
 | Unsigned, wrongly signed, or stale (>5 min) delivery → 400 | ok: a captured delivery cannot be replayed later |
 | Unknown event type, unknown customer, unrecognised price, checkout without a user → 200, no write | ok |
-| Replayed `customer.subscription.updated` | ok: same end state |
-| Replayed lifetime checkout | same tier, but **`plan_started_at` is rewritten**: no event-id dedupe |
-| Older `subscription.updated` delivered after a newer one | **DEFECT**: the older plan wins (no ordering check) |
-| Lifetime member, an old subscription is deleted | **DEFECT**: downgraded to Starter |
-| Lifetime member, an old subscription is updated | **DEFECT**: overwritten to Pro |
-| Customer moved to a new subscription, the previous one is deleted | **DEFECT**: downgraded to Starter (matches on customer, not subscription) |
+| Replayed event (same id) | fixed: answered 200 `duplicate`, no write (ledger `stripe_events`) |
+| Older `subscription.updated` delivered after a newer one | fixed: skipped (`profiles.billing_event_at`) |
+| Lifetime member, an old subscription is deleted or updated | fixed: Lifetime kept, `billing_attention` alert raised where relevant |
+| Customer moved to a new subscription, the previous one is deleted | fixed: only the profile's current subscription acts |
+| Profile write fails | fixed: the claim is released and Stripe gets 500, so it redelivers |
 | `status: unpaid/canceled` on update | Keeps the paid tier until `subscription.deleted`, by design |
 
-Not covered locally: subscription-mode checkout, because it calls `stripe.subscriptions.retrieve`.
+## How the webhook works now
 
-Exposure today:
-- 3 Lifetime and 3 Starter profiles; 1 has a Stripe customer, 0 have a subscription id.
-- No one is affected yet. The Lifetime defects bite the first time a former subscriber buys Lifetime, or a Lifetime member starts a subscription.
-
-## Proposed fix: needs approval, NOT deployed
-
-`_shared/billing.ts` is a pure reducer, `decide(profile, event, seen, ctx)`, with tests in `_shared/billing.test.ts` that get every case above right. Its rules:
+`_shared/billing.ts` is a pure reducer, `decide(profile, event, seen, ctx)`, tested in `_shared/billing.test.ts`. Its rules:
 1. Skip event ids already processed.
 2. Skip events older than the last one applied to this customer.
 3. Never take Lifetime away through a subscription event.
 4. Act only on the profile's current subscription.
 5. Move `plan_started_at` only when the tier changes.
 
-Wiring it in needs:
-- an additive migration: a `stripe_events(id text primary key, type text, created timestamptz, processed_at timestamptz default now())` table and `profiles.billing_event_at timestamptz`;
-- a rewrite of `stripe-webhook` to load the profile, call `decide`, write the patch and record the event id.
+What `stripe-webhook` does:
+1. It verifies the signature.
+2. It claims the event id in `stripe_events`. A row that already exists means a duplicate, so it answers 200.
+3. It loads the profile, calls `decide`, and writes the patch by profile id.
+4. It records the outcome in the ledger.
+5. On any error it releases the claim and answers 500, so Stripe retries.
 
-That changes live billing behaviour, so it waits for Luka.
+Two cases raise a `billing_attention` alert in `system_alerts`, because a person may need to refund or cancel:
+- a Lifetime member completes a subscription checkout;
+- a subscriber buys Lifetime while a subscription is still running.
+
+Schema (additive migration `stripe_events_ledger`):
+- `stripe_events` has RLS on and no grants to anon or authenticated;
+- `profiles.billing_event_at` is not user-writable.
+
+## Checks on every call (A11-3)
+
+`_shared/entitlement.ts` and `resolveBearerToken` in `_shared/mcp-auth.ts` read `user_plan_status` on every call made with a key or token.
+
+| Credential | Needs | Without it |
+|---|---|---|
+| OAuth token (connected AI) | `has_axon_ai` (Pro, Power, Lifetime) | 402 `plan_required` with an upgrade sentence |
+| Personal API key | `has_api_access` (Power, Lifetime) | 402 `plan_required` with an upgrade sentence |
+
+- This applies to `mcp-server` (JSON-RPC error -32002), `api-v1`, `remember` and `context-pack`.
+- A failed plan read lets the call through and logs it, so an outage of the plan read cannot lock everyone out.
+- Live-tested with a Starter fixture user (`rls-isolation-http.mjs`, area `billing`).
+
+Who was affected when this went live:
+- **nobody.** Every active key and token belongs to a Lifetime member: 1 personal key and 13 OAuth tokens.
+
+## Checkout guard (A11-3)
+
+`stripe-checkout` answers 409 `already_lifetime` to a Lifetime member, before any Stripe call. The check is `checkoutRefusal` in `_shared/billing.ts`. The Subscription page shows "Included in your Lifetime plan" instead of a buy button.
+
+`npm run test:billing` also runs `tests/billing/checkout-guard.ts`:
+- it runs the real function against a mock;
+- Lifetime gets 409 for every tier;
+- Starter passes the guard.
 
 ## Other findings (need a decision)
 
-- **Plan features are only checked when access is granted, not on every call.**
-  - `axon_ai` is checked at OAuth consent and `api_access` at key creation.
-  - An MCP token or personal key keeps working after a downgrade.
-  - No Starter user holds an active key today; all 13 OAuth tokens and 1 personal key belong to Lifetime members. Checking per call is an entitlement-policy change.
-- **A Lifetime member can still open a subscription checkout.** With today's webhook that would overwrite Lifetime with the subscription's tier. Blocking it in `stripe-checkout` (or in the reducer, as proposed) is a billing change.
 - **`stripe-portal` return URL fallback.** It falls back to `http://localhost:5173` if `APP_URL` is unset. The secret's value cannot be read from here; confirm `APP_URL=https://app.axon-memory.com` is set.

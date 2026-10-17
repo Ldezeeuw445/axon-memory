@@ -6,10 +6,20 @@
 // Configure this function's URL as a webhook endpoint in the Stripe Dashboard
 // listening for: checkout.session.completed, customer.subscription.updated,
 // customer.subscription.deleted, invoice.payment_failed.
+//
+// A11-3 (approved 2026-10-17): every decision goes through the tested reducer
+// in _shared/billing.ts, so the webhook is
+//   - idempotent: an event id is claimed in `stripe_events` before it is
+//     applied; a redelivery is acknowledged and ignored. If applying fails the
+//     claim is released, so Stripe's retry gets a clean second attempt;
+//   - order-aware: an event older than `profiles.billing_event_at` is ignored;
+//   - Lifetime-safe: no subscription event takes Lifetime away;
+//   - subscription-exact: an event acts only on the profile's current
+//     subscription, never on "whatever this customer has".
 
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { tierFromPriceId, FALLBACK_TIER, PLANS } from "../_shared/plans.ts";
+import { decide, type BillingProfile } from "../_shared/billing.ts";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
   apiVersion: "2024-06-20",
@@ -20,6 +30,12 @@ const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET")!;
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+const HANDLED = new Set(["checkout.session.completed", "customer.subscription.updated", "customer.subscription.deleted"]);
+const PROFILE_COLS = "id, plan_tier, stripe_customer_id, stripe_subscription_id, billing_event_at";
+const iso = (unix: number) => new Date(unix * 1000).toISOString();
+const ok = (extra: Record<string, unknown> = {}) =>
+  new Response(JSON.stringify({ received: true, ...extra }), { status: 200, headers: { "Content-Type": "application/json" } });
 
 Deno.serve(async (req) => {
   const signature = req.headers.get("Stripe-Signature");
@@ -37,138 +53,92 @@ Deno.serve(async (req) => {
     return new Response("Invalid signature", { status: 400 });
   }
 
+  if (event.type === "invoice.payment_failed") {
+    // Intentionally not downgrading here — Stripe retries and will fire
+    // customer.subscription.updated (past_due) / .deleted if it truly lapses.
+    console.warn("Payment failed for customer:", (event.data.object as Stripe.Invoice).customer);
+    return ok();
+  }
+  if (!HANDLED.has(event.type)) return ok(); // unhandled types are fine to ignore
+
+  // Claim the event id. A conflict means it was already applied: acknowledge.
+  const claim = await supabase
+    .from("stripe_events")
+    .upsert({ id: event.id, type: event.type, created: iso(event.created) }, { onConflict: "id", ignoreDuplicates: true })
+    .select("id");
+  if (claim.error) {
+    console.error("stripe_events claim failed", claim.error.message);
+    return new Response("Internal error", { status: 500 }); // Stripe retries
+  }
+  if (!claim.data || claim.data.length === 0) return ok({ duplicate: true });
+
   try {
-    switch (event.type) {
-      case "checkout.session.completed": {
-        const session = event.data.object as Stripe.Checkout.Session;
-        await handleCheckoutCompleted(session);
-        break;
-      }
-      case "customer.subscription.updated": {
-        const subscription = event.data.object as Stripe.Subscription;
-        await handleSubscriptionUpdated(subscription);
-        break;
-      }
-      case "customer.subscription.deleted": {
-        const subscription = event.data.object as Stripe.Subscription;
-        await handleSubscriptionDeleted(subscription);
-        break;
-      }
-      case "invoice.payment_failed": {
-        const invoice = event.data.object as Stripe.Invoice;
-        console.warn("Payment failed for customer:", invoice.customer);
-        // Intentionally not downgrading here — Stripe retries and will fire
-        // customer.subscription.updated (past_due) / .deleted if it truly lapses.
-        break;
-      }
-      default:
-        // Unhandled event types are fine to ignore.
-        break;
-    }
+    const outcome = await apply(event);
+    await supabase.from("stripe_events").update({ outcome }).eq("id", event.id);
+    return ok({ outcome });
   } catch (err) {
-    console.error(`Error handling event ${event.type}:`, err);
-    // Return 500 so Stripe retries the delivery.
+    console.error(`Error handling event ${event.type} ${event.id}:`, err);
+    // Release the claim so the retry is applied, then ask Stripe to retry.
+    await supabase.from("stripe_events").delete().eq("id", event.id);
     return new Response("Internal error", { status: 500 });
   }
-
-  return new Response(JSON.stringify({ received: true }), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-  });
 });
 
-async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
-  const userId = session.client_reference_id ?? session.metadata?.supabase_user_id;
-  if (!userId) {
-    console.error("checkout.session.completed with no supabase user id in metadata", session.id);
-    return;
+async function loadProfile(event: Stripe.Event): Promise<(BillingProfile & { id: string }) | null> {
+  const o = event.data.object as unknown as Record<string, any>;
+  if (event.type === "checkout.session.completed") {
+    const userId = o.client_reference_id ?? o.metadata?.supabase_user_id;
+    if (!userId) return null;
+    const { data, error } = await supabase.from("profiles").select(PROFILE_COLS).eq("id", userId).maybeSingle();
+    if (error) throw new Error(`profile read failed: ${error.message}`);
+    return data;
   }
-
-  const customerId = typeof session.customer === "string" ? session.customer : session.customer?.id ?? null;
-
-  if (session.mode === "payment") {
-    // One-time purchase — currently only Lifetime Founder.
-    const tier = session.metadata?.plan_tier === "lifetime_founder" ? "lifetime_founder" : null;
-
-    if (!tier) {
-      console.error("One-time checkout completed without a recognized plan_tier", session.id);
-      return;
-    }
-
-    await supabase
-      .from("profiles")
-      .update({
-        plan_tier: tier,
-        plan_started_at: new Date().toISOString(),
-        plan_expires_at: null, // lifetime — never expires
-        stripe_customer_id: customerId,
-        stripe_subscription_id: null,
-        stripe_price_id: PLANS.lifetime_founder.priceId,
-      })
-      .eq("id", userId);
-    return;
-  }
-
-  if (session.mode === "subscription") {
-    const subscriptionId = typeof session.subscription === "string"
-      ? session.subscription
-      : session.subscription?.id ?? null;
-
-    if (!subscriptionId) {
-      console.error("Subscription checkout completed with no subscription id", session.id);
-      return;
-    }
-
-    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-    const priceId = subscription.items.data[0]?.price?.id ?? null;
-    const tier = tierFromPriceId(priceId) ?? FALLBACK_TIER;
-
-    await supabase
-      .from("profiles")
-      .update({
-        plan_tier: tier,
-        plan_started_at: new Date().toISOString(),
-        plan_expires_at: null,
-        stripe_customer_id: customerId,
-        stripe_subscription_id: subscriptionId,
-        stripe_price_id: priceId,
-      })
-      .eq("id", userId);
-  }
+  const customer = typeof o.customer === "string" ? o.customer : o.customer?.id;
+  if (!customer) return null;
+  const { data, error } = await supabase.from("profiles").select(PROFILE_COLS).eq("stripe_customer_id", customer).limit(2);
+  if (error) throw new Error(`profile read failed: ${error.message}`);
+  if ((data ?? []).length > 1) console.warn(`more than one profile for customer ${customer}; using the first`);
+  return data?.[0] ?? null;
 }
 
-async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
-  const customerId = typeof subscription.customer === "string" ? subscription.customer : subscription.customer.id;
-  const priceId = subscription.items.data[0]?.price?.id ?? null;
-
-  // A subscription past its cancellation date but not yet fully "deleted" by
-  // Stripe (status transitions) is handled the same way as an active plan —
-  // `customer.subscription.deleted` is what actually triggers the downgrade.
-  const tier = tierFromPriceId(priceId);
-  if (!tier) {
-    console.error("customer.subscription.updated with unrecognized price id", priceId);
-    return;
-  }
-
-  await supabase
-    .from("profiles")
-    .update({
-      plan_tier: tier,
-      stripe_subscription_id: subscription.id,
-      stripe_price_id: priceId,
-    })
-    .eq("stripe_customer_id", customerId);
+/** Something a person must look at in Stripe; written to system_alerts (admin view). */
+async function attention(message: string, metadata: Record<string, unknown>) {
+  const { error } = await supabase.from("system_alerts").insert({ alert_type: "billing_attention", message, metadata });
+  if (error) console.error("billing_attention alert failed", error.message, message);
 }
 
-async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
-  const customerId = typeof subscription.customer === "string" ? subscription.customer : subscription.customer.id;
+async function apply(event: Stripe.Event): Promise<string> {
+  const o = event.data.object as unknown as Record<string, any>;
+  const profile = await loadProfile(event);
 
-  await supabase
-    .from("profiles")
-    .update({
-      plan_tier: FALLBACK_TIER,
-      stripe_subscription_id: null,
-      stripe_price_id: null,
-    })
-    .eq("stripe_customer_id", customerId);
+  // The reducer decides; it only needs the subscription's price for a
+  // subscription checkout (one Stripe read, skipped when it cannot matter).
+  const ctx: { subscriptionPriceId?: string | null } = {};
+  if (event.type === "checkout.session.completed" && o.mode === "subscription" && profile && profile.plan_tier !== "lifetime_founder") {
+    const subId = typeof o.subscription === "string" ? o.subscription : o.subscription?.id;
+    if (subId) {
+      const sub = await stripe.subscriptions.retrieve(subId);
+      ctx.subscriptionPriceId = sub.items.data[0]?.price?.id ?? null;
+    }
+  }
+
+  // Ids are deduped by the stripe_events claim above, so `seen` is always false here.
+  const decision = decide(profile, event as unknown as Parameters<typeof decide>[1], () => false, ctx);
+
+  if (event.type === "checkout.session.completed" && profile) {
+    if (o.mode === "subscription" && profile.plan_tier === "lifetime_founder") {
+      await attention(`Lifetime member ${profile.id} completed a subscription checkout; tier kept. Cancel/refund the subscription in Stripe.`, { user_id: profile.id, session: o.id, subscription: o.subscription ?? null });
+    }
+    if (o.mode === "payment" && decision.action === "write" && profile.stripe_subscription_id) {
+      await attention(`User ${profile.id} bought Lifetime while subscription ${profile.stripe_subscription_id} was active. Cancel that subscription in Stripe.`, { user_id: profile.id, subscription: profile.stripe_subscription_id });
+    }
+  }
+
+  if (decision.action === "skip") {
+    console.log(`stripe-webhook ${event.type} ${event.id}: skip (${decision.reason})`);
+    return `skip: ${decision.reason}`;
+  }
+  const { error } = await supabase.from("profiles").update(decision.patch).eq("id", profile!.id);
+  if (error) throw new Error(`profile write failed: ${error.message}`);
+  return `write: ${Object.keys(decision.patch).join(",")}`;
 }

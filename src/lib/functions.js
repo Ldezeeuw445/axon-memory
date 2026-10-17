@@ -24,7 +24,7 @@ export async function callFunction(name, { method = 'POST', body, query } = {}) 
 
   const payload = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const err = new Error(payload?.error_description || payload?.error || `${name} failed (${res.status})`);
+    const err = new Error(payload?.message || payload?.error_description || payload?.error || `${name} failed (${res.status})`);
     err.status = res.status;
     err.code = payload?.error;
     throw err;
