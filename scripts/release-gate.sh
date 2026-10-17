@@ -26,6 +26,7 @@ step "MCP gateway worker"                node --test cloudflare/mcp-gateway/work
 step "SDK unit"                          bash -c 'cd packages/sdk-ts && npm test --silent'
 step "billing webhook replay (local)"    deno run -A tests/billing/webhook-replay.ts
 step "production build"                  npx vite build
+step "first-screen bundle budget"         node scripts/bundle-budget.mjs dist
 echo "---"
 echo "$pass passed, $fail failed${failed:+: ${failed[*]}}"
 [ "$fail" -eq 0 ]

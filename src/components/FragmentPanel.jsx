@@ -3,10 +3,11 @@ import { motion } from 'framer-motion';
 
 // FragmentPanel represents the new "Glass & Titanium" UI paradigm.
 // It uses clip-path to look like an imperfect, physical shard.
-export default function FragmentPanel({ children, delay = 0, style }) {
+export default function FragmentPanel({ children, delay = 0, style, instant = false }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 30 }}
+      // Opened directly (a link, a refresh) the panel is the first thing seen: no entrance to wait out.
+      initial={instant ? false : { opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ 
         delay, 

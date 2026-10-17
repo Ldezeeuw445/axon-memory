@@ -1,24 +1,13 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Brain } from 'lucide-react';
 
 export default function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
   const location = useLocation();
 
-  if (loading) {
-    return (
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        minHeight: '100vh', flexDirection: 'column', gap: '16px',
-      }}>
-        <Brain size={40} color="var(--color-neon-cyan)" style={{ animation: 'spin 1.5s linear infinite' }} />
-        <p style={{ color: 'var(--color-text-secondary)' }}>Loading AXON...</p>
-        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-      </div>
-    );
-  }
+  // The void while the stored session is read (a few ms). No spinner, by canon.
+  if (loading) return <div className="full-screen" style={{ background: '#020203' }} />;
 
   if (!user) {
     // Preserve full path + query so flows like the MCP OAuth consent screen

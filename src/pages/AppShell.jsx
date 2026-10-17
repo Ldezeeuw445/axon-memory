@@ -1,11 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Canvas } from '@react-three/fiber';
-import { AdaptiveDpr, Environment, Lightformer, PerformanceMonitor, Stars } from '@react-three/drei';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Search, Plus, Spline, Mountain, Link2, CircleUser } from 'lucide-react';
-import AxonCore from '../components/AxonCore';
-import CoreGateway from '../components/CoreGateway';
 import FragmentPanel from '../components/FragmentPanel';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -14,7 +10,9 @@ import CaptureFacet from './facets/CaptureFacet';
 import ThreadsFacet from './facets/ThreadsFacet';
 import YouFacet from './facets/YouFacet';
 import { flushCaptureQueue } from '../lib/axonApi';
-import MemoryGraph from './MemoryGraph';
+// Heavy parts load after the facet has painted: the 3D void/Core and Terrain.
+const AppScene = lazy(() => import('./AppScene'));
+const MemoryGraph = lazy(() => import('./MemoryGraph'));
 import ConnectFacet from './facets/ConnectFacet';
 import '../styles/facets.css';
 
@@ -35,13 +33,21 @@ export const FACETS = [
 const ALIAS = { dashboard: 'recall', graph: 'terrain', billing: 'you', sources: 'connections', privacy: 'you', profile: 'you' };
 export const facetFrom = (f) => (FACETS.some((x) => x.id === f) ? f : ALIAS[f] || null);
 
-function Void() {
-  return (
-    <>
-      <color attach="background" args={['#020203']} />
-      <Stars radius={100} depth={50} count={2600} factor={3} saturation={0} fade speed={0.25} />
-    </>
-  );
+/** Waits for the first paint and a quiet moment before the scene is fetched. */
+function useAfterFirstPaint(delay = 250) {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    let id; let idle;
+    const go = () => setReady(true);
+    const raf = requestAnimationFrame(() => {
+      id = setTimeout(() => {
+        if ('requestIdleCallback' in window) idle = window.requestIdleCallback(go, { timeout: 1500 });
+        else go();
+      }, delay);
+    });
+    return () => { cancelAnimationFrame(raf); clearTimeout(id); if (idle) window.cancelIdleCallback?.(idle); };
+  }, [delay]);
+  return ready;
 }
 
 export default function AppShell() {
@@ -57,7 +63,12 @@ export default function AppShell() {
     return Object.keys(p).length ? p : null;
   });
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [perfDpr, setPerfDpr] = useState(1.5);
+  // Opened onto a facet, the facet comes first and the scene after; opened
+  // onto the Core, the scene is the content and loads straight away.
+  const [coldFacet] = useState(() => !!requested);
+  const [moved, setMoved] = useState(false);
+  const sceneReady = useAfterFirstPaint(coldFacet ? 600 : 0);
+  const [sceneShown, setSceneShown] = useState(false);
   const apertureRef = useRef(0);
   const [arrived, setArrived] = useState(true);
   const arrivedRef = useRef(true);
@@ -101,8 +112,8 @@ export default function AppShell() {
     ]).then(([m, t]) => setCounts({ m: m.count ?? 0, t: t.count ?? 0 }));
   }, [user, facet]);
 
-  const open = (id, init = null) => { setInitial(init); setFacet(id); };
-  const toggle = (id) => { setInitial(null); setFacet((f) => (f === id ? null : id)); };
+  const open = (id, init = null) => { setMoved(true); setInitial(init); setFacet(id); };
+  const toggle = (id) => { setMoved(true); setInitial(null); setFacet((f) => (f === id ? null : id)); };
 
   if (!user) return <div className="full-screen" style={{ background: '#020203' }} />;
 
@@ -112,35 +123,23 @@ export default function AppShell() {
 
   return (
     <div className="full-screen">
-      <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-        <Canvas dpr={[0.75, perfDpr]} camera={{ position: [0, 0, 10], fov: 35 }}>
-          <PerformanceMonitor onDecline={() => setPerfDpr((d) => Math.max(0.75, d - 0.25))} onIncline={() => setPerfDpr((d) => Math.min(1.75, d + 0.25))} />
-          <AdaptiveDpr pixelated={false} />
-          <ambientLight intensity={0.1} />
-          <spotLight position={[0, 10, 5]} angle={0.3} penumbra={1} intensity={2} color="#ffffff" />
-          <Void />
-          <CoreGateway
-            active={!!facet}
-            baseScale={isMobile ? 0.62 : 0.95}
-            apertureRef={apertureRef}
-            onProgress={(p, through) => {
-              if (p > 0.4 && !mountedRef.current) { mountedRef.current = true; setMounted(true); }
-              if (p === 0 && mountedRef.current) { mountedRef.current = false; setMounted(false); }
-              if (through !== arrivedRef.current) { arrivedRef.current = through; setArrived(through); }
-            }}
-          >
-            <AxonCore stage={3} opening={!!facet} apertureRef={apertureRef} />
-          </CoreGateway>
-          <Environment resolution={256}>
-            <Lightformer form="rect" intensity={9} position={[0, 8, 2]} rotation={[Math.PI / 2, 0, 0]} scale={[14, 10, 1]} color="#dfe9ff" />
-            <Lightformer form="rect" intensity={5.2} position={[-8, 2, -6]} scale={[12, 9, 1]} color="#9fb6e0" />
-            <Lightformer form="rect" intensity={2.8} position={[8, -1, 5]} scale={[9, 7, 1]} color="#6d7f9e" />
-            <Lightformer form="rect" intensity={16} position={[-3.2, 4, 4]} scale={[0.35, 7, 1]} color="#ffffff" />
-            <Lightformer form="rect" intensity={11} position={[3.6, -2, 3.5]} scale={[0.3, 6, 1]} color="#cfe2ff" />
-            <Lightformer form="circle" intensity={2.2} position={[0, -6, 1]} scale={[7, 7, 1]} color="#2a3a5c" />
-            <Lightformer form="rect" intensity={4.5} position={[-7, -3, 3]} scale={[11, 9, 1]} color="#8d9bb8" />
-          </Environment>
-        </Canvas>
+      <div style={{ position: 'absolute', inset: 0, zIndex: 0, background: '#020203' }}>
+        {sceneReady && (
+          <Suspense fallback={null}>
+            <div style={{ position: 'absolute', inset: 0, opacity: sceneShown ? 1 : 0, transition: 'opacity 1.2s ease' }} ref={(el) => { if (el && !sceneShown) requestAnimationFrame(() => setSceneShown(true)); }}>
+              <AppScene
+                facet={facet}
+                isMobile={isMobile}
+                apertureRef={apertureRef}
+                onProgress={(p, through) => {
+                  if (p > 0.4 && !mountedRef.current) { mountedRef.current = true; setMounted(true); }
+                  if (p === 0 && mountedRef.current) { mountedRef.current = false; setMounted(false); }
+                  if (through !== arrivedRef.current) { arrivedRef.current = through; setArrived(through); }
+                }}
+              />
+            </div>
+          </Suspense>
+        )}
       </div>
 
       <div style={{ position: 'absolute', inset: 0, zIndex: 10 }}>
@@ -171,10 +170,10 @@ export default function AppShell() {
 
         {facet && mounted && (facet === 'terrain' ? (
           <div style={{ position: 'absolute', inset: 0, opacity: arrived ? 1 : 0, transition: 'opacity 1.2s ease' }}>
-            <MemoryGraph asFacet />
+            <Suspense fallback={null}><MemoryGraph asFacet /></Suspense>
           </div>
         ) : (
-          <FragmentPanel delay={0.05} style={{ position: 'absolute', ...panelStyle, ...(isMobile ? { clipPath: 'polygon(0 10px, calc(100% - 10px) 0, 100% calc(100% - 10px), 10px 100%)' } : {}), opacity: arrived ? 1 : 0, transition: 'opacity 1.2s ease', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <FragmentPanel delay={0.05} instant={coldFacet && !moved} style={{ position: 'absolute', ...panelStyle, ...(isMobile ? { clipPath: 'polygon(0 10px, calc(100% - 10px) 0, 100% calc(100% - 10px), 10px 100%)' } : {}), opacity: arrived ? 1 : 0, transition: 'opacity 1.2s ease', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div key={facet} style={{ flex: 1, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain', margin: isMobile ? '-4px -6px' : '-6px -10px', padding: isMobile ? '4px 6px 24px' : '6px 10px 24px' }}>
               {facet === 'recall' && <RecallFacet onOpen={open} />}
               {facet === 'capture' && <CaptureFacet initial={initial} />}
