@@ -90,7 +90,7 @@
       "objective": "Typed Memory domain contracts (Memory/Thread/Core/Facet/Weight/Depth/provenance/lifecycle/supersession)",
       "phase": "A1",
       "priority": "P1",
-      "status": "queued",
+      "status": "done",
       "owner_agent": "grok-bot",
       "dependencies": [
         "A0-1"
@@ -100,18 +100,26 @@
         "Non-destructive additive migration for weight/depth/lifecycle_state/facets"
       ],
       "files_or_services_touched": [
-        "supabase/functions/_shared/",
-        "supabase/migrations/"
+        "supabase/functions/_shared/domain.ts",
+        "supabase/functions/_shared/domain.test.ts",
+        "supabase/migrations/20261017101016_memory_domain_model.sql",
+        "tests/schema/memory_model.sql",
+        "scripts/sql-suite.mjs",
+        "docs/MEMORY_MODEL.md"
       ],
-      "started_at": null,
-      "last_progress_at": null,
-      "attempts": 0,
-      "tests_run": [],
-      "build_result": null,
-      "deployment_result": null,
-      "verification_result": null,
+      "started_at": "2026-10-17T12:05:00+02:00",
+      "last_progress_at": "2026-10-17T12:25:00+02:00",
+      "attempts": 1,
+      "tests_run": [
+        "deno test _shared/*.test.ts: 11/11",
+        "tests/schema/memory_model.sql: 45/45 (dry-run + on prod after apply)",
+        "tests/rls/isolation.sql with migration: 232/232"
+      ],
+      "build_result": "lint 0 errors, vite build OK",
+      "deployment_result": "Migration applied to prod as 20261017101016 (additive: nullable/defaulted columns, memory_relations, memory_lifecycle_events, views memories/threads, fns memory_weight/memory_depth/core_summary)",
+      "verification_result": "public.memories serves all 6599 prod memories with computed Weight/Depth/lifecycle; no existing column touched",
       "blocker": null,
-      "next_action": "Draft MEMORY_MODEL.md then additive migration",
+      "next_action": "None",
       "rollback_reference": "git revert"
     },
     {
