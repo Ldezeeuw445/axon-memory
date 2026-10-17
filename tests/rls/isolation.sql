@@ -9,7 +9,7 @@
 -- fixture row belongs to them, and nothing survives the run. No real user row is
 -- read into the results (only counts of rows that match the fixtures' ids).
 --
--- Run:  node scripts/rls-isolation.mjs        (needs SUPABASE_DB_URL)
+-- Run:  node scripts/sql-suite.mjs tests/rls/isolation.sql        (needs SUPABASE_DB_URL)
 --   or  paste into the Supabase SQL editor / MCP execute_sql as one script.
 --
 -- Output: one row per check: area, check_name, pass, severity, detail.

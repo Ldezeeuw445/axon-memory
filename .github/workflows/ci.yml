@@ -72,13 +72,13 @@ jobs:
           node-version: 22
       # Database layer: one transaction, throwaway fixtures, ROLLBACK. Needs
       # the SUPABASE_DB_URL secret (Settings -> Database -> connection string).
-      - name: RLS / RPC / semantic / storage isolation (SQL, rolled back)
+      - name: SQL suites: schema + lifecycle + RLS isolation (rolled back)
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
           if [ -z "$SUPABASE_DB_URL" ]; then echo "::warning::SUPABASE_DB_URL secret not set — SQL isolation suite skipped."; exit 0; fi
           sudo apt-get install -y -qq postgresql-client >/dev/null
-          node scripts/rls-isolation.mjs
+          node scripts/sql-suite.mjs
       # Network layer: PostgREST, Storage, context-pack, remember, MCP (direct
       # + gateway), delete-account. Two disposable users, deleted at the end.
       - name: REST / API / MCP isolation (live, disposable users)
