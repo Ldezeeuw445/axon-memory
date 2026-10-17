@@ -227,12 +227,12 @@ export async function listThreads(admin: Admin, userId: string) {
   return { threads: (data ?? []).map((p: { id: string; key: string; name: string; created_at: string }) => ({ id: p.id, key: p.key, name: p.name, created_at: p.created_at })) };
 }
 
-export async function me(admin: Admin, userId: string, resolved: { apiKeyId: string | null; scope: string | null; viaOauthClient: boolean; clientLabel: string | null }) {
+export async function me(admin: Admin, userId: string, resolved: { apiKeyId: string | null; scope: string | null; viaOauthClient: boolean; clientLabel: string | null; viaApp?: boolean }) {
   const { data: profile } = await admin.from("profiles").select("plan_tier").eq("id", userId).maybeSingle();
   return {
     user_id: userId,
     plan: planDisplayName(profile?.plan_tier),
-    token: { id: resolved.apiKeyId, kind: resolved.viaOauthClient ? "oauth" : "personal", client: resolved.clientLabel, scope: resolved.scope, can_write: canWrite(resolved.scope) },
+    token: { id: resolved.apiKeyId, kind: resolved.viaApp ? "session" : resolved.viaOauthClient ? "oauth" : "personal", client: resolved.clientLabel, scope: resolved.scope, can_write: canWrite(resolved.scope) },
     api_version: API_VERSION,
   };
 }

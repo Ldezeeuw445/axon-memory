@@ -1,0 +1,105 @@
+/* ═══════════════════════════════════════
+   AXON facets — mobile-first product surfaces (A9-1)
+   Void, glass, titanium. Gold only where something is genuinely alive.
+   No red, no spinners, no confetti (Docs/axon/AXON_Experience_Design.md).
+═══════════════════════════════════════ */
+
+.ax-facet { display: flex; flex-direction: column; gap: 22px; min-height: 100%; color: var(--color-text-primary); }
+.ax-facet-head { display: flex; flex-direction: column; gap: 6px; }
+.ax-eyebrow { font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--color-text-tertiary); }
+.ax-title { font-size: 26px; font-weight: 400; letter-spacing: -0.035em; line-height: 1.15; }
+.ax-sub { font-size: 14px; color: var(--color-text-secondary); line-height: 1.55; max-width: 56ch; }
+
+.ax-section { display: flex; flex-direction: column; gap: 10px; }
+.ax-section-label { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--color-text-tertiary); display: flex; align-items: center; justify-content: space-between; }
+
+/* The one input that matters on Recall. Large, calm, glass. */
+.ax-recall { position: relative; display: flex; align-items: center; gap: 10px; padding: 4px 6px 4px 18px; border-radius: 22px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025));
+  border: 1px solid rgba(255,255,255,0.10); box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 18px 50px rgba(0,0,0,0.45);
+  transition: border-color 0.8s cubic-bezier(0.19,1,0.22,1), box-shadow 0.8s cubic-bezier(0.19,1,0.22,1); }
+.ax-recall:focus-within { border-color: rgba(255,183,51,0.35); box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 0 0 4px rgba(255,183,51,0.06), 0 18px 50px rgba(0,0,0,0.5); }
+.ax-recall input { flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; color: #fff; font-size: 17px; padding: 14px 0; font-family: inherit; letter-spacing: -0.01em; }
+.ax-recall input::placeholder { color: rgba(255,255,255,0.32); }
+.ax-icon-btn { flex-shrink: 0; width: 44px; height: 44px; border-radius: 16px; display: flex; align-items: center; justify-content: center; border: 1px solid transparent;
+  background: transparent; color: var(--color-text-secondary); cursor: pointer; transition: background 0.6s ease, color 0.6s ease, border-color 0.6s ease; }
+.ax-icon-btn:hover { background: rgba(255,255,255,0.06); color: #fff; }
+.ax-icon-btn.is-live { color: var(--color-accent); border-color: rgba(255,183,51,0.3); background: rgba(255,183,51,0.08); }
+
+.ax-chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.ax-chips::-webkit-scrollbar { display: none; }
+.ax-chip { flex-shrink: 0; padding: 8px 14px; border-radius: 999px; font-size: 13px; color: var(--color-text-secondary); cursor: pointer;
+  background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.08); transition: all 0.6s cubic-bezier(0.19,1,0.22,1); white-space: nowrap; }
+.ax-chip:hover { color: #fff; border-color: rgba(255,255,255,0.18); }
+.ax-chip.is-on { color: var(--color-accent-strong); border-color: rgba(255,183,51,0.35); background: rgba(255,183,51,0.08); }
+
+/* A memory: a readable object — title, what it says, where it came from. */
+.ax-card { position: relative; display: flex; flex-direction: column; gap: 8px; padding: 16px 16px 14px; border-radius: 18px; text-align: left; width: 100%;
+  background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.018)); border: 1px solid rgba(255,255,255,0.07);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05); color: inherit; font: inherit; transition: background 0.9s cubic-bezier(0.19,1,0.22,1), border-color 0.9s; }
+button.ax-card { cursor: pointer; }
+button.ax-card:hover { background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03)); border-color: rgba(255,255,255,0.13); }
+.ax-card-title { font-size: 15px; font-weight: 500; letter-spacing: -0.015em; line-height: 1.35; }
+.ax-card-body { font-size: 13.5px; color: var(--color-text-secondary); line-height: 1.55; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.ax-card-body.is-open { -webkit-line-clamp: unset; display: block; white-space: pre-wrap; }
+.ax-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 11.5px; color: var(--color-text-tertiary); }
+.ax-meta b { font-weight: 500; color: var(--color-text-secondary); }
+.ax-weight { display: inline-flex; gap: 2px; align-items: flex-end; height: 10px; }
+.ax-weight i { display: block; width: 3px; border-radius: 1px; background: rgba(255,255,255,0.18); }
+.ax-weight i.on { background: var(--color-accent); }
+.ax-thread-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--color-titanium); display: inline-block; }
+
+.ax-list { display: flex; flex-direction: column; gap: 10px; }
+.ax-row { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 16px; width: 100%; text-align: left; color: inherit; font: inherit; cursor: pointer;
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); transition: background 0.8s cubic-bezier(0.19,1,0.22,1), border-color 0.8s; }
+.ax-row:hover { background: rgba(255,255,255,0.055); border-color: rgba(255,255,255,0.12); }
+.ax-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.ax-row-title { font-size: 15px; font-weight: 500; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ax-row-sub { font-size: 12.5px; color: var(--color-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.ax-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 13px 20px; border-radius: 16px; font-size: 14px; font-weight: 500; letter-spacing: 0.01em;
+  color: #0b0b0d; background: linear-gradient(180deg, #ffd98a, #ffb733); border: 0; cursor: pointer; box-shadow: 0 10px 30px rgba(255,183,51,0.18), inset 0 1px 0 rgba(255,255,255,0.5);
+  transition: filter 0.6s ease, opacity 0.6s ease; font-family: inherit; }
+.ax-btn:hover { filter: brightness(1.05); }
+.ax-btn:disabled { opacity: 0.45; cursor: default; }
+.ax-btn-quiet { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 10px 14px; border-radius: 14px; font-size: 13px; color: var(--color-text-secondary);
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09); cursor: pointer; transition: all 0.6s ease; font-family: inherit; }
+.ax-btn-quiet:hover { color: #fff; border-color: rgba(255,255,255,0.18); }
+.ax-btn-quiet:disabled { opacity: 0.5; cursor: default; }
+
+.ax-field { width: 100%; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.09); border-radius: 16px; color: #fff; font: inherit; font-size: 16px;
+  padding: 14px 16px; outline: none; transition: border-color 0.6s ease; }
+.ax-field:focus { border-color: rgba(255,183,51,0.32); }
+textarea.ax-field { resize: none; line-height: 1.55; min-height: 150px; }
+.ax-field::placeholder { color: rgba(255,255,255,0.3); }
+
+/* Settling: where real latency exists it reads as an object coming to rest. */
+.ax-settle { border-radius: 18px; height: 74px; background: linear-gradient(90deg, rgba(255,255,255,0.025), rgba(255,255,255,0.06), rgba(255,255,255,0.025));
+  background-size: 200% 100%; animation: ax-settle 2.4s ease-in-out infinite; }
+@keyframes ax-settle { 0% { background-position: 100% 0; opacity: 0.6; } 50% { opacity: 1; } 100% { background-position: -100% 0; opacity: 0.6; } }
+
+/* Young, not empty. */
+.ax-young { padding: 22px 18px; border-radius: 18px; border: 1px dashed rgba(255,255,255,0.09); color: var(--color-text-secondary); font-size: 13.5px; line-height: 1.6; }
+.ax-young strong { color: #fff; font-weight: 500; }
+
+/* An interrupted formation: one plain sentence, never red. */
+.ax-paused { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; font-size: 13px; line-height: 1.5;
+  color: #e9dcc2; background: rgba(255,183,51,0.05); border: 1px solid rgba(255,183,51,0.16); }
+.ax-quiet-ok { font-size: 13px; color: var(--color-accent-strong); }
+
+.ax-seg { display: inline-flex; padding: 3px; border-radius: 14px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); gap: 2px; }
+.ax-seg button { border: 0; background: transparent; color: var(--color-text-secondary); padding: 8px 14px; border-radius: 11px; font: inherit; font-size: 13px; cursor: pointer; transition: all 0.5s ease; }
+.ax-seg button.is-on { background: rgba(255,255,255,0.09); color: #fff; }
+
+.ax-kv { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 14px; }
+.ax-kv span:first-child { color: var(--color-text-secondary); }
+.ax-kv:last-child { border-bottom: 0; }
+
+.ax-depth { position: relative; padding-left: 18px; display: flex; flex-direction: column; gap: 10px; }
+.ax-depth::before { content: ''; position: absolute; left: 4px; top: 6px; bottom: 6px; width: 1px; background: linear-gradient(180deg, rgba(255,183,51,0.5), rgba(255,255,255,0.06) 40%, rgba(255,255,255,0.02)); }
+.ax-depth-label { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--color-text-tertiary); margin: 6px 0 -2px -18px; padding-left: 18px; }
+
+@media (min-width: 768px) {
+  .ax-title { font-size: 32px; }
+  .ax-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+}

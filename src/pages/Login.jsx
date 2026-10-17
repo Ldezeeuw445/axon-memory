@@ -16,7 +16,7 @@ export default function Login() {
   const { signIn, signUp, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = location.state?.from || '/dashboard';
+  const from = location.state?.from || '/recall';
 
   const handleSubmit = async (e) => {
     e.preventDefault();

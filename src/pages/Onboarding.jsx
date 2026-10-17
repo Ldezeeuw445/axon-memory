@@ -57,7 +57,7 @@ function ConnectSourceButton({ source, isDemo, onDemoConnect }) {
     }
   };
 
-  const skipToApp = () => navigate('/dashboard');
+  const skipToApp = () => navigate('/recall');
 
   return (
     <button onClick={handleClick} disabled={connecting} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 10, border: '1px solid var(--color-border)', background: 'rgba(255,255,255,0.02)', cursor: 'pointer', textAlign: 'left' }}>
@@ -202,9 +202,9 @@ export default function Onboarding() {
               {displayName ? `You're all set, ${displayName}!` : "You're all set!"}
             </h2>
             <p style={{ color: 'var(--color-text-secondary)', marginBottom: 24, lineHeight: 1.7 }}>
-              AXON is now active. You can connect more tools anytime from the dashboard.
+              AXON is now active. You can connect more tools anytime from Connect.
             </p>
-            <button onClick={() => navigate('/dashboard')} className="btn-primary" style={{ width: '100%', fontSize: 16, padding: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            <button onClick={() => navigate('/recall')} className="btn-primary" style={{ width: '100%', fontSize: 16, padding: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
               <Zap size={18} /> Open Dashboard
             </button>
             <button onClick={back} style={{ marginTop: 12, background: 'none', border: 'none', color: 'var(--color-text-secondary)', fontSize: 13, cursor: 'pointer' }}>
