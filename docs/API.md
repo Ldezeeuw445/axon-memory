@@ -5,7 +5,7 @@ Machine-readable contract: `GET /v1/openapi.json` (no auth). Function: `supabase
 
 ## Contract rules
 - **Versioned paths.** Within v1, changes are additive only. A breaking change means `/v2`.
-- **Auth:** `Authorization: Bearer <token>`. A personal key (`axon_live_…`, created in the app) or an OAuth access token from the MCP OAuth flow. An expired OAuth token gets 401: refresh it.
+- **Auth:** `Authorization: Bearer <token>`. A personal key (`axon_live_…`, created in the app) or an OAuth access token from the MCP OAuth flow. An expired OAuth token gets 401: refresh it. The AXON app itself calls the same API with the signed-in user's Supabase session JWT (A9-1): it acts as that user only, is not rate-limited per key, and its captures carry channel `app`.
 - **Scopes:** tokens without `memory.write` can read and recall, but writes return `403 forbidden_scope`. Personal keys have full access to their own account.
 - **Tenant boundary:** every call acts only on the token's own account. Another account's id answers `404 not_found` (it is never "forbidden", so nothing leaks about existence).
 - **Errors** are always `{ "error": { "code", "message", "retryable", …context } }`. Codes: `unauthorized` 401, `forbidden_scope` 403, `not_found` 404, `invalid` 400, `method_not_allowed` 405, `conflict` 409, `gone` 410, `rate_limited` 429 (with `Retry-After`), `capture_failed` 5xx, `server_error` 5xx.

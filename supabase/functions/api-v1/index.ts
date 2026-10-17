@@ -4,6 +4,7 @@
 import { handlePublicPreflight as handlePreflight, publicCorsHeaders } from "../_shared/cors.ts";
 import { supabaseAdmin } from "../_shared/supabase-admin.ts";
 import { resolveBearerToken } from "../_shared/mcp-auth.ts";
+import { getUserFromRequest } from "../_shared/auth.ts";
 import {
   API_BUILD, API_VERSION, ApiError, apiCaptureOutcome, canWrite, capture, captureStatus, getCapture, getMemory,
   lifecycle, lifecycleError, listThreads, me, recall, requireId, retryCapture, routeOf,
@@ -44,13 +45,27 @@ Deno.serve(async (req: Request) => {
     if (res === "health" && m === "GET") return send({ status: "ok", api_version: API_VERSION, build: API_BUILD, time: new Date().toISOString() });
     if (res === "openapi.json" && m === "GET") return send(OPENAPI);
 
-    const resolved = await resolveBearerToken(req);
+    // A9-1: the signed-in app uses the same contract with the user's own
+    // session (a Supabase JWT), so the phone and every AI go through one
+    // rulebook. A session acts as the person themselves: full scope, channel
+    // "app", no API key. Keys are tried first; only a JWT-shaped token falls
+    // through to session verification.
+    let resolved: { userId: string; apiKeyId: string | null; scope: string | null; clientLabel: string | null; viaOauthClient: boolean; viaApp?: boolean } | null =
+      await resolveBearerToken(req);
+    if (!resolved && /^Bearer\s+eyJ/i.test(req.headers.get("Authorization") ?? "")) {
+      const session = await getUserFromRequest(req);
+      if (session) resolved = { userId: session.user.id, apiKeyId: null, scope: null, clientLabel: null, viaOauthClient: false, viaApp: true };
+    }
     if (!resolved) {
       throw new ApiError(401, "unauthorized", "Send Authorization: Bearer <personal key or OAuth access token>. Expired OAuth tokens: use your refresh token.");
     }
     const admin = supabaseAdmin();
 
-    const { data: gate } = await admin.rpc("take_rate_limit_token", { p_api_key_id: resolved.apiKeyId, p_window_seconds: 60, p_limit: 60 });
+    // Sessions are not keys: the token bucket is per key, and a person in the
+    // app is already bounded by auth and the per-user embedding ceiling.
+    const { data: gate } = resolved.apiKeyId
+      ? await admin.rpc("take_rate_limit_token", { p_api_key_id: resolved.apiKeyId, p_window_seconds: 60, p_limit: 60 })
+      : { data: null };
     const verdict = Array.isArray(gate) ? gate[0] : gate;
     if (verdict && verdict.allowed === false) {
       const retryAfter = Math.max(1, Math.ceil((Date.parse(verdict.resets_at) - Date.now()) / 1000)) || 60;
@@ -60,7 +75,8 @@ Deno.serve(async (req: Request) => {
     const needWrite = () => {
       if (!canWrite(resolved.scope)) throw new ApiError(403, "forbidden_scope", "This token was granted read-only access (no memory.write scope).");
     };
-    const actor = resolved.clientLabel ?? "api";
+    const actor = resolved.clientLabel ?? (resolved.viaApp ? "app" : "api");
+    const channel = resolved.viaApp ? "app" as const : "api" as const;
     const caller = { apiKeyId: resolved.apiKeyId, clientLabel: resolved.clientLabel };
 
     if (res === "me" && !id && m === "GET") return send(await me(admin, resolved.userId, resolved));
@@ -82,7 +98,7 @@ Deno.serve(async (req: Request) => {
         const body = await readJson(req);
         const source = (body.source && typeof body.source === "object" ? body.source : {}) as Record<string, unknown>;
         const label = str(source.label) ?? (resolved.viaOauthClient ? resolved.clientLabel : null);
-        const outcome = await capture(admin, { userId: resolved.userId, channel: "api", apiKeyId: resolved.apiKeyId, clientLabel: label }, {
+        const outcome = await capture(admin, { userId: resolved.userId, channel, apiKeyId: resolved.apiKeyId, clientLabel: label }, {
           content: body.content, title: body.title, facets: body.facets, tags: body.tags,
           project: body.thread ?? body.project, source_label: label,
           idempotency_key: body.idempotency_key ?? req.headers.get("idempotency-key") ?? undefined,
@@ -122,7 +138,7 @@ Deno.serve(async (req: Request) => {
           await getMemory(admin, resolved.userId, memId);
           if (!newId) {
             const label = resolved.viaOauthClient ? resolved.clientLabel : null;
-            const o = apiCaptureOutcome(await capture(admin, { userId: resolved.userId, channel: "api", apiKeyId: resolved.apiKeyId, clientLabel: label },
+            const o = apiCaptureOutcome(await capture(admin, { userId: resolved.userId, channel, apiKeyId: resolved.apiKeyId, clientLabel: label },
               { content, project: body.thread, source_label: label }));
             newId = o.body.memory_id;
           }

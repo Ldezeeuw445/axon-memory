@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, Search } from 'lucide-react';
+import { X } from 'lucide-react';
 import DataLandscape from '../components/DataLandscape';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import FragmentPanel from '../components/FragmentPanel';
@@ -31,7 +31,7 @@ function useSourceMemories(sourceId, userId) {
       .from('memory_items')
       .select('id, title, content, content_type, occurred_at')
       .eq('user_id', userId)
-      .eq('source_type', sourceId)
+      .in('source_type', sourceId === 'manual' ? ['manual', 'app'] : [sourceId])
       .order('occurred_at', { ascending: false })
       .limit(5)
       .then(({ data }) => {
@@ -52,7 +52,6 @@ export default function MemoryGraph({ asFacet }) {
   // said "summit height reflects how much this source has contributed" and then
   // gave no number, which is a caption rather than an answer.
   const [shares, setShares] = useState(null);
-  const [search, setSearch] = useState('');
   const sourceMemories = useSourceMemories(selectedSource, user?.id);
 
   useEffect(() => {
@@ -71,8 +70,8 @@ export default function MemoryGraph({ asFacet }) {
     <div className={asFacet ? "" : "page-container"} style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: asFacet ? '0' : '16px' }}>
       {!asFacet && (
         <header className="page-header" style={{ marginBottom: 12 }}>
-          <h1 className="page-title">Memory Graph</h1>
-          <p className="page-subtitle">Visualize and explore your neural data connections.</p>
+          <h1 className="page-title">Terrain</h1>
+          <p className="page-subtitle">Where your memory came from, at a glance.</p>
         </header>
       )}
 
@@ -84,25 +83,6 @@ export default function MemoryGraph({ asFacet }) {
         }}
       >
         
-        {/* Overlay Toolbar */}
-        {/* Centred, but a fixed 320 is wide enough on a phone to reach both the
-            logo on one side and Sign In on the other — all three ended up in the
-            same corner. Below the header line on small screens, and never wider
-            than the space actually left between them. */}
-        <div style={{
-          position: 'absolute', top: isMobile ? 78 : 20, left: 0, right: 0,
-          display: 'flex', justifyContent: 'center', alignItems: 'center',
-          gap: 8, zIndex: 10, pointerEvents: 'none', padding: '0 16px',
-        }}>
-          <div style={{ pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(10,12,16,0.72)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 999, padding: '9px 16px', width: '100%', maxWidth: isMobile ? 'none' : 320, boxShadow: '0 8px 30px rgba(0,0,0,0.45)' }}>
-            <Search size={13} color="var(--color-text-secondary)" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search memories..."
-              /* 16px or iOS zooms the whole page in on focus. */
-              style={{ background: 'none', border: 'none', outline: 'none', color: 'var(--color-text-primary)', fontSize: isMobile ? 16 : 13, width: '100%', minWidth: 0 }} />
-            {search && <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-secondary)', padding: 0, display: 'flex' }}><X size={12} /></button>}
-          </div>
-        </div>
-
         {/* 3D Data Landscape */}
         <div style={{ flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden', borderRadius: asFacet ? 0 : 10, background: 'transparent' }}>
           <DataLandscape onNodeSelect={(id) => setSelectedSource(id)} />
@@ -110,8 +90,8 @@ export default function MemoryGraph({ asFacet }) {
 
         {/* Selected Source Sidebar */}
         {selectedSource && (() => {
-          const sourceInfo = [...DATA_SOURCES, ...AI_PROVIDERS].find(x => x.id === selectedSource);
-          if (!sourceInfo) return null;
+          const sourceInfo = [...DATA_SOURCES, ...AI_PROVIDERS].find(x => x.id === selectedSource)
+            || (selectedSource === 'manual' ? { name: 'You', tagline: 'What you captured yourself, here or through an AI you use.', color: '#FFB733' } : { name: selectedSource.charAt(0).toUpperCase() + selectedSource.slice(1), tagline: 'A connected source.', color: '#FFB733' });
           
           return (
             <FragmentPanel style={{
@@ -127,7 +107,7 @@ export default function MemoryGraph({ asFacet }) {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div style={{ width: 12, height: 12, borderRadius: '50%', background: sourceInfo.color || TYPE_COLORS.document }} />
-                  <span style={{ fontSize: 13, color: sourceInfo.color || TYPE_COLORS.document, textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600 }}>Source Connection</span>
+                  <span style={{ fontSize: 13, color: sourceInfo.color || TYPE_COLORS.document, textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600 }}>Where it came from</span>
                 </div>
                 <button onClick={() => setSelectedSource(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-secondary)', padding: 4 }}><X size={20} /></button>
               </div>
@@ -159,13 +139,13 @@ export default function MemoryGraph({ asFacet }) {
               })()}
               
               <div>
-                <h3 style={{ fontSize: 14, color: 'white', marginBottom: 12, borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 8 }}>Recent Memories</h3>
+                <h3 style={{ fontSize: 14, color: 'white', marginBottom: 12, borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 8 }}>Recent memories</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {sourceMemories === null ? (
-                    <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>Loading…</span>
+                    <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Settling…</span>
                   ) : sourceMemories.length === 0 ? (
                     <span style={{ fontSize: 13, color: 'var(--color-text-secondary)', lineHeight: 1.6 }}>
-                      Nothing stored from this source yet.
+                      Nothing from here yet.
                     </span>
                   ) : (
                     sourceMemories.map((m) => (
@@ -199,23 +179,6 @@ export default function MemoryGraph({ asFacet }) {
         })()}
       </div>
 
-      {selected && (
-        <div className="glass-card" style={{ marginTop: 24, padding: 20 }}>
-          <h3 style={{ marginBottom: 12, fontSize: 16 }}>Memories referencing "{selected}"</h3>
-          {relatedItems.length === 0 ? (
-            <p style={{ color: 'var(--color-text-secondary)', fontSize: 14 }}>No items found.</p>
-          ) : (
-            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {relatedItems.slice(0, 8).map((it) => (
-                <li key={it.id} style={{ borderBottom: '1px solid var(--color-border)', paddingBottom: 10 }}>
-                  <p style={{ fontWeight: 600, fontSize: 14 }}>{it.title || it.content_type}</p>
-                  <p style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{it.content?.slice(0, 140)}{it.content?.length > 140 ? '…' : ''}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
     </div>
   );
 }

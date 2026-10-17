@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { isSupabaseConfigured } from '../lib/supabase';
 
 export default function Login() {
-  const [tab, setTab] = useState('signin');
+  const [tab, setTab] = useState(() => (new URLSearchParams(window.location.search).get('mode') === 'signup' ? 'signup' : 'signin'));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -16,7 +16,7 @@ export default function Login() {
   const { signIn, signUp, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = location.state?.from || '/dashboard';
+  const from = location.state?.from || '/recall';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -50,9 +50,9 @@ export default function Login() {
       <div className="glass-card" style={{ maxWidth: 400, width: '90%', padding: '36px 32px' }}>
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <img src="/app-icon-1024.png" alt="AXON" style={{ width: 64, height: 64, borderRadius: 16, marginBottom: 12, boxShadow: '0 0 24px rgba(0,243,255,0.2)' }} />
+          <img src="/app-icon-1024.png" alt="AXON" style={{ width: 64, height: 64, borderRadius: 16, marginBottom: 12, boxShadow: '0 0 24px rgba(255,183,51,0.18)' }} />
           <h1 className="gradient-text" style={{ fontSize: 24, fontWeight: 900, letterSpacing: '2px' }}>AXON</h1>
-          <p style={{ color: 'var(--color-text-secondary)', fontSize: 13, marginTop: 3 }}>Universal AI Memory Layer</p>
+          <p style={{ color: 'var(--color-text-secondary)', fontSize: 13, marginTop: 3 }}>One memory. Every AI.</p>
         </div>
 
         {!isSupabaseConfigured && (
@@ -66,13 +66,13 @@ export default function Login() {
         <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', borderRadius: 9, padding: 3, marginBottom: 22 }}>
           {['signin', 'signup'].map(t => (
             <button key={t} onClick={() => { setTab(t); setError(''); setSuccess(''); }}
-              style={{ flex: 1, padding: '7px', border: 'none', cursor: 'pointer', borderRadius: 7, fontWeight: 700, fontSize: 13, background: tab === t ? 'rgba(0,243,255,0.15)' : 'transparent', color: tab === t ? 'var(--color-neon-cyan)' : 'var(--color-text-secondary)', transition: 'all 0.2s' }}>
+              style={{ flex: 1, padding: '7px', border: 'none', cursor: 'pointer', borderRadius: 7, fontWeight: 700, fontSize: 13, background: tab === t ? 'rgba(255,183,51,0.12)' : 'transparent', color: tab === t ? '#FFD98A' : 'var(--color-text-secondary)', transition: 'all 0.2s' }}>
               {t === 'signin' ? 'Sign In' : 'Create Account'}
             </button>
           ))}
         </div>
 
-        {error && <div style={{ background: 'rgba(255,80,80,0.08)', border: '1px solid rgba(255,80,80,0.25)', borderRadius: 8, padding: '9px 12px', marginBottom: 14, fontSize: 13, color: '#ff6b6b' }}>{error}</div>}
+        {error && <div style={{ background: 'rgba(255,183,51,0.06)', border: '1px solid rgba(255,183,51,0.2)', borderRadius: 8, padding: '9px 12px', marginBottom: 14, fontSize: 13, color: '#E8D3A8' }}>{error}</div>}
         {success && <div style={{ background: 'rgba(37,194,160,0.08)', border: '1px solid rgba(37,194,160,0.25)', borderRadius: 8, padding: '9px 12px', marginBottom: 14, fontSize: 13, color: '#25c2a0' }}>{success}</div>}
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -114,8 +114,8 @@ export default function Login() {
 
         <p style={{ textAlign: 'center', marginTop: 18, fontSize: 11, color: 'var(--color-text-secondary)' }}>
           By continuing you agree to our{' '}
-          <Link to="/terms" style={{ color: 'var(--color-neon-cyan)' }}>Terms</Link> and{' '}
-          <Link to="/privacy" style={{ color: 'var(--color-neon-cyan)' }}>Privacy Policy</Link>
+          <Link to="/terms" style={{ color: '#FFD98A' }}>Terms</Link> and{' '}
+          <Link to="/privacy" style={{ color: '#FFD98A' }}>Privacy Policy</Link>
         </p>
       </div>
     </div>

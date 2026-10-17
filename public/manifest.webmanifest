@@ -2,8 +2,8 @@
   "id": "/",
   "name": "Axon Memory",
   "short_name": "AXON",
-  "description": "Your persistent memory layer — one portrait of you, shared across every AI you use.",
-  "start_url": "/dashboard",
+  "description": "One memory for every AI you use. Capture once, recall anywhere.",
+  "start_url": "/recall",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
@@ -33,6 +33,37 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "share_target": {
+    "action": "/capture",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
+  "shortcuts": [
+    {
+      "name": "Capture",
+      "url": "/capture",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Recall",
+      "url": "/recall",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }

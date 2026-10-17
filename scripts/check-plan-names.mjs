@@ -6,7 +6,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-const roots = ['src', 'landing/src', 'landing/index.html', 'index.html', 'supabase/functions'];
+const roots = ['src', 'index.html', 'supabase/functions'];
 const skip = /node_modules|\/dist(\/|$)|\.test\./;
 const bad = [];
 const walk = (p) => {

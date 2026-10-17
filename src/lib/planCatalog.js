@@ -1,19 +1,19 @@
 // Frontend copy for the 4-tier pricing model. Mirrors
 // supabase/functions/_shared/plans.ts (tier keys + billing mode) and
 // supabase/migrations/20260805214500_pricing_tiers.sql (feature matrix) —
-// keep all three in sync when pricing changes.
+// keep all three in sync when pricing changes. Every line below must be
+// true of the plan_features matrix — no unverifiable perks or urgency.
 export const PLAN_CATALOG = [
   {
     tier: 'starter',
     name: 'Starter',
     price: '€2.99',
     period: '/month',
-    tagline: 'Get your memory layer running.',
+    tagline: 'Your memory, kept in one place.',
     features: [
-      'Unlimited structured memories',
+      'Capture and recall your own memory',
       'Connect Gmail, GitHub, Notion, and Slack',
-      'Full-text recall & memory graph',
-      'One personal API key',
+      'Keyword recall and your Terrain',
     ],
     cta: 'Start on Starter',
   },
@@ -22,13 +22,13 @@ export const PLAN_CATALOG = [
     name: 'Pro',
     price: '€5.99',
     period: '/month',
-    tagline: 'Connect your AI assistants.',
+    tagline: 'Let the AIs you use read it.',
     recommended: true,
     features: [
       'Everything in Starter',
-      'Connect Claude, ChatGPT, Gemini, Cursor & more',
+      'Connect Claude, ChatGPT, Cursor and other MCP clients',
       'One memory shared across every connected AI',
-      'Advanced search & entity extraction',
+      'Advanced recall filters',
     ],
     cta: 'Go Pro',
   },
@@ -40,9 +40,8 @@ export const PLAN_CATALOG = [
     tagline: 'For power users and builders.',
     features: [
       'Everything in Pro',
-      'Semantic (meaning-based) search',
-      'Full API + MCP access for custom tools',
-      'Priority sync frequency',
+      'Recall by meaning, not just words',
+      'Personal API keys for your own tools',
     ],
     cta: 'Go Power',
   },
@@ -51,14 +50,12 @@ export const PLAN_CATALOG = [
     name: 'Lifetime Founder',
     price: '€199',
     period: 'one-time',
-    tagline: 'Everything, forever. Limited founder pricing.',
+    tagline: 'Everything in Power, paid once.',
     features: [
       'Everything in Power',
-      'Lifetime access — no recurring billing',
-      'Founder badge + early access to new features',
-      'Direct line to the team',
+      'No recurring billing',
     ],
-    cta: 'Claim Lifetime Access',
+    cta: 'Choose Lifetime',
   },
 ];
 

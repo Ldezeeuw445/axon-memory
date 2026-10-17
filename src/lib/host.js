@@ -29,7 +29,7 @@
 const APP_HOSTS = ['app.axon-memory.com'];
 
 /** Where the app actually starts, once you are in it. */
-export const APP_HOME = '/dashboard';
+export const APP_HOME = '/recall';
 
 export function isAppHost(hostname = globalThis.location?.hostname ?? '') {
   const h = String(hostname).toLowerCase();

@@ -144,22 +144,6 @@ export default function Subscription() {
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginTop: '32px' }}>
-        {[
-          { icon: <Shield size={20} />, label: 'Encrypted storage', desc: 'API keys & memory data AES-encrypted at rest' },
-          { icon: <Cpu size={20} />, label: 'Token savings', desc: 'Compressed context reduces your AI API costs' },
-          { icon: <Plug size={20} />, label: 'OAuth adapters', desc: 'Gmail, GitHub, Notion, Slack, Claude, ChatGPT & more' },
-          { icon: <Smartphone size={20} />, label: 'Desktop app', desc: 'AXON Core desktop shell — launching soon' },
-        ].map(({ icon, label, desc }) => (
-          <div key={label} className="glass-card" style={{ flex: '1 1 180px', display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-            <div style={{ color: 'var(--color-neon-cyan)', flexShrink: 0, marginTop: '2px' }}>{icon}</div>
-            <div>
-              <p style={{ fontWeight: 700, fontSize: '14px', marginBottom: '4px' }}>{label}</p>
-              <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>{desc}</p>
-            </div>
-          </div>
-        ))}
-      </div>
 
       <p style={{ textAlign: 'center', marginTop: 40, fontSize: 13, color: 'var(--color-text-secondary)' }}>
         Questions about billing or a team plan? <a href="mailto:hello@axon-memory.com" style={{ color: 'var(--color-neon-cyan)' }}>hello@axon-memory.com</a>
