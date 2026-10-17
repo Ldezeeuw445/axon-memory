@@ -120,6 +120,7 @@ try {
   check('Cancel sends error=access_denied with the state and no code', !!denied && denied.searchParams.get('error') === 'access_denied' && denied.searchParams.get('state') === state2 && !denied.searchParams.get('code'), landed ?? 'no redirect');
 
   // 7. Nothing usable was left behind: the user's keys for this client are all withdrawn.
+  await page.goto(`${APP}/?facet=connections`);
   const session = JSON.parse(await page.evaluate(() => localStorage.getItem(Object.keys(localStorage).find((k) => k.endsWith('-auth-token')))));
   const keys = await body(await fetch(`${SUPA}/rest/v1/api_keys?select=id,revoked_at&oauth_client_id=eq.${clientId}`, { headers: { apikey: ANON, Authorization: `Bearer ${session.access_token}` } }));
   check('every key minted for this client is withdrawn', Array.isArray(keys) && keys.length >= 1 && keys.every((k) => k.revoked_at), `${Array.isArray(keys) ? keys.length : keys} keys`);
