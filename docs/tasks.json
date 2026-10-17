@@ -1,0 +1,583 @@
+{
+  "version": 1,
+  "generated_at": "2026-10-16T22:30:00+02:00",
+  "baseline_commit": "09e3f5b",
+  "tasks": [
+    {
+      "id": "A0-1",
+      "product": "axon-memory",
+      "objective": "Canon vs reality drift report + task state",
+      "phase": "A0",
+      "priority": "P0",
+      "status": "done",
+      "owner_agent": "grok-bot",
+      "dependencies": [],
+      "acceptance_criteria": [
+        "docs/DRIFT_REPORT.md and docs/tasks.json merged to main"
+      ],
+      "files_or_services_touched": [
+        "docs/"
+      ],
+      "started_at": "2026-10-16T22:30:00+02:00",
+      "last_progress_at": "2026-10-16T22:30:00+02:00",
+      "attempts": 1,
+      "tests_run": [],
+      "build_result": null,
+      "deployment_result": null,
+      "verification_result": "merged docs",
+      "blocker": null,
+      "next_action": "Proceed to A5/A1",
+      "rollback_reference": "git revert"
+    },
+    {
+      "id": "A0-2",
+      "product": "axon-memory",
+      "objective": "Restore CI: diagnose why Actions jobs never start",
+      "phase": "A0",
+      "priority": "P0",
+      "status": "waiting_external",
+      "owner_agent": "owner",
+      "dependencies": [],
+      "acceptance_criteria": [
+        "CI run on main reaches steps and passes lint/build/deno tests"
+      ],
+      "files_or_services_touched": [
+        ".github/workflows/ci.yml"
+      ],
+      "started_at": "2026-10-16T22:30:00+02:00",
+      "last_progress_at": "2026-10-16T22:30:00+02:00",
+      "attempts": 1,
+      "tests_run": [],
+      "build_result": null,
+      "deployment_result": null,
+      "verification_result": null,
+      "blocker": "GitHub Actions jobs never start (likely Actions disabled/billing); gh not authenticated on box",
+      "next_action": "Owner checks GitHub Actions enabled/billing for repo; meanwhile run same checks on box",
+      "rollback_reference": "git revert"
+    },
+    {
+      "id": "A0-3",
+      "product": "axon-memory",
+      "objective": "Add missing spec docs (ARCHITECTURE, MEMORY_MODEL, SECURITY, MCP, RUNBOOK, ACCEPTANCE, CLAUDE.md)",
+      "phase": "A0",
+      "priority": "P1",
+      "status": "queued",
+      "owner_agent": "grok-bot",
+      "dependencies": [
+        "A0-1"
+      ],
+      "acceptance_criteria": [
+        "All \u00a736 docs exist and reflect live system"
+      ],
+      "files_or_services_touched": [
+        "docs/",
+        "CLAUDE.md"
+      ],
+      "started_at": null,
+      "last_progress_at": null,
+      "attempts": 0,
+      "tests_run": [],
+      "build_result": null,
+      "deployment_result": null,
+      "verification_result": null,
+      "blocker": null,
+      "next_action": "Write from this audit",
+      "rollback_reference": "git revert"
+    },
+    {
+      "id": "A1-1",
+      "product": "axon-memory",
+      "objective": "Typed Memory domain contracts (Memory/Thread/Core/Facet/Weight/Depth/provenance/lifecycle/supersession)",
+      "phase": "A1",
+      "priority": "P1",
+      "status": "queued",
+      "owner_agent": "grok-bot",
+      "dependencies": [
+        "A0-1"
+      ],
+      "acceptance_criteria": [
+        "Shared TS types + schema tests pass",
+        "Non-destructive additive migration for weight/depth/lifecycle_state/facets"
+      ],
+      "files_or_services_touched": [
+        "supabase/functions/_shared/",
+        "supabase/migrations/"
+      ],
+      "started_at": null,
+      "last_progress_at": null,
+      "attempts": 0,
+      "tests_run": [],
+      "build_result": null,
+      "deployment_result": null,
+      "verification_result": null,
+      "blocker": null,
+      "next_action": "Draft MEMORY_MODEL.md then additive migration",
+      "rollback_reference": "git revert"
+    },
+    {
+      "id": "A2-1",
+      "product": "axon-memory",
+      "objective": "Observable capture pipeline with mandatory owner+provenance",
+      "phase": "A2",
+      "priority": "P1",
+      "status": "queued",
+      "owner_agent": "grok-bot",
+      "dependencies": [
+        "A1-1"
+      ],
+      "acceptance_criteria": [
+        "Every stored memory has owner+provenance",
+        "Failed capture visible and retryable"
+      ],
+      "files_or_services_touched": [
+        "supabase/functions/remember",
+        "_shared/memory-core.ts"
+      ],
+      "started_at": null,
+      "last_progress_at": null,
+      "attempts": 0,
+      "tests_run": [],
+      "build_result": null,
+      "deployment_result": null,
+      "verification_result": null,
+      "blocker": null,
+      "next_action": "Add capture_events log",
+      "rollback_reference": "git revert"
+    },
+    {
+      "id": "A2-2",
+      "product": "axon-memory",
+      "objective": "Idempotent offline capture queue in PWA",
+      "phase": "A2",
+      "priority": "P2",
+      "status": "queued",
+      "owner_agent": "grok-bot",
+      "dependencies": [
+        "A2-1"
+      ],
+      "acceptance_criteria": [
+        "queued/syncing/stored/failed states; no 'stored' before ack"
+      ],
+      "files_or_services_touched": [
+        "public/sw.js",
+        "src/"
+      ],
+      "started_at": null,
+      "last_progress_at": null,
+      "attempts": 0,
+      "tests_run": [],
+      "build_result": null,
+      "deployment_result": null,
+      "verification_result": null,
+      "blocker": null,
+      "next_action": "Client queue keyed by idempotency key",
+      "rollback_reference": "git revert"
+    },
+    {
+      "id": "A3-1",
+      "product": "axon-memory",
+      "objective": "Hybrid recall ranking + eval fixtures + source trace",
+      "phase": "A3",
+      "priority": "P1",
+      "status": "queued",
+      "owner_agent": "grok-bot",
+      "dependencies": [
+        "A1-1"
+      ],
+      "acceptance_criteria": [
+        "Repeatable eval set passes threshold",
+        "Results distinguish memory/inference/source/confidence"
+      ],
+      "files_or_services_touched": [
+        "supabase/migrations",
+        "context-pack",
+        "mcp-server"
+      ],
+      "started_at": null,
+      "last_progress_at": null,
+      "attempts": 0,
+      "tests_run": [],
+      "build_result": null,
+      "deployment_result": null,
+      "verification_result": null,
+      "blocker": null,
+      "next_action": "Build eval fixtures from synthetic user",
+      "rollback_reference": "git revert"
+    },
+    {
+      "id": "A4-1",
+      "product": "axon-memory",
+      "objective": "Retire/supersede/delete propagation across items, embeddings, facts, entity links, caches",
+      "phase": "A4",
+      "priority": "P1",
+      "status": "queued",
+      "owner_agent": "grok-bot",
+      "dependencies": [
+        "A1-1"
+      ],
+      "acceptance_criteria": [
+        "Deleted memory absent from all recall paths (tested)"
+      ],
+      "files_or_services_touched": [
+        "supabase/migrations",
+        "memory-core.ts"
+      ],
+      "started_at": null,
+      "last_progress_at": null,
+      "attempts": 0,
+      "tests_run": [],
+      "build_result": null,
+      "deployment_result": null,
+      "verification_result": null,
+      "blocker": null,
+      "next_action": "Write propagation tests first",
+      "rollback_reference": "git revert"
+    },
+    {
+      "id": "A5-1",
+      "product": "axon-memory",
+      "objective": "Adversarial tenant isolation suite (rows, RPC, semantic, threads, MCP, API, export)",
+      "phase": "A5",
+      "priority": "P0",
+      "status": "queued",
+      "owner_agent": "grok-bot",
+      "dependencies": [
+        "A0-1"
+      ],
+      "acceptance_criteria": [
+        "User A cannot read user B via any path; suite in CI"
+      ],
+      "files_or_services_touched": [
+        "tests/rls/",
+        "scripts/"
+      ],
+      "started_at": null,
+      "last_progress_at": null,
+      "attempts": 0,
+      "tests_run": [],
+      "build_result": null,
+      "deployment_result": null,
+      "verification_result": null,
+      "blocker": null,
+      "next_action": "Two disposable test users; run against prod read paths",
+      "rollback_reference": "git revert"
+    },
+    {
+      "id": "A5-2",
+      "product": "axon-memory",
+      "objective": "Fix advisor findings: revoke anon EXECUTE on SECURITY DEFINER fns, move extension out of public, document deny-all tables",
+      "phase": "A5",
+      "priority": "P0",
+      "status": "queued",
+      "owner_agent": "grok-bot",
+      "dependencies": [
+        "A5-1"
+      ],
+      "acceptance_criteria": [
+        "get_advisors security clean or documented exceptions"
+      ],
+      "files_or_services_touched": [
+        "supabase/migrations"
+      ],
+      "started_at": null,
+      "last_progress_at": null,
+      "attempts": 0,
+      "tests_run": [],
+      "build_result": null,
+      "deployment_result": null,
+      "verification_result": null,
+      "blocker": null,
+      "next_action": "Additive REVOKE migration (tightens security only)",
+      "rollback_reference": "git revert"
+    },
+    {
+      "id": "A5-3",
+      "product": "axon-memory",
+      "objective": "Enable leaked-password protection in Supabase Auth",
+      "phase": "A5",
+      "priority": "P1",
+      "status": "waiting_approval",
+      "owner_agent": "grok-bot",
+      "dependencies": [],
+      "acceptance_criteria": [
+        "Setting enabled"
+      ],
+      "files_or_services_touched": [
+        "Supabase Auth config"
+      ],
+      "started_at": "2026-10-16T22:30:00+02:00",
+      "last_progress_at": "2026-10-16T22:30:00+02:00",
+      "attempts": 1,
+      "tests_run": [],
+      "build_result": null,
+      "deployment_result": null,
+      "verification_result": null,
+      "blocker": "Auth setting may require dashboard",
+      "next_action": "Dashboard-only setting; owner or MCP if supported",
+      "rollback_reference": "git revert"
+    },
+    {
+      "id": "A6-1",
+      "product": "axon-memory",
+      "objective": "MCP canonical lifecycle tools: capture/recall/retire/delete (+supersede) with health endpoint",
+      "phase": "A6",
+      "priority": "P0",
+      "status": "queued",
+      "owner_agent": "grok-bot",
+      "dependencies": [
+        "A4-1"
+      ],
+      "acceptance_criteria": [
+        "External AI captures+recalls+retires+deletes via real MCP",
+        "Tenant boundary intact"
+      ],
+      "files_or_services_touched": [
+        "supabase/functions/mcp-server",
+        "cloudflare/mcp-gateway"
+      ],
+      "started_at": null,
+      "last_progress_at": null,
+      "attempts": 0,
+      "tests_run": [],
+      "build_result": null,
+      "deployment_result": null,
+      "verification_result": null,
+      "blocker": null,
+      "next_action": "Add retire_memory/delete_memory tools; keep remember/recall_context as aliases",
+      "rollback_reference": "git revert"
+    },
+    {
+      "id": "A7-1",
+      "product": "axon-memory",
+      "objective": "Versioned public API (/v1) + TypeScript SDK + integration tests",
+      "phase": "A7",
+      "priority": "P2",
+      "status": "queued",
+      "owner_agent": "grok-bot",
+      "dependencies": [
+        "A6-1"
+      ],
+      "acceptance_criteria": [
+        "SDK capture/recall/delete pass against prod test user"
+      ],
+      "files_or_services_touched": [
+        "packages/sdk-ts",
+        "openapi-actions"
+      ],
+      "started_at": null,
+      "last_progress_at": null,
+      "attempts": 0,
+      "tests_run": [],
+      "build_result": null,
+      "deployment_result": null,
+      "verification_result": null,
+      "blocker": null,
+      "next_action": "Define OpenAPI v1",
+      "rollback_reference": "git revert"
+    },
+    {
+      "id": "A8-1",
+      "product": "axon-memory",
+      "objective": "Connector runtime contract: status/scope/last_success/error/count/revoke + UI truthfulness",
+      "phase": "A8",
+      "priority": "P2",
+      "status": "queued",
+      "owner_agent": "grok-bot",
+      "dependencies": [
+        "A1-1"
+      ],
+      "acceptance_criteria": [
+        "No connector shown connected when last sync failed"
+      ],
+      "files_or_services_touched": [
+        "source_connections",
+        "sync-source",
+        "ConnectionsFacet.jsx"
+      ],
+      "started_at": null,
+      "last_progress_at": null,
+      "attempts": 0,
+      "tests_run": [],
+      "build_result": null,
+      "deployment_result": null,
+      "verification_result": null,
+      "blocker": null,
+      "next_action": "Add last_success_at/last_error columns",
+      "rollback_reference": "git revert"
+    },
+    {
+      "id": "A9-1",
+      "product": "axon-memory",
+      "objective": "Mobile-first surfaces: Recall home, Capture, Threads, Terrain(real data), Connections, Privacy",
+      "phase": "A9",
+      "priority": "P1",
+      "status": "queued",
+      "owner_agent": "grok-bot",
+      "dependencies": [
+        "A3-1"
+      ],
+      "acceptance_criteria": [
+        "Primary flows fast on phone; Terrain from real relationships; no forbidden user-visible words"
+      ],
+      "files_or_services_touched": [
+        "src/pages",
+        "src/components"
+      ],
+      "started_at": null,
+      "last_progress_at": null,
+      "attempts": 0,
+      "tests_run": [],
+      "build_result": null,
+      "deployment_result": null,
+      "verification_result": null,
+      "blocker": null,
+      "next_action": "Rename Dashboard UI to Recall home; lexicon string audit",
+      "rollback_reference": "git revert"
+    },
+    {
+      "id": "A9-2",
+      "product": "axon-memory",
+      "objective": "Remove duplicate/dead frontend modules (AuthContext x2, supabase client x2)",
+      "phase": "A9",
+      "priority": "P2",
+      "status": "queued",
+      "owner_agent": "grok-bot",
+      "dependencies": [],
+      "acceptance_criteria": [
+        "Build passes; single source"
+      ],
+      "files_or_services_touched": [
+        "src/"
+      ],
+      "started_at": null,
+      "last_progress_at": null,
+      "attempts": 0,
+      "tests_run": [],
+      "build_result": null,
+      "deployment_result": null,
+      "verification_result": null,
+      "blocker": null,
+      "next_action": "Consolidate",
+      "rollback_reference": "git revert"
+    },
+    {
+      "id": "A10-1",
+      "product": "axon-memory",
+      "objective": "Landing: spec story, real visuals, Power naming, no mock data claims",
+      "phase": "A10",
+      "priority": "P1",
+      "status": "queued",
+      "owner_agent": "grok-bot",
+      "dependencies": [
+        "A11-1"
+      ],
+      "acceptance_criteria": [
+        "Responsive; no fake claims; plan names match backend"
+      ],
+      "files_or_services_touched": [
+        "landing/src"
+      ],
+      "started_at": null,
+      "last_progress_at": null,
+      "attempts": 0,
+      "tests_run": [],
+      "build_result": null,
+      "deployment_result": null,
+      "verification_result": null,
+      "blocker": null,
+      "next_action": "Replace mockGraph with real anonymized demo",
+      "rollback_reference": "git revert"
+    },
+    {
+      "id": "A11-1",
+      "product": "axon-memory",
+      "objective": "Plan naming Ultra\u2192Power (display only, keep internal key)",
+      "phase": "A11",
+      "priority": "P1",
+      "status": "queued",
+      "owner_agent": "grok-bot",
+      "dependencies": [],
+      "acceptance_criteria": [
+        "All user-visible strings say Power; Stripe prices unchanged"
+      ],
+      "files_or_services_touched": [
+        "src/lib/planCatalog.js",
+        "landing/src/content.js",
+        "mcp-oauth-consent",
+        "Subscription.jsx"
+      ],
+      "started_at": null,
+      "last_progress_at": null,
+      "attempts": 0,
+      "tests_run": [],
+      "build_result": null,
+      "deployment_result": null,
+      "verification_result": null,
+      "blocker": null,
+      "next_action": "String change only; no billing change",
+      "rollback_reference": "git revert"
+    },
+    {
+      "id": "A11-2",
+      "product": "axon-memory",
+      "objective": "Server-side entitlement normalization + webhook idempotency/replay tests",
+      "phase": "A11",
+      "priority": "P2",
+      "status": "queued",
+      "owner_agent": "grok-bot",
+      "dependencies": [
+        "A11-1"
+      ],
+      "acceptance_criteria": [
+        "Replay of same Stripe event is no-op; entitlement view single truth"
+      ],
+      "files_or_services_touched": [
+        "stripe-webhook",
+        "subscriptions",
+        "plan_features"
+      ],
+      "started_at": null,
+      "last_progress_at": null,
+      "attempts": 0,
+      "tests_run": [],
+      "build_result": null,
+      "deployment_result": null,
+      "verification_result": null,
+      "blocker": null,
+      "next_action": "Add processed_events table (additive)",
+      "rollback_reference": "git revert"
+    },
+    {
+      "id": "A12-1",
+      "product": "axon-memory",
+      "objective": "Release gate: typecheck, unit, RLS, MCP, recall eval, build, deploy smoke; scripted Pages/Worker deploy; AXE Core heartbeat",
+      "phase": "A12",
+      "priority": "P1",
+      "status": "queued",
+      "owner_agent": "grok-bot",
+      "dependencies": [
+        "A5-1",
+        "A6-1",
+        "A3-1",
+        "A0-2"
+      ],
+      "acceptance_criteria": [
+        "All suites green; acceptance flow \u00a737 passes end-to-end"
+      ],
+      "files_or_services_touched": [
+        "scripts/",
+        "docs/RUNBOOK.md"
+      ],
+      "started_at": null,
+      "last_progress_at": null,
+      "attempts": 0,
+      "tests_run": [],
+      "build_result": null,
+      "deployment_result": null,
+      "verification_result": null,
+      "blocker": null,
+      "next_action": "Script wrangler pages deploy + health pings",
+      "rollback_reference": "git revert"
+    }
+  ]
+}
