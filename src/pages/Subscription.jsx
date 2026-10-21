@@ -19,7 +19,7 @@ export default function Subscription() {
   const justUpgraded = params.get('session_id');
   const cancelled = location.pathname.endsWith('/cancel');
 
-  const currentTier = plan.status?.plan_tier || 'starter';
+  const currentTier = plan.loading ? null : (plan.plan_tier || 'starter');
   // Lifetime already includes every plan; the server refuses a checkout too (A11-3).
   const hasLifetime = currentTier === 'lifetime_founder';
 
@@ -93,7 +93,7 @@ export default function Subscription() {
               {(isCurrent || p.recommended) && (
                 <div style={{
                   position: 'absolute', top: '-1px', left: '20px',
-                  background: isCurrent ? 'rgba(255,255,255,0.15)' : 'linear-gradient(90deg, var(--color-neon-cyan), var(--color-neon-purple))',
+                  background: isCurrent ? 'rgba(255,255,255,0.15)' : 'linear-gradient(90deg, var(--color-accent), #ffd27a)',
                   padding: '3px 10px', borderRadius: '0 0 8px 8px', fontSize: '11px', fontWeight: 800,
                   color: isCurrent ? 'var(--color-text-secondary)' : '#000',
                 }}>
@@ -102,7 +102,7 @@ export default function Subscription() {
               )}
               <div style={{ marginTop: '8px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Icon size={20} color="var(--color-neon-cyan)" />
+                  <Icon size={20} color="var(--color-accent)" />
                   <h2 style={{ fontSize: '20px', fontWeight: 800 }} className={p.recommended ? 'gradient-text' : ''}>{p.name}</h2>
                 </div>
                 <div style={{ margin: '12px 0 4px' }}>
@@ -113,7 +113,7 @@ export default function Subscription() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', marginBottom: '22px' }}>
                   {p.features.map((f) => (
                     <div key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '13px' }}>
-                      <CheckCircle size={14} color="var(--color-neon-cyan)" style={{ flexShrink: 0, marginTop: 2 }} />
+                      <CheckCircle size={14} color="var(--color-accent)" style={{ flexShrink: 0, marginTop: 2 }} />
                       {f}
                     </div>
                   ))}
@@ -143,7 +143,7 @@ export default function Subscription() {
         })}
       </div>
 
-      {currentTier !== 'starter' && (
+      {currentTier && currentTier !== 'starter' && (
         <div style={{ marginTop: '20px' }}>
           <button onClick={handleManageBilling} disabled={loadingTier !== null} className="btn-secondary">
             {loadingTier === 'portal' ? 'Opening…' : 'Manage billing & invoices'}
@@ -153,7 +153,7 @@ export default function Subscription() {
 
 
       <p style={{ textAlign: 'center', marginTop: 40, fontSize: 13, color: 'var(--color-text-secondary)' }}>
-        Questions about billing or a team plan? <a href="mailto:hello@axon-memory.com" style={{ color: 'var(--color-neon-cyan)' }}>hello@axon-memory.com</a>
+        Questions about billing or a team plan? <a href="mailto:hello@axon-memory.com" style={{ color: 'var(--color-accent)' }}>hello@axon-memory.com</a>
       </p>
     </div>
   );

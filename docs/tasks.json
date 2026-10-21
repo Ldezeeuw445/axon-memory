@@ -1065,6 +1065,32 @@
       "deployment_result": "PR #34 a23af36; migration already applied in prod",
       "verification_result": "RUNBOOK §Operations view",
       "rollback_reference": "redeploy previous ops-health / check-alerts"
+    },
+    {
+      "product": "axon-memory",
+      "status": "done",
+      "owner_agent": "grok-bot",
+      "dependencies": [],
+      "blocker": null,
+      "next_action": null,
+      "id": "A10-2",
+      "objective": "Polish round 2: premium mobile pass + first sign-in check",
+      "phase": "A10",
+      "priority": "P2",
+      "acceptance_criteria": [
+        "six screens reviewed at 390x844 with before/after shots",
+        "first sign-in near 1.5 s"
+      ],
+      "files_or_services_touched": [
+        "src/pages/facets/RecallFacet.jsx",
+        "src/components/app/ui.jsx",
+        "src/pages/Subscription.jsx"
+      ],
+      "test_result": "release gate 12/12",
+      "build_result": "ok",
+      "deployment_result": "this PR",
+      "verification_result": "perf:signin prod fast4g CPU4x median: login page ready 1.36 s, tap->Recall visible 1.02 s (target met since #30). Fixed: /subscription always showed Starter as current plan (read plan.status.plan_tier, which never exists) so Power/Lifetime users saw 'Go Pro' and no billing link; recall loading/empty states",
+      "rollback_reference": "Pages rollback; rebundle mcp-server from a23af36"
     }
   ]
 }

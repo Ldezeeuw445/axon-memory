@@ -119,11 +119,13 @@ export default function RecallFacet({ onOpen }) {
         {showing ? (
           <motion.div key="results" className="ax-section" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6 }}>
             {err && <Paused>{err}</Paused>}
-            {busy && <Settling rows={3} />}
+            {busy && <Settling rows={3} label={q.trim() ? `Recalling “${q.trim().slice(0, 40)}”…` : 'Recalling…'} />}
             {!busy && result && (
               <>
-                <div className="ax-section-label"><span>{result.memories.length ? `${result.memories.length} ${result.memories.length === 1 ? 'memory' : 'memories'}` : 'Nothing held for that yet'}</span>
-                  <span style={{ letterSpacing: '0.08em', textTransform: 'none' }}>{result.signals?.includes('semantic') ? 'by meaning and words' : 'by words'}</span></div>
+                {result.memories.length > 0 && (
+                  <div className="ax-section-label"><span>{`${result.memories.length} ${result.memories.length === 1 ? 'memory' : 'memories'}`}</span>
+                    <span style={{ letterSpacing: '0.08em', textTransform: 'none' }}>{result.signals?.includes('semantic') ? 'by meaning and words' : 'by words'}</span></div>
+                )}
                 {result.inferences?.length > 0 && result.memories.length > 0 && (
                   <div className="ax-card" style={{ borderColor: 'rgba(255,183,51,0.14)' }}>
                     <div className="ax-eyebrow" style={{ color: 'var(--color-accent)' }}>What AXON concluded</div>
@@ -134,7 +136,10 @@ export default function RecallFacet({ onOpen }) {
                   {result.memories.map((m, i) => <MemoryCard key={m.id} m={m} index={i} threadName={m.thread?.key && home?.threads.find((t) => t.key === m.thread.key)?.name} />)}
                 </div>
                 {!result.memories.length && (
-                  <div className="ax-young">Nothing about <strong>{result.query || facet}</strong> has been captured yet. <button className="ax-btn-quiet" style={{ marginLeft: 6 }} onClick={() => onOpen?.('capture', { text: q })}>Capture it now</button></div>
+                  <div className="ax-young">
+                    <strong>Nothing about “{result.query || facet}” yet.</strong> Anything you or a connected AI captures about it will surface here.
+                    <div style={{ marginTop: 12 }}><button className="ax-btn-quiet" onClick={() => onOpen?.('capture', { text: q })}>Capture it now</button></div>
+                  </div>
                 )}
               </>
             )}
