@@ -58,8 +58,13 @@ export function FacetHead({ eyebrow, title, sub, right }) {
   );
 }
 
-export function Settling({ rows = 3 }) {
-  return <div className="ax-list" aria-busy="true">{Array.from({ length: rows }).map((_, i) => <div key={i} className="ax-settle" style={{ animationDelay: `${i * 0.25}s` }} />)}</div>;
+export function Settling({ rows = 3, label }) {
+  return (
+    <div className="ax-list" aria-busy="true">
+      {label && <div className="ax-meta" role="status" style={{ fontSize: 12.5, opacity: 0.7 }}>{label}</div>}
+      {Array.from({ length: rows }).map((_, i) => <div key={i} className="ax-settle" style={{ animationDelay: `${i * 0.25}s` }} />)}
+    </div>
+  );
 }
 
 export function Paused({ children }) {
