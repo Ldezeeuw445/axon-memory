@@ -278,6 +278,9 @@ function rpcError(id: unknown, code: number, message: string) {
   return { jsonrpc: "2.0", id, error: { code, message } };
 }
 
+let healthClient: ReturnType<typeof supabaseAdmin> | undefined;
+const HEALTH_DB_TIMEOUT_MS = 2000;
+
 Deno.serve(async (req: Request) => {
   const preflight = handlePreflight(req);
   if (preflight) return preflight;
@@ -287,20 +290,28 @@ Deno.serve(async (req: Request) => {
   // GET mcp.axon-memory.com/health (gateway) or GET …/mcp-server?health.
   const reqUrl = new URL(req.url);
   if (req.method === "GET" && (reqUrl.searchParams.has("health") || reqUrl.pathname.endsWith("/health"))) {
+    // Cheapest possible probe (no count(*)), one reused client, and a hard 2 s cap so a
+    // slow pool shows as "degraded" instead of a monitor hanging for 3–4 s.
     const started = Date.now();
-    const { error: dbError } = await supabaseAdmin().from("plan_features").select("tier", { head: true, count: "exact" }).limit(1);
+    healthClient ??= supabaseAdmin();
+    const probe = healthClient.from("plan_features").select("tier").limit(1).then((r) => r.error);
+    const dbError = await Promise.race([
+      probe,
+      new Promise((res) => setTimeout(() => res(new Error("timeout")), HEALTH_DB_TIMEOUT_MS)),
+    ]);
     const body = {
       status: dbError ? "degraded" : "ok",
       service: SERVER_INFO.name,
       version: SERVER_INFO.version,
       protocol: PROTOCOL_VERSION,
-      database: dbError ? "unreachable" : "ok",
+      database: dbError ? ((dbError as Error).message === "timeout" ? "slow" : "unreachable") : "ok",
       db_ms: Date.now() - started,
       tools: ALL_TOOLS.map((t) => t.name),
       time: new Date().toISOString(),
     };
     return new Response(JSON.stringify(body), {
-      status: dbError ? 503 : 200,
+      // Slow is reported in the body but is not an outage; only a real DB error is 503.
+      status: dbError && (dbError as Error).message !== "timeout" ? 503 : 200,
       headers: { ...cors, "content-type": "application/json", "cache-control": "no-store" },
     });
   }
