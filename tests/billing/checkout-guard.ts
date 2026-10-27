@@ -11,6 +11,12 @@
 const MOCK_PORT = 54398;
 const STRIPE_PORT = 54399;
 const FN_PORT = 8000; // Deno.serve default; the function takes no port
+// The box is shared: if something else already listens on 8000 the calls
+// below would hit it, not stripe-checkout. Fail fast and say so.
+try { Deno.listen({ port: FN_PORT }).close(); } catch {
+  console.error(`✗ port ${FN_PORT} is already in use by another process; free it and re-run (result would be meaningless)`);
+  Deno.exit(2);
+}
 const PRICE = { starter: "price_1U1AfvFGBQHVlLfhO8uNIEWX", pro: "price_1U1620FGBQHVlLfhBfLCbaZM", ultra: "price_1U1AhtFGBQHVlLfhfmRRvtjv" };
 type U = { id: string; plan_tier: string; customer: string | null; subs: { status: string; price: string }[] };
 const users: Record<string, U> = {
