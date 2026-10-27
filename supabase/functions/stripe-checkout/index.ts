@@ -7,11 +7,13 @@
 // Expects: POST { tier: "starter" | "pro" | "ultra" | "lifetime_founder" }
 // Auth:    Authorization: Bearer <supabase user access token>
 // Returns: { url: string }  (redirect the client to this Stripe-hosted URL)
+//          409 { error: "already_lifetime" | "already_subscribed", message, current_tier? }
+//          when the checkout would charge twice (A11-3 / A11-4, docs/BILLING.md).
 
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { PLANS, isValidTier } from "../_shared/plans.ts";
-import { checkoutRefusal } from "../_shared/billing.ts";
+import { checkoutBlock, type StripeSubLite } from "../_shared/billing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,9 +21,16 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+// STRIPE_API_BASE is unset in production (Stripe's own API). The local
+// checkout-guard test points it at a mock so the real function can be run.
+const stripeBase = Deno.env.get("STRIPE_API_BASE");
+const stripeHost = stripeBase ? new URL(stripeBase) : null;
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
   apiVersion: "2024-06-20",
   httpClient: Stripe.createFetchHttpClient(),
+  ...(stripeHost
+    ? { host: stripeHost.hostname, port: Number(stripeHost.port) || undefined, protocol: stripeHost.protocol.replace(":", "") as "http" | "https" }
+    : {}),
 });
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -74,10 +83,8 @@ Deno.serve(async (req) => {
 
     // A11-3: a Lifetime member is never sent to a checkout (no Stripe call is
     // made, no customer created). 409 with a sentence the app can show as is.
-    const refusal = checkoutRefusal(profile.plan_tier as string | null, tier);
-    if (refusal) {
-      return json({ error: "already_lifetime", message: refusal }, 409);
-    }
+    const lifetime = checkoutBlock(profile.plan_tier as string | null, tier, []);
+    if (lifetime) return json(lifetime, 409);
 
     // Reuse an existing Stripe customer, or create one and persist it.
     let customerId = profile.stripe_customer_id as string | null;
@@ -88,6 +95,13 @@ Deno.serve(async (req) => {
       });
       customerId = customer.id;
       await supabase.from("profiles").update({ stripe_customer_id: customerId }).eq("id", user.id);
+    } else if (plan.mode === "subscription") {
+      // A11-4: one subscription per customer. Ask Stripe (the source of
+      // truth; the profile can lag a webhook). A brand-new customer has none.
+      const subs = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 100 });
+      const lite: StripeSubLite[] = subs.data.map((s) => ({ id: s.id, status: s.status, priceId: s.items?.data?.[0]?.price?.id ?? null }));
+      const block = checkoutBlock(profile.plan_tier as string | null, tier, lite);
+      if (block) return json(block, 409);
     }
 
     const session = await stripe.checkout.sessions.create({

@@ -18,7 +18,7 @@
  *     Deleting a previous one changes nothing.
  *  5. plan_started_at moves only when the tier actually changes.
  */
-import { FALLBACK_TIER, PLANS, tierFromPriceId, type PlanTier } from "./plans.ts";
+import { FALLBACK_TIER, PLAN_DISPLAY_NAMES, PLANS, tierFromPriceId, type PlanTier } from "./plans.ts";
 
 export type BillingProfile = {
   plan_tier: PlanTier;
@@ -95,4 +95,43 @@ export function checkoutRefusal(current: string | null | undefined, requested: P
   return requested === "lifetime_founder"
     ? "You already have Lifetime. There is nothing more to buy."
     : "You have Lifetime, which already includes everything in every plan. No subscription is needed.";
+}
+
+/**
+ * A11-4 — one subscription per customer (approved by Luka 2026-10-27).
+ *
+ * Stripe statuses that still bill, or can bill again without a new checkout.
+ * `canceled`, `incomplete` and `incomplete_expired` do not block: those
+ * subscriptions will never charge, so a new checkout is the right path.
+ */
+export const BLOCKING_SUBSCRIPTION_STATUSES = new Set(["active", "trialing", "past_due", "unpaid", "paused"]);
+
+export type StripeSubLite = { id: string; status: string; priceId: string | null };
+export type CheckoutBlock = { error: "already_lifetime" | "already_subscribed"; message: string; current_tier?: PlanTier | null };
+
+/**
+ * Full checkout guard. `subscriptions` are the customer's subscriptions as
+ * Stripe reports them (the source of truth; the profile can lag a webhook).
+ *  - Lifetime members are refused everything (A11-3, checkoutRefusal).
+ *  - A customer with a live subscription cannot open a second SUBSCRIPTION
+ *    checkout. Switching plans happens in the billing portal, which changes
+ *    the existing subscription instead of adding one.
+ *  - A one-time Lifetime purchase is not a subscription and stays allowed.
+ */
+export function checkoutBlock(
+  currentTier: string | null | undefined,
+  requested: PlanTier,
+  subscriptions: StripeSubLite[],
+): CheckoutBlock | null {
+  const lifetime = checkoutRefusal(currentTier, requested);
+  if (lifetime) return { error: "already_lifetime", message: lifetime };
+  if (PLANS[requested].mode !== "subscription") return null;
+  const live = subscriptions.find((s) => BLOCKING_SUBSCRIPTION_STATUSES.has(s.status));
+  if (!live) return null;
+  const tier = tierFromPriceId(live.priceId);
+  const name = tier ? PLAN_DISPLAY_NAMES[tier] : "paid";
+  const message = tier === requested
+    ? `You're already subscribed to ${name}. Manage it in billing.`
+    : `You already have an active ${name} subscription. To switch plans, change it in billing, so you're never charged twice.`;
+  return { error: "already_subscribed", message, current_tier: tier };
 }

@@ -1091,6 +1091,47 @@
       "deployment_result": "this PR",
       "verification_result": "perf:signin prod fast4g CPU4x median: login page ready 1.36 s, tap->Recall visible 1.02 s (target met since #30). Fixed: /subscription always showed Starter as current plan (read plan.status.plan_tier, which never exists) so Power/Lifetime users saw 'Go Pro' and no billing link; recall loading/empty states",
       "rollback_reference": "Pages rollback; rebundle mcp-server from a23af36"
+    },
+    {
+      "id": "A11-4",
+      "product": "axon-memory",
+      "objective": "One subscription per customer: stripe-checkout refuses a second subscription checkout (409 already_subscribed); plan changes go through the billing portal",
+      "phase": "A11",
+      "priority": "P1",
+      "status": "done",
+      "owner_agent": "grok-bot",
+      "dependencies": [
+        "A11-3"
+      ],
+      "acceptance_criteria": [
+        "A customer with a live Stripe subscription (active/trialing/past_due/unpaid/paused) gets 409 already_subscribed for Starter/Pro/Power, and no checkout session is created",
+        "Stripe is asked, not the profile, so webhook lag cannot let a second subscription through",
+        "Lifetime purchase stays allowed for a subscriber; Lifetime members still get 409 already_lifetime",
+        "Subscription page shows 'Change plan in billing' for subscribers and an 'Open billing' button on a 409",
+        "No current customer affected"
+      ],
+      "files_or_services_touched": [
+        "supabase/functions/stripe-checkout",
+        "supabase/functions/_shared/billing.ts",
+        "tests/billing/checkout-guard.ts",
+        "src/pages/Subscription.jsx",
+        "docs/BILLING.md"
+      ],
+      "started_at": "2026-10-27T14:45:00+01:00",
+      "last_progress_at": "2026-10-27T15:15:00+01:00",
+      "attempts": 1,
+      "tests_run": [
+        "npm run test:billing (replay 23/23, checkout guard 21/21; guard disabled → 8/21)",
+        "deno test _shared billing 8/8",
+        "release-gate 12/12",
+        "isolation.sql 255/255 (rolled back)"
+      ],
+      "build_result": "ok",
+      "deployment_result": "2026-10-27 CET: stripe-checkout v26 (verify_jwt false, as before). Frontend change ships with the next Pages deploy (Cloudflare connector down).",
+      "verification_result": "Live smoke: OPTIONS 200, no auth 401, bad token 401 (function boots). Live profiles: 0 with a subscription, so nobody is refused today. A live 409 needs a real subscriber and was not run.",
+      "blocker": null,
+      "next_action": "Luka: confirm the Stripe customer portal allows switching between Starter, Pro and Power. Deploy frontend to Pages when Cloudflare is back.",
+      "rollback_reference": "Redeploy stripe-checkout from 7794629 sources (v25 = A11-3)."
     }
   ]
 }
