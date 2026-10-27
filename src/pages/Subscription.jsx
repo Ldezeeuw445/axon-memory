@@ -22,27 +22,37 @@ export default function Subscription() {
   const currentTier = plan.loading ? null : (plan.plan_tier || 'starter');
   // Lifetime already includes every plan; the server refuses a checkout too (A11-3).
   const hasLifetime = currentTier === 'lifetime_founder';
+  // One subscription per customer (A11-4): a subscriber switches plans in the
+  // billing portal, which changes the existing subscription. The server
+  // refuses a second subscription checkout with 409 already_subscribed too.
+  const hasSubscription = !hasLifetime && Boolean(plan.stripe_subscription_id);
+  const canManageBilling = Boolean(plan.stripe_customer_id) && (hasSubscription || (currentTier && currentTier !== 'starter'));
 
   const handleSubscribe = async (tier) => {
-    if (isDemo) { setError('Connect Supabase to enable real billing.'); return; }
+    if (isDemo) { setError({ message: 'Connect Supabase to enable real billing.' }); return; }
     setLoadingTier(tier);
     setError(null);
     try {
       const { url } = await callFunction('stripe-checkout', { body: { tier } });
       window.location.href = url;
     } catch (err) {
-      setError(err.message);
+      setError({
+        message: err.message,
+        portal: err.status === 409 && err.code === 'already_subscribed',
+      });
       setLoadingTier(null);
+      if (err.status === 409) plan.refresh?.();
     }
   };
 
   const handleManageBilling = async () => {
     setLoadingTier('portal');
+    setError(null);
     try {
       const { url } = await callFunction('stripe-portal');
       window.location.href = url;
     } catch (err) {
-      setError(err.message);
+      setError({ message: err.message });
       setLoadingTier(null);
     }
   };
@@ -75,7 +85,16 @@ export default function Subscription() {
       {error && (
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', background: 'rgba(255,80,80,0.08)', border: '1px solid rgba(255,80,80,0.25)', borderRadius: '12px', padding: '14px 18px', marginBottom: '24px' }}>
           <AlertTriangle size={16} color="#ff6b6b" style={{ marginTop: '2px', flexShrink: 0 }} />
-          <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>{error}</div>
+          <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+            {error.message}
+            {error.portal && (
+              <div style={{ marginTop: 10 }}>
+                <button onClick={handleManageBilling} disabled={loadingTier !== null} className="btn-secondary" style={{ fontSize: 13, padding: '8px 14px' }}>
+                  {loadingTier === 'portal' ? 'Opening…' : 'Open billing'}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -126,6 +145,15 @@ export default function Subscription() {
                   <div style={{ padding: '11px', borderRadius: '10px', textAlign: 'center', fontSize: '13px', color: 'var(--color-text-secondary)', background: 'rgba(255,255,255,0.04)' }}>
                     Included in your Lifetime plan
                   </div>
+                ) : hasSubscription && !isOneTime ? (
+                  <button
+                    onClick={handleManageBilling}
+                    disabled={loadingTier !== null}
+                    className="btn-secondary"
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '14px', padding: '12px' }}
+                  >
+                    {loadingTier === 'portal' ? 'Opening…' : 'Change plan in billing'}
+                  </button>
                 ) : (
                   <button
                     onClick={() => handleSubscribe(p.tier)}
@@ -143,7 +171,7 @@ export default function Subscription() {
         })}
       </div>
 
-      {currentTier && currentTier !== 'starter' && (
+      {canManageBilling && (
         <div style={{ marginTop: '20px' }}>
           <button onClick={handleManageBilling} disabled={loadingTier !== null} className="btn-secondary">
             {loadingTier === 'portal' ? 'Opening…' : 'Manage billing & invoices'}

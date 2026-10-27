@@ -85,15 +85,34 @@ Schema (additive migration `stripe_events_ledger`):
 Who was affected when this went live:
 - **nobody.** Every active key and token belongs to a Lifetime member: 1 personal key and 13 OAuth tokens.
 
-## Checkout guard (A11-3)
+## Checkout guard (A11-3, A11-4)
 
-`stripe-checkout` answers 409 `already_lifetime` to a Lifetime member, before any Stripe call. The check is `checkoutRefusal` in `_shared/billing.ts`. The Subscription page shows "Included in your Lifetime plan" instead of a buy button.
+`stripe-checkout` refuses a checkout that would charge twice. It answers 409 with `{ error, message, current_tier? }`, and the app shows `message` as is. The check is `checkoutBlock` in `_shared/billing.ts`.
 
-`npm run test:billing` also runs `tests/billing/checkout-guard.ts`:
-- it runs the real function against a mock;
-- Lifetime gets 409 for every tier;
-- Starter passes the guard.
+| Who | Asks for | Answer |
+|---|---|---|
+| Lifetime member | anything | 409 `already_lifetime`, before any Stripe call (A11-3) |
+| Customer with a live subscription | Starter, Pro or Power | 409 `already_subscribed`, no checkout session created (A11-4) |
+| Customer with a live subscription | Lifetime | allowed (one-time; the webhook flags the old subscription to cancel) |
+| Everyone else | anything | checkout session |
+
+One subscription per customer (A11-4, approved by Luka 2026-10-27):
+- "Live" means a Stripe subscription with status `active`, `trialing`, `past_due`, `unpaid` or `paused`. `canceled`, `incomplete` and `incomplete_expired` never charge again, so they do not block.
+- The function asks Stripe (`subscriptions.list` for the customer), not the profile, because the profile can lag a webhook. A brand-new customer has no subscriptions, so no lookup is made.
+- If that lookup fails, the function answers 500 and creates no checkout session. It fails closed.
+- Plan changes go through the billing portal (`stripe-portal`), which changes the existing subscription. On the Subscription page, a subscriber sees "Change plan in billing" instead of a buy button, and a 409 shows an "Open billing" button.
+- Who was affected when this went live: **nobody**. No profile had a subscription (3 Starter without a Stripe customer, 3 Lifetime).
+
+`npm run test:billing` also runs `tests/billing/checkout-guard.ts` (21 checks). It runs the real function against a Supabase mock and a Stripe mock (`STRIPE_API_BASE`, unset in production), and logs every Stripe request:
+- Lifetime gets 409 for every tier with zero Stripe calls;
+- active, past_due, paid-Starter and webhook-lag (trialing, not yet on the profile) subscribers get 409 `already_subscribed` for every subscription tier, with no checkout session;
+- a subscriber may still buy Lifetime;
+- only canceled or expired subscriptions: checkout allowed;
+- new customer: customer created, checkout allowed;
+- no session: 401.
+With the guard disabled, 13 of the 21 checks fail.
 
 ## Other findings (need a decision)
 
+- **Billing portal must allow plan switching.** "Change plan in billing" relies on the Stripe customer portal configuration allowing subscription updates to Starter, Pro and Power. That setting is in the Stripe Dashboard and cannot be read from here. Without it, a subscriber can only cancel and then subscribe again.
 - **`stripe-portal` return URL fallback.** It falls back to `http://localhost:5173` if `APP_URL` is unset. The secret's value cannot be read from here; confirm `APP_URL=https://app.axon-memory.com` is set.

@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert@1";
-import { checkoutRefusal, decide, type BillingEvent, type BillingProfile } from "./billing.ts";
+import { checkoutBlock, checkoutRefusal, decide, type BillingEvent, type BillingProfile } from "./billing.ts";
 import { PLANS } from "./plans.ts";
 
 const P = { pro: PLANS.pro.priceId, ultra: PLANS.ultra.priceId };
@@ -62,4 +62,26 @@ Deno.test("checkout: a Lifetime member cannot buy a subscription or Lifetime aga
     assertEquals(typeof checkoutRefusal("lifetime_founder", t), "string");
     for (const cur of ["starter", "pro", "ultra", null]) assertEquals(checkoutRefusal(cur, t), null);
   }
+});
+
+Deno.test("checkout (A11-4): a live subscription blocks a second subscription checkout, never a Lifetime purchase", () => {
+  const live = (status: string, price = P.pro) => [{ id: "sub_1", status, priceId: price }];
+  for (const t of ["starter", "pro", "ultra"] as const) {
+    for (const st of ["active", "trialing", "past_due", "unpaid", "paused"]) {
+      const b = checkoutBlock("pro", t, live(st));
+      assertEquals(b?.error, "already_subscribed");
+      assertEquals(b?.current_tier, "pro");
+    }
+    for (const st of ["canceled", "incomplete", "incomplete_expired"]) assertEquals(checkoutBlock("starter", t, live(st)), null);
+    assertEquals(checkoutBlock("starter", t, []), null);
+  }
+  // Lifetime is a one-time purchase, not a second subscription.
+  assertEquals(checkoutBlock("pro", "lifetime_founder", live("active")), null);
+  // Lifetime refusal still wins and keeps its own code.
+  assertEquals(checkoutBlock("lifetime_founder", "pro", [])?.error, "already_lifetime");
+  // The message names the user-facing plan, never the internal key.
+  assertEquals(checkoutBlock("ultra", "pro", live("active", P.ultra))?.message.includes("Power"), true);
+  assertEquals(checkoutBlock("pro", "pro", live("active"))?.message.startsWith("You're already subscribed to Pro"), true);
+  // An unknown price still blocks (it is still a live subscription).
+  assertEquals(checkoutBlock("starter", "pro", live("active", "price_unknown"))?.error, "already_subscribed");
 });
