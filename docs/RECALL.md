@@ -47,6 +47,7 @@ The function is service-role only (no anon or authenticated EXECUTE), SECURITY I
 Every memory in a pack is `{ id, kind: "memory", title, content, source, confidence, relevance: { score, matched_by }, thread?, facets? }`.
 
 - `source`: `{ channel: direct|agent|connector|unknown, type, provider?, account?, client?, app?, url?, at }`
+- The person's own notes come out separately, under `your_notes`. Each one is `{ id, kind: "memory", title, text, about, written_at, source }` (`traceNote`), so a note an assistant saved names its client, the same as any other memory. `context-pack.test.ts` runs `buildContextPack` against a fake client and checks that every memory and every note in the pack carries its `memory_items` id and a `source`.
 - `confidence`: trust in the statement itself, not how well it matched. It's `high`, `medium` or `low`, based on the stated confidence, otherwise the channel, minus age (Depth), plus reliance (Weight).
 - Conclusions (`memory_facts`) are under `inferred`. Each one is `{ statement, kind: "inference", from: [memory ids], derived_by?, confidence }`, and it's never `high` with fewer than two sources. The old bare-string `known` key is gone.
 - `how_to_use.reading` spells out what memory, inference, source and confidence mean.

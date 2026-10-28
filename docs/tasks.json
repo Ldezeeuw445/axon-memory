@@ -1132,6 +1132,44 @@
       "blocker": null,
       "next_action": "Luka: confirm the Stripe customer portal allows switching between Starter, Pro and Power. Deploy frontend to Pages when Cloudflare is back.",
       "rollback_reference": "Redeploy stripe-checkout from 7794629 sources (v25 = A11-3)."
+    },
+    {
+      "id": "A3-3",
+      "product": "axon-memory",
+      "objective": "Every item in the context pack carries its memory_items id and source (your_notes was missing source); owner scoping of MCP delete/restore/supersede proven by test; A10 lexicon fixes on Onboarding and Settings",
+      "phase": "A3",
+      "priority": "P1",
+      "status": "waiting_approval",
+      "owner_agent": "claude-code",
+      "dependencies": [
+        "A3-1"
+      ],
+      "acceptance_criteria": [
+        "your_notes entries carry { id, kind, source } like every memory in the pack",
+        "context-pack.test.ts runs buildContextPack and asserts id + source on every memory and note",
+        "mcp-lifecycle.test.ts asserts delete/restore/supersede ignore a user_id passed in args",
+        "No forbidden Lexicon word on /onboarding or /settings; both now scanned by test:lexicon"
+      ],
+      "files_or_services_touched": [
+        "supabase/functions/_shared/recall.ts",
+        "supabase/functions/_shared/memory-core.ts",
+        "supabase/functions/_shared/context-pack.test.ts",
+        "supabase/functions/_shared/mcp-lifecycle.test.ts",
+        "src/pages/Onboarding.jsx",
+        "src/pages/Settings.jsx",
+        "scripts/check-lexicon.mjs",
+        "docs/RECALL.md"
+      ],
+      "started_at": "2026-10-28T00:00:00+01:00",
+      "last_progress_at": "2026-10-28T00:00:00+01:00",
+      "attempts": 1,
+      "tests_run": [],
+      "build_result": null,
+      "deployment_result": null,
+      "verification_result": "Not run in the agent session: deno, node_modules and npm scripts were unavailable there. Static checks only (grep for banned words and forbidden pricing copy).",
+      "blocker": null,
+      "next_action": "Run npm test, npm run test:lexicon, npm run test:naming, npm run build; then deploy mcp-server + context-pack (memory-core change) and rerun the isolation suites",
+      "rollback_reference": "git revert"
     }
   ]
 }

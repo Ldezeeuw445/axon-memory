@@ -53,6 +53,19 @@ Deno.test("retire passes the resolved owner, never one from args", async () => {
   assertStringIncludes(out.text, "2 conclusion");
 });
 
+Deno.test("delete, restore and supersede also take the owner from the token, never from args", async () => {
+  const other = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+  const del = fake({ id: OLD });
+  await handleLifecycleTool(del, me, "delete", { id: OLD, confirm: true, user_id: other, p_user_id: other }, noCapture);
+  assertEquals(del.calls, [["memory_delete", { p_memory_id: OLD, p_actor: "Claude", p_user_id: me.userId }]]);
+  const res = fake({ id: OLD, changed: true });
+  await handleLifecycleTool(res, me, "restore", { id: OLD, user_id: other }, noCapture);
+  assertEquals(res.calls[0][1].p_user_id, me.userId);
+  const sup = fake({ old: OLD, new: NEW, changed: true });
+  await handleLifecycleTool(sup, me, "supersede", { old_id: OLD, new_id: NEW, user_id: other }, noCapture);
+  assertEquals(sup.calls[0][1].p_user_id, me.userId);
+});
+
 Deno.test("supersede with content captures the new memory first", async () => {
   const a = fake({ old: OLD, new: NEW, changed: true });
   let captured: [string, string | null] | null = null;

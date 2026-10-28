@@ -133,6 +133,25 @@ export function traceMemory(row: HybridRow, maps: TraceMaps = {}) {
   };
 }
 
+/**
+ * A note the person wrote, as it goes into `your_notes`. Verbatim and capped,
+ * and traced like any other memory: id for retire / supersede / delete, and
+ * source so a note an assistant saved is never read as the user's own words.
+ */
+export function traceNote(row: HybridRow, maps: TraceMaps = {}) {
+  const meta = (row.metadata ?? {}) as Record<string, unknown>;
+  const about = typeof meta.repo === "string" ? meta.repo : typeof meta.app === "string" ? meta.app : null;
+  return {
+    id: row.id,
+    kind: "memory" as const,
+    title: row.title ?? null,
+    text: (row.content ?? "").slice(0, 400),
+    about,
+    written_at: row.occurred_at,
+    source: sourceOf(row, maps),
+  };
+}
+
 export interface FactRow {
   id?: string;
   statement: string;
