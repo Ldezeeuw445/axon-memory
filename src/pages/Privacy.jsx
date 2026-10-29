@@ -17,7 +17,7 @@ export default function Privacy() {
         <ShieldCheck size={32} color="var(--color-neon-cyan)" />
         <div>
           <h1 className="page-title">Privacy Policy</h1>
-          <p className="page-subtitle">Last updated: July 2025</p>
+          <p className="page-subtitle">Last updated: 29 October 2026</p>
         </div>
       </header>
 
@@ -46,7 +46,7 @@ export default function Privacy() {
         </Section>
 
         <Section title="4. Data Storage & Security">
-          <p>Your data is stored in Supabase's EU-region PostgreSQL database, protected by Row Level Security (RLS) — meaning your data is cryptographically isolated from all other users at the database level. API keys are encrypted before storage and decrypted only inside our secure server environment to make AI calls on your behalf.</p>
+          <p>Your data is stored in Supabase's EU-region (Paris) PostgreSQL database. Every table that holds your memory is guarded by Row Level Security (RLS): the database only returns rows that belong to your signed-in account. Cross-account isolation is covered by automated tests on every release. API keys and OAuth tokens are stored hashed or encrypted and are used only inside our server environment to serve your requests.</p>
         </Section>
 
         <Section title="5. Third-Party Services">
@@ -71,7 +71,7 @@ export default function Privacy() {
         </Section>
 
         <Section title="9. Contact">
-          <p>Questions about this policy? Email us at <a href="mailto:privacy@axon.app" style={{ color: 'var(--color-neon-cyan)' }}>privacy@axon.app</a>.</p>
+          <p>Questions about this policy? Email us at <a href="mailto:privacy@axon-memory.com" style={{ color: 'var(--color-neon-cyan)' }}>privacy@axon-memory.com</a>.</p>
         </Section>
       </div>
     </div>

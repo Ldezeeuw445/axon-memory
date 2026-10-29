@@ -48,7 +48,7 @@ const STEPS = [
   },
   {
     n: 'Recall', title: 'Ask any AI. It already knows.', img: '/product/recall.jpg', alt: 'The Recall view in the AXON app',
-    body: 'Claude, ChatGPT, Cursor and other MCP clients read the same memory. What one learned, the next one can use — and you can see which AI recalled what.',
+    body: 'Connect Claude, ChatGPT, Gemini or Cursor (and other MCP clients) once. After you approve access, that AI can capture and recall through AXON\'s tools — what one wrote, another can read. You see which AI recalled what. Capture and recall happen when the connected AI calls AXON; they do not run on their own in the background.',
     points: ['Things you said, kept apart from what AXON concluded', 'Recall by words or by Thread; by meaning on Power', 'Retire anything and it stops being recalled'],
   },
   {
@@ -98,7 +98,8 @@ export default function Home() {
       <section className="hm-hero" id="top">
         <div className="hm-hero-copy">
           <h1 className="hm-h1">One memory.<br />Every AI.</h1>
-          <p className="hm-lead">AXON keeps what you decide, prefer and learn — and gives it to whichever AI you open next. Your memory, owned by you, not by any one AI company.</p>
+          <p className="hm-lead">AXON keeps what you decide, prefer and learn — and makes it available to the AI tools you connect through MCP. Your memory, owned by you, not by any one AI company.</p>
+          <p className="hm-works">Works today via MCP: Claude, ChatGPT, Gemini and Cursor — more coming. Capture and recall go through the AI's tool calls to AXON; they are not automatic in the background.</p>
           <div className="hm-cta-row">
             <a href={START()} className="hm-btn">Start <ArrowRight size={16} /></a>
             <a href="#how" className="hm-btn-ghost">See how it works <ArrowDown size={16} /></a>
@@ -187,6 +188,14 @@ export default function Home() {
               <a href={START()} className={p.recommended ? 'hm-btn' : 'hm-btn-ghost'}>{p.tier === 'lifetime_founder' ? 'Choose Lifetime' : `Start with ${p.name}`}</a>
             </div>
           ))}
+        </Reveal>
+        <Reveal>
+          <p className="hm-pricing-note">
+            Plans differ by which features unlock — AI connectors, meaning recall, API keys — not by a published cap on how many memories you may keep.
+            No hard plan quotas; fair use applies (for example up to 60 MCP tool calls per minute per token).
+            Cancel a subscription any time in billing; when it ends you return to Starter and your memory stays unless you delete your account.
+            Lifetime Founder includes a 14-day money-back guarantee. There is no free trial — start on a monthly plan first if you want to try before Lifetime.
+          </p>
         </Reveal>
       </section>
 
