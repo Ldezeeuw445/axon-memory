@@ -79,6 +79,7 @@ export default function AppShell() {
   const sceneReady = useAfterFirstPaint(coldFacet ? 600 : 0);
   const [sceneShown, setSceneShown] = useState(false);
   const apertureRef = useRef(0);
+  const shellConstraintsRef = useRef(null);
   const [arrived, setArrived] = useState(true);
   const arrivedRef = useRef(true);
   const [mounted, setMounted] = useState(true);
@@ -128,8 +129,10 @@ export default function AppShell() {
 
   if (!user) return <div className="full-screen" style={{ background: '#020203' }} />;
 
+  // Mobile: upright rounded glass (no shard clip-path — that skewed the panel and
+  // killed iOS backdrop-filter). Extra side inset keeps content fully on-screen.
   const panelStyle = isMobile
-    ? { top: 'calc(64px + env(safe-area-inset-top))', bottom: 'calc(88px + env(safe-area-inset-bottom))', left: 10, right: 10, padding: '22px 18px' }
+    ? { top: 'calc(72px + env(safe-area-inset-top, 0px))', bottom: 'calc(92px + env(safe-area-inset-bottom, 0px))', left: 14, right: 14, padding: '28px 18px 22px' }
     : { top: 84, bottom: 104, left: 'max(32px, calc(50% - 420px))', right: 'max(32px, calc(50% - 420px))', padding: '34px 36px' };
 
   return (
@@ -153,8 +156,8 @@ export default function AppShell() {
         )}
       </div>
 
-      <div style={{ position: 'absolute', inset: 0, zIndex: 10 }}>
-        <header style={{ position: 'absolute', top: 'calc(14px + env(safe-area-inset-top))', left: isMobile ? 16 : 28, right: isMobile ? 16 : 28, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 200 }}>
+      <div ref={shellConstraintsRef} style={{ position: 'absolute', inset: 0, zIndex: 10 }}>
+        <header style={{ position: 'absolute', top: 'calc(10px + max(12px, env(safe-area-inset-top, 0px)))', left: isMobile ? 16 : 28, right: isMobile ? 16 : 28, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 200 }}>
           <button onClick={() => toggle(null)} style={{ all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }} aria-label="Your Core">
             <img src="/brand/axon-mark-96.webp" alt="" width="34" height="34" style={{ width: 34, height: 34, borderRadius: 9 }} />
             <span className="title-text" style={{ fontSize: 14, letterSpacing: '0.22em', fontWeight: 600 }}>AXON</span>
@@ -184,8 +187,15 @@ export default function AppShell() {
             <Suspense fallback={null}><MemoryGraph asFacet /></Suspense>
           </div>
         ) : (
-          <FragmentPanel delay={0.05} instant={coldFacet && !moved} style={{ position: 'absolute', ...panelStyle, ...(isMobile ? { clipPath: 'polygon(0 10px, calc(100% - 10px) 0, 100% calc(100% - 10px), 10px 100%)' } : {}), opacity: arrived ? 1 : 0, transition: 'opacity 1.2s ease', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div key={facet} style={{ flex: 1, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain', margin: isMobile ? '-4px -6px' : '-6px -10px', padding: isMobile ? '4px 6px 24px' : '6px 10px 24px' }}>
+          <FragmentPanel
+            delay={0.05}
+            instant={coldFacet && !moved}
+            shard={!isMobile}
+            draggable
+            dragConstraints={shellConstraintsRef}
+            style={{ position: 'absolute', ...panelStyle, opacity: arrived ? 1 : 0, transition: 'opacity 1.2s ease', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+          >
+            <div key={facet} style={{ flex: 1, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain', margin: isMobile ? '0 -2px' : '-6px -10px', padding: isMobile ? '4px 4px 24px' : '6px 10px 24px' }}>
               {facet === 'recall' && <RecallFacet onOpen={open} />}
               {facet === 'capture' && <CaptureFacet initial={initial} />}
               {facet === 'threads' && <ThreadsFacet initial={initial} />}

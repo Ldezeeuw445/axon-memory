@@ -82,6 +82,20 @@ a {
   border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
+/* Floating panel (mobile): no clip-path, so backdrop-filter actually blurs the
+   stars behind it. Slightly denser fill + blur so the card reads as glass even
+   when the 3D scene has not painted yet. */
+.glass-surface--float {
+  background: rgba(18, 22, 28, 0.55);
+  backdrop-filter: blur(28px) saturate(1.2);
+  -webkit-backdrop-filter: blur(28px) saturate(1.2);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  /* Isolate so iOS composites the blur correctly without a parent clip. */
+  isolation: isolate;
+  transform: translateZ(0);
+}
+
 /* Stone Material */
 .stone-base {
   background: var(--color-stone);
@@ -254,6 +268,13 @@ body {
     -webkit-backdrop-filter: blur(6px);
   }
 
+  /* Keep the floating facet panel glassy on phones — do not drop blur to 0.
+     Halve cost vs desktop but leave enough for the premium float look. */
+  .glass-surface--float {
+    backdrop-filter: blur(16px) saturate(1.15);
+    -webkit-backdrop-filter: blur(16px) saturate(1.15);
+  }
+
   /* Two blurred, animated orbs on a phone is a battery and a frame-rate
      problem for decoration nobody scrolled down to see. */
   .orb {
@@ -272,6 +293,14 @@ body {
   }
   .glow-btn:hover::before {
     left: -100%;
+  }
+  .glass-surface:hover {
+    background: var(--color-glass);
+    border: 1px solid var(--color-glass-border);
+  }
+  .glass-surface--float:hover {
+    background: rgba(18, 22, 28, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.12);
   }
 }
 
