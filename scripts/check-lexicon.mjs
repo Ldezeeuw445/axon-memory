@@ -14,7 +14,7 @@ const FORBIDDEN = ['chat', 'chats', 'conversation', 'conversations', 'folder', '
 const DEFAULT = ['src/pages/AppShell.jsx', 'src/pages/Home.jsx', 'src/pages/Login.jsx', 'src/pages/MemoryGraph.jsx',
   'src/components/ErrorBoundary.jsx', 'src/pages/Onboarding.jsx', 'src/pages/Settings.jsx',
   'src/pages/Subscription.jsx', 'src/pages/Splash.jsx', 'src/pages/ConnectAuthorize.jsx', 'src/pages/ConnectError.jsx',
-  'src/pages/NotFound.jsx', 'src/pages/facets', 'src/components/app', 'src/components/home', 'src/lib/planCatalog.js'];
+  'src/pages/NotFound.jsx', 'src/pages/Developers.jsx', 'src/pages/Privacy.jsx', 'src/pages/Terms.jsx', 'src/pages/facets', 'src/components/app', 'src/components/home', 'src/lib/planCatalog.js'];
 
 const files = [];
 const walk = (p) => { try { const st = statSync(p); if (st.isDirectory()) readdirSync(p).forEach((f) => walk(join(p, f))); else if (/\.(jsx?|tsx?)$/.test(p)) files.push(p); } catch { /* optional path */ } };
