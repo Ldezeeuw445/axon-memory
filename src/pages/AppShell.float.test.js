@@ -39,4 +39,49 @@ describe('AppShell galaxy float shell (source contract)', () => {
     expect(facetsCss).toMatch(/rgba\(10,\s*12,\s*16/);
     expect(facetsCss).toMatch(/\.ax-float-stage\s*\{[^}]*background:\s*transparent/s);
   });
+
+  it('renders multi-layer stars + nebula veil with mobile DPR cap', () => {
+    expect(scene).toMatch(/NebulaVeil/);
+    expect(scene).toMatch(/Stars radius=\{140\}/);
+    expect(scene).toMatch(/Stars radius=\{95\}/);
+    expect(scene).toMatch(/Stars radius=\{55\}/);
+    expect(scene).toMatch(/mobileCap\s*=\s*1\.15/);
+    expect(scene).toMatch(/isMobile \? mobileCap/);
+  });
+
+  it('keeps rim/key lights around the Core sphere', () => {
+    expect(scene).toMatch(/spotLight/);
+    expect(scene).toMatch(/pointLight/);
+    expect(scene).toMatch(/#dfe9ff|#a8c4ff|#ffc878/);
+  });
+
+  it('styles idle float + brand tiles + depth shadows', () => {
+    expect(facetsCss).toMatch(/ax-float-card--idle/);
+    expect(facetsCss).toMatch(/@keyframes ax-card-float/);
+    expect(facetsCss).toMatch(/ax-brand-tile/);
+    expect(facetsCss).toMatch(/--float-i/);
+  });
+
+  it('FloatCard arms drag after long-press or horizontal move and snaps back', () => {
+    const float = readFileSync(resolve('src/components/FloatCard.jsx'), 'utf8');
+    expect(float).toMatch(/dragSnapToOrigin/);
+    expect(float).toMatch(/armDrag/);
+    expect(float).toMatch(/240/);
+    expect(float).toMatch(/dragListener=\{false\}/);
+    expect(float).toMatch(/ax-float-card--idle/);
+  });
+
+  it('ConnectFacet uses FloatCard + brand tiles when floatLayout', () => {
+    const connect = readFileSync(resolve('src/pages/facets/ConnectFacet.jsx'), 'utf8');
+    expect(connect).toMatch(/import FloatCard/);
+    expect(connect).toMatch(/ax-brand-tile/);
+    expect(connect).toMatch(/draggable:\s*true/);
+    expect(connect).toMatch(/data-no-drag/);
+  });
+
+  it('terrain stage crossfades with soft scale/blur', () => {
+    expect(shell).toMatch(/ax-terrain-stage/);
+    expect(shell).toMatch(/blur\(6px\)/);
+    expect(shell).toMatch(/scale\(1\.035\)/);
+  });
 });

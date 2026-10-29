@@ -231,12 +231,18 @@ export default function AppShell() {
 
         {facet && mounted && (facet === 'terrain' ? (
           <div
+            className="ax-terrain-stage"
             style={{
               position: 'absolute',
               inset: 0,
               opacity: arrived ? 1 : 0,
-              transition: reduceMotion ? 'none' : 'opacity 0.9s ease',
+              transform: reduceMotion ? undefined : (arrived ? 'scale(1) translateY(0)' : 'scale(1.035) translateY(10px)'),
+              filter: reduceMotion ? undefined : (arrived ? 'blur(0px)' : 'blur(6px)'),
+              transition: reduceMotion
+                ? 'none'
+                : 'opacity 1.15s cubic-bezier(0.22, 1, 0.36, 1), transform 1.15s cubic-bezier(0.22, 1, 0.36, 1), filter 1.0s ease',
               pointerEvents: arrived ? 'auto' : 'none',
+              willChange: 'opacity, transform, filter',
             }}
           >
             <Suspense fallback={null}><MemoryGraph asFacet /></Suspense>
@@ -248,7 +254,12 @@ export default function AppShell() {
               position: 'absolute',
               ...stageStyle,
               opacity: arrived || (coldFacet && !moved) ? 1 : 0,
-              transition: reduceMotion ? 'none' : 'opacity 0.85s ease',
+              transform: reduceMotion
+                ? undefined
+                : (arrived || (coldFacet && !moved) ? 'translateY(0)' : 'translateY(12px)'),
+              transition: reduceMotion
+                ? 'none'
+                : 'opacity 0.95s cubic-bezier(0.22, 1, 0.36, 1), transform 0.95s cubic-bezier(0.22, 1, 0.36, 1)',
               pointerEvents: 'auto',
               display: 'flex',
               flexDirection: 'column',

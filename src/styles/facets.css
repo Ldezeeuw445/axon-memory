@@ -187,23 +187,28 @@ textarea.ax-field { resize: none; line-height: 1.55; min-height: 150px; }
 .ax-facet--float .ax-recall,
 .ax-facet--float .ax-quiet-ok {
   position: relative;
-  background: rgba(14, 18, 24, 0.52);
-  backdrop-filter: blur(22px) saturate(1.18);
-  -webkit-backdrop-filter: blur(22px) saturate(1.18);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(14, 18, 24, 0.5);
+  backdrop-filter: blur(24px) saturate(1.22);
+  -webkit-backdrop-filter: blur(24px) saturate(1.22);
+  border: 1px solid rgba(255, 255, 255, 0.13);
   border-radius: 18px;
+  /* Staggered depth: farther cards cast softer/longer shadows */
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 18px 48px rgba(0, 0, 0, 0.48),
-    0 2px 6px rgba(0, 0, 0, 0.28);
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 calc(14px + var(--float-i, 0) * 3px) calc(36px + var(--float-i, 0) * 8px) rgba(0, 0, 0, calc(0.42 + var(--float-i, 0) * 0.035)),
+    0 2px 8px rgba(0, 0, 0, 0.32),
+    0 0 0 0.5px rgba(255, 220, 160, 0.04);
   isolation: isolate;
   transform: translateZ(0);
+  will-change: transform, translate;
+  z-index: calc(20 - var(--float-i, 0));
 }
 .ax-facet--float .ax-recall {
   border-radius: 22px;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 22px 56px rgba(0, 0, 0, 0.5);
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 24px 60px rgba(0, 0, 0, 0.55),
+    0 0 0 0.5px rgba(255, 220, 160, 0.05);
 }
 .ax-facet--float .ax-young,
 .ax-facet--float .ax-paused,
@@ -211,17 +216,55 @@ textarea.ax-field { resize: none; line-height: 1.55; min-height: 150px; }
   padding: 14px 16px;
 }
 
+/* Idle float via CSS `translate` — composes with framer-motion `transform` */
+@keyframes ax-card-float {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -5px; }
+}
+@keyframes ax-card-shadow-breathe {
+  0%, 100% { filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.28)); }
+  50% { filter: drop-shadow(0 18px 28px rgba(0, 0, 0, 0.4)); }
+}
+.ax-float-card--idle,
+.ax-facet-host--float .ax-card,
+.ax-facet-host--float .ax-row,
+.ax-facet-host--float .ax-young,
+.ax-facet-host--float .ax-quiet-ok,
+.ax-float-chip {
+  animation:
+    ax-card-float calc(4.8s + var(--float-i, 0) * 0.4s) ease-in-out infinite,
+    ax-card-shadow-breathe calc(4.8s + var(--float-i, 0) * 0.4s) ease-in-out infinite;
+  animation-delay: calc(var(--float-i, 0) * -0.55s), calc(var(--float-i, 0) * -0.55s);
+}
+.ax-float-card--idle:nth-child(odd) { animation-direction: normal, normal; }
+.ax-float-card--idle:nth-child(even) { animation-direction: reverse, reverse; }
+
 /* Mild stagger — depth without burying labels (readable on ~390px). */
-.ax-float-stack { gap: 12px; }
+.ax-float-stack { gap: 14px; perspective: 900px; }
 .ax-float-chip,
 .ax-facet--float .ax-float-stack > .ax-row,
 .ax-facet--float .ax-float-stack > .ax-float-group > .ax-row,
 .ax-facet--float .ax-float-stack > .ax-card {
-  margin-left: calc((var(--float-i, 0) % 3) * 8px);
-  margin-right: calc((2 - (var(--float-i, 0) % 3)) * 6px);
+  margin-left: calc((var(--float-i, 0) % 3) * 10px);
+  margin-right: calc((2 - (var(--float-i, 0) % 3)) * 7px);
   width: auto;
 }
 .ax-float-group { width: 100%; }
+
+/* Brand tile on Connect rows */
+.ax-brand-tile {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.ax-brand-tile svg { display: block; }
 
 .ax-float-handle {
   position: absolute;
@@ -290,8 +333,14 @@ textarea.ax-field { resize: none; line-height: 1.55; min-height: 150px; }
   .ax-float-card,
   .ax-float-chip,
   .ax-facet--float .ax-card,
-  .ax-facet--float .ax-row {
+  .ax-facet--float .ax-row,
+  .ax-float-card--idle,
+  .ax-facet-host--float .ax-card,
+  .ax-facet-host--float .ax-row,
+  .ax-facet-host--float .ax-young,
+  .ax-facet-host--float .ax-quiet-ok {
     transition: none !important;
+    animation: none !important;
   }
   .ax-float-scroll {
     mask-image: none;
@@ -307,17 +356,19 @@ textarea.ax-field { resize: none; line-height: 1.55; min-height: 150px; }
 .ax-facet-host--float .ax-recall,
 .ax-facet-host--float .ax-quiet-ok {
   position: relative;
-  background: rgba(14, 18, 24, 0.52);
-  backdrop-filter: blur(22px) saturate(1.18);
-  -webkit-backdrop-filter: blur(22px) saturate(1.18);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(14, 18, 24, 0.5);
+  backdrop-filter: blur(24px) saturate(1.22);
+  -webkit-backdrop-filter: blur(24px) saturate(1.22);
+  border: 1px solid rgba(255, 255, 255, 0.13);
   border-radius: 18px;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 18px 48px rgba(0, 0, 0, 0.48),
-    0 2px 6px rgba(0, 0, 0, 0.28);
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 calc(14px + var(--float-i, 0) * 3px) calc(36px + var(--float-i, 0) * 8px) rgba(0, 0, 0, calc(0.42 + var(--float-i, 0) * 0.035)),
+    0 2px 8px rgba(0, 0, 0, 0.32);
   isolation: isolate;
   transform: translateZ(0);
+  will-change: transform, translate;
+  z-index: calc(20 - var(--float-i, 0));
 }
 .ax-facet-host--float .ax-recall { border-radius: 22px; }
 .ax-facet-host--float .ax-young,
