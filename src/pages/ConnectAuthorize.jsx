@@ -59,8 +59,8 @@ export default function ConnectAuthorize() {
 
   const scopes = req.scope.split(/\s+/).filter(Boolean);
   const scopeCopy = {
-    'memory.read': { label: 'Read your memory', desc: 'See notes, connected-source data, and context you’ve shared with any assistant.' },
-    'memory.write': { label: 'Add to your memory', desc: 'Save new facts, preferences, and notes so your other assistants know them too.' },
+    'memory.read': { label: 'Read your memory', desc: 'See your notes, what your connected accounts brought in, and anything another AI tool saved for you.' },
+    'memory.write': { label: 'Add to your memory', desc: 'Save new facts, preferences, and notes so your other AI tools know them too.' },
   };
 
   async function decide(decision) {
@@ -146,7 +146,7 @@ export default function ConnectAuthorize() {
               <strong style={{ fontSize: 13 }}>Pro plan required</strong>
             </div>
             <p style={{ fontSize: 12.5, color: 'var(--color-text-secondary)', marginBottom: 10 }}>
-              Connecting AI assistants (Claude, ChatGPT, Gemini, and more) is included on the Pro plan and above.
+              Connecting AI tools (Claude, ChatGPT, Gemini, and more) is included on the Pro plan and above.
             </p>
             <button className="btn-primary" style={{ width: '100%', fontSize: 13 }} onClick={() => navigate('/subscription')}>
               View plans

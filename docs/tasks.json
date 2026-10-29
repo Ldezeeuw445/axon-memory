@@ -1148,7 +1148,8 @@
         "your_notes entries carry { id, kind, source } like every memory in the pack",
         "context-pack.test.ts runs buildContextPack and asserts id + source on every memory and note",
         "mcp-lifecycle.test.ts asserts delete/restore/supersede ignore a user_id passed in args",
-        "No forbidden Lexicon word on /onboarding or /settings; both now scanned by test:lexicon"
+        "No forbidden Lexicon word on /onboarding or /settings; both now scanned by test:lexicon",
+        "No forbidden Lexicon word on /connect/authorize (consent screen), /subscription, /splash, /connect/error or 404; all now scanned by test:lexicon"
       ],
       "files_or_services_touched": [
         "supabase/functions/_shared/recall.ts",
@@ -1157,16 +1158,17 @@
         "supabase/functions/_shared/mcp-lifecycle.test.ts",
         "src/pages/Onboarding.jsx",
         "src/pages/Settings.jsx",
+        "src/pages/ConnectAuthorize.jsx",
         "scripts/check-lexicon.mjs",
         "docs/RECALL.md"
       ],
       "started_at": "2026-10-28T00:00:00+01:00",
-      "last_progress_at": "2026-10-28T00:00:00+01:00",
-      "attempts": 1,
+      "last_progress_at": "2026-10-29T00:00:00+01:00",
+      "attempts": 2,
       "tests_run": [],
       "build_result": null,
       "deployment_result": null,
-      "verification_result": "Not run in the agent session: deno, node_modules and npm scripts were unavailable there. Static checks only (grep for banned words and forbidden pricing copy).",
+      "verification_result": "Not run in either agent session: deno, node_modules and npm scripts were unavailable there. Run 2 traced context-pack.test.ts by hand against every query buildContextPack makes (workspace, telemetry and recordRecalls paths included) and found no mismatch. Static checks only (grep for banned words and forbidden pricing copy).",
       "blocker": null,
       "next_action": "Run npm test, npm run test:lexicon, npm run test:naming, npm run build; then deploy mcp-server + context-pack (memory-core change) and rerun the isolation suites",
       "rollback_reference": "git revert"
