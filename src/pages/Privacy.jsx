@@ -71,7 +71,7 @@ export default function Privacy() {
         </Section>
 
         <Section title="9. Contact">
-          <p>Questions about this policy? Email us at <a href="mailto:privacy@axon-memory.com" style={{ color: 'var(--color-neon-cyan)' }}>privacy@axon-memory.com</a>.</p>
+          <p>Questions about this policy? Email us at <a href="mailto:support@axeheadquarters.com" style={{ color: 'var(--color-neon-cyan)' }}>support@axeheadquarters.com</a>.</p>
         </Section>
       </div>
     </div>
