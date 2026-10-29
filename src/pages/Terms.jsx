@@ -17,7 +17,7 @@ export default function Terms() {
         <FileText size={32} color="var(--color-neon-cyan)" />
         <div>
           <h1 className="page-title">Terms of Service</h1>
-          <p className="page-subtitle">Last updated: July 2025</p>
+          <p className="page-subtitle">Last updated: 29 October 2026</p>
         </div>
       </header>
 
@@ -31,15 +31,16 @@ export default function Terms() {
         </Section>
 
         <Section title="3. Account Registration">
-          <p>You must provide a valid email address and create a secure password. You are responsible for all activity under your account. Notify us immediately of any unauthorised access at security@axon.app.</p>
+          <p>You must provide a valid email address and create a secure password. You are responsible for all activity under your account. Notify us immediately of any unauthorised access at support@axeheadquarters.com.</p>
         </Section>
 
         <Section title="4. Subscription & Billing">
           <ul style={{ paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <li>The AXON Pro plan is billed at <strong>$5 USD per month</strong>.</li>
-            <li>Subscriptions auto-renew unless cancelled before the renewal date.</li>
+            <li>Paid plans are billed in euro: Starter <strong>€2.99</strong>/month, Pro <strong>€5.99</strong>/month, Power <strong>€9.99</strong>/month, and Lifetime Founder <strong>€199</strong> one-time. Current prices are shown on the pricing page.</li>
+            <li>Monthly subscriptions auto-renew unless cancelled before the renewal date. Cancel any time in billing; when a subscription ends, your account returns to Starter and your memory stays unless you delete your account.</li>
             <li>On web, billing is handled by Stripe. On iOS/Android, billing is handled by Apple/Google in-app purchase — subject to their respective refund policies.</li>
-            <li>Refunds for web subscriptions may be requested within 7 days of a charge by contacting support@axon.app.</li>
+            <li>Lifetime Founder purchases on the web carry a <strong>14-day money-back</strong> guarantee. Email <a href="mailto:support@axeheadquarters.com" style={{ color: 'var(--color-neon-cyan)' }}>support@axeheadquarters.com</a> within 14 days of purchase to request a refund.</li>
+            <li>There is no free trial period. You can start on a monthly plan before choosing Lifetime.</li>
           </ul>
         </Section>
 
@@ -72,7 +73,7 @@ export default function Terms() {
         </Section>
 
         <Section title="12. Contact">
-          <p>Questions? Email <a href="mailto:legal@axon.app" style={{ color: 'var(--color-neon-cyan)' }}>legal@axon.app</a>.</p>
+          <p>Questions? Email <a href="mailto:support@axeheadquarters.com" style={{ color: 'var(--color-neon-cyan)' }}>support@axeheadquarters.com</a>.</p>
         </Section>
       </div>
     </div>
