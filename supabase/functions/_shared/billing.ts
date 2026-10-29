@@ -14,9 +14,12 @@
  *     (Stripe does not guarantee order; needs `profiles.billing_event_at`).
  *  3. Lifetime is never taken away by a subscription event. A Lifetime member
  *     with a subscription still running is surfaced, not silently changed.
- *  4. A subscription event only acts on the profile's CURRENT subscription.
+ *  4. A full refund of a one-time (Lifetime) charge DOES downgrade to Starter
+ *     via charge.refunded. Partial refunds and invoice/subscription charge
+ *     refunds leave Lifetime alone (subscription.deleted handles those).
+ *  5. A subscription event only acts on the profile's CURRENT subscription.
  *     Deleting a previous one changes nothing.
- *  5. plan_started_at moves only when the tier actually changes.
+ *  6. plan_started_at moves only when the tier actually changes.
  */
 import { FALLBACK_TIER, PLAN_DISPLAY_NAMES, PLANS, tierFromPriceId, type PlanTier } from "./plans.ts";
 
@@ -79,6 +82,28 @@ export function decide(
       if (isLifetime) return { action: "skip", reason: "lifetime is not changed by subscription events" };
       if (o.id !== profile.stripe_subscription_id) return { action: "skip", reason: "not the current subscription" };
       return { action: "write", patch: { ...tierChange(FALLBACK_TIER), stripe_subscription_id: null, stripe_price_id: null, ...stamp } };
+    }
+    case "charge.refunded": {
+      // Lifetime Founder is a one-time Checkout payment. A full refund in the
+      // Stripe Dashboard (14-day money-back) fires charge.refunded; drop them
+      // to Starter so entitlements match the money returned.
+      if (!isLifetime) return { action: "skip", reason: "refund only downgrades Lifetime" };
+      // Invoice-backed charges belong to subscriptions; leave Lifetime alone.
+      if (o.invoice) return { action: "skip", reason: "invoice/subscription refund; Lifetime kept" };
+      const amount = typeof o.amount === "number" ? o.amount : null;
+      const refundedAmt = typeof o.amount_refunded === "number" ? o.amount_refunded : null;
+      const fully = o.refunded === true || (amount != null && refundedAmt != null && amount > 0 && refundedAmt >= amount);
+      if (!fully) return { action: "skip", reason: "partial refund; Lifetime kept" };
+      return {
+        action: "write",
+        patch: {
+          ...tierChange(FALLBACK_TIER),
+          stripe_subscription_id: null,
+          stripe_price_id: null,
+          plan_expires_at: null,
+          ...stamp,
+        },
+      };
     }
     default:
       return { action: "skip", reason: "event type not handled" };

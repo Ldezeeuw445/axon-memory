@@ -116,7 +116,7 @@ expect("unsigned delivery rejected (400)", "ok", (await send(ev("customer.subscr
 expect("wrong secret rejected (400)", "ok", (await send(ev("customer.subscription.updated", sub("sub_x", "cus_x", PRICES.pro)), { secret: "whsec_wrong" })) === 400);
 expect("stale signature (>5 min) rejected (400): captured deliveries cannot be replayed later", "ok",
   (await send(ev("customer.subscription.updated", sub("sub_x", "cus_x", PRICES.pro)), { ageSeconds: 600 })) === 400);
-expect("unknown event type acknowledged without writes", "ok", (await send(ev("charge.refunded", { id: "ch_1" }))) === 200 && writes === 0);
+expect("unknown event type acknowledged without writes", "ok", (await send(ev("banana.peeled", { id: "x_1" }))) === 200 && writes === 0);
 
 // 2. Lifetime checkout and its replay
 reset([{ id: "u1", plan_tier: "starter", stripe_customer_id: null }]);
@@ -189,6 +189,20 @@ await send(ev("checkout.session.completed", lifetimeCheckout("u12", "cus_12")));
 expect("a subscriber who buys Lifetime gets Lifetime; the old subscription is flagged to cancel", "ok", get("u12").plan_tier === "lifetime_founder" && get("u12").stripe_subscription_id === null && alerts.some((a) => String(a.message).includes("sub_12")));
 await send(ev("customer.subscription.deleted", sub("sub_12", "cus_12", PRICES.pro, { status: "canceled" })));
 expect("…and when that old subscription is later cancelled, Lifetime stays", "fixed", get("u12").plan_tier === "lifetime_founder");
+
+// 12b. Lifetime one-time charge fully refunded → Starter (14-day money-back)
+reset([{ id: "u12b", plan_tier: "lifetime_founder", stripe_customer_id: "cus_12b", stripe_subscription_id: null, stripe_price_id: PRICES.lifetime }]);
+const chFull = ev("charge.refunded", { id: "ch_12b", object: "charge", customer: "cus_12b", refunded: true, amount: 19900, amount_refunded: 19900, invoice: null, currency: "eur" });
+await send(chFull); await send(chFull);
+expect("full Lifetime charge.refunded downgrades to Starter; redelivery is a no-op", "ok", get("u12b").plan_tier === "starter" && get("u12b").stripe_price_id === null && writes === 1, `final ${get("u12b").plan_tier}, writes ${writes}`);
+
+reset([{ id: "u12c", plan_tier: "lifetime_founder", stripe_customer_id: "cus_12c", stripe_subscription_id: null, stripe_price_id: PRICES.lifetime }]);
+await send(ev("charge.refunded", { id: "ch_12c", object: "charge", customer: "cus_12c", refunded: false, amount: 19900, amount_refunded: 1990, invoice: null, currency: "eur" }));
+expect("partial Lifetime refund keeps Lifetime", "ok", get("u12c").plan_tier === "lifetime_founder" && writes === 0);
+
+reset([{ id: "u12d", plan_tier: "pro", stripe_customer_id: "cus_12d", stripe_subscription_id: "sub_12d", stripe_price_id: PRICES.pro }]);
+await send(ev("charge.refunded", { id: "ch_12d", object: "charge", customer: "cus_12d", refunded: true, amount: 599, amount_refunded: 599, invoice: "in_12d", currency: "eur" }));
+expect("subscription invoice refund does not change a non-Lifetime plan via charge.refunded", "ok", get("u12d").plan_tier === "pro" && writes === 0);
 
 // 13. A failed write releases the claim, so Stripe's retry is applied
 reset([{ id: "u13", plan_tier: "pro", stripe_customer_id: "cus_13", stripe_subscription_id: "sub_13", stripe_price_id: PRICES.pro }]);
