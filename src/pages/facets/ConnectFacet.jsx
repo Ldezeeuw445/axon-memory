@@ -116,7 +116,7 @@ function SourceConnection({ c, busy, onRead, onDisconnect, onReconnect, onChosen
   );
 }
 
-export default function ConnectFacet() {
+export default function ConnectFacet({ floatLayout = false } = {}) {
   const { user } = useAuth();
   const plan = usePlan();
   const [params, setParams] = useSearchParams();
@@ -217,19 +217,23 @@ export default function ConnectFacet() {
   const canAI = plan.loading || plan.has('axon_ai');
   const canKeys = !plan.loading && plan.has('api_access');
 
+  const chip = floatLayout ? 'ax-float-chip' : '';
+  let floatI = 0;
+  const nextI = () => floatI++;
+
   return (
-    <div className="ax-facet">
+    <div className={`ax-facet${floatLayout ? ' ax-facet--float' : ''}`}>
       <FacetHead eyebrow="Connect" title="Who reads it. Where it comes from." sub="Every AI you allow reads the same memory. Every source you connect adds to it. You can withdraw either at any time." />
-      {note && <div className="ax-quiet-ok" role="status" onClick={() => setNote(null)}>{note}</div>}
+      {note && <div className={`ax-quiet-ok${floatLayout ? ' ax-float-chip' : ''}`} role="status" onClick={() => setNote(null)} style={floatLayout ? { '--float-i': nextI() } : undefined}>{note}</div>}
 
       <section className="ax-section">
         <div className="ax-section-label">AIs that can read your memory</div>
         {keys === null ? <Settling rows={2} /> : ais.length === 0 ? (
-          <div className="ax-young">No AI reads your memory yet. Add the address below to the AI you use most.</div>
+          <div className={`ax-young${chip ? ` ${chip}` : ''}`} style={chip ? { '--float-i': nextI() } : undefined}>No AI reads your memory yet. Add the address below to the AI you use most.</div>
         ) : (
-          <div className="ax-list">
+          <div className={`ax-list${floatLayout ? ' ax-float-stack' : ''}`}>
             {ais.map((k) => (
-              <div key={k.id} className="ax-row" style={{ cursor: 'default' }}>
+              <div key={k.id} className={`ax-row ${chip}`.trim()} style={{ cursor: 'default', ...(chip ? { '--float-i': nextI() } : {}) }}>
                 <span className="ax-thread-dot" style={{ background: k.last_used_at && Date.now() - new Date(k.last_used_at) < 7 * 864e5 ? 'var(--color-accent)' : 'rgba(255,255,255,0.25)' }} />
                 <div className="ax-row-main">
                   <div className="ax-row-title">{k.display_name || k.name || 'An AI you connected'}</div>
@@ -242,7 +246,7 @@ export default function ConnectFacet() {
         )}
 
         {canAI ? (
-          <div className="ax-card" style={{ marginTop: 12 }}>
+          <div className={`ax-card ${chip}`.trim()} style={{ marginTop: 12, ...(chip ? { '--float-i': nextI() } : {}) }}>
             <div className="ax-card-title">Your memory's address</div>
             <div className="ax-card-body" style={{ marginBottom: 10 }}>Paste it into any AI that accepts an MCP connector. You will sign in to AXON and choose what it may do. There is no key to copy back.</div>
             <CopyLine value={MCP_GATEWAY_URL} />
@@ -257,7 +261,7 @@ export default function ConnectFacet() {
             )}
           </div>
         ) : (
-          <div className="ax-card" style={{ marginTop: 12 }}>
+          <div className={`ax-card ${chip}`.trim()} style={{ marginTop: 12, ...(chip ? { '--float-i': nextI() } : {}) }}>
             <div className="ax-card-title">Letting AIs read your memory comes with Pro</div>
             <div className="ax-card-body" style={{ marginBottom: 12 }}>Your memory stays yours on Starter. Pro and above let Claude, ChatGPT, Cursor and other MCP clients read it.</div>
             <a className="ax-btn" href="/subscription">See plans</a>
@@ -269,15 +273,16 @@ export default function ConnectFacet() {
         <div className="ax-section-label">Where it comes from</div>
         {loadIssue && <Paused>{loadIssue}</Paused>}
         {connectors === null ? <Settling rows={3} /> : (
-          <div className="ax-list">
+          <div className={`ax-list${floatLayout ? ' ax-float-stack' : ''}`}>
             {providers.map((p) => {
               const tile = DATA_SOURCES.find((d) => d.id === p);
               const conns = byProvider[p] || [];
               const live = conns.filter((c) => c.health !== 'disconnected');
               const Logo = tile?.Logo;
+              const i = nextI();
               return (
-                <div key={p} data-provider={p} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div className="ax-row" style={{ cursor: 'default' }}>
+                <div key={p} data-provider={p} className={floatLayout ? 'ax-float-group' : undefined} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div className={`ax-row ${chip}`.trim()} style={{ cursor: 'default', ...(chip ? { '--float-i': i } : {}) }}>
                     <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       {Logo ? <Logo size={18} /> : <span style={{ fontSize: 13 }}>{providerName(p).charAt(0)}</span>}
                     </div>
@@ -308,7 +313,7 @@ export default function ConnectFacet() {
           {ownOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />} For your own tools: personal keys
         </button>
         {ownOpen && (
-          <div className="ax-card" style={{ marginTop: 10 }}>
+          <div className={`ax-card ${chip}`.trim()} style={{ marginTop: 10, ...(chip ? { '--float-i': nextI() } : {}) }}>
             <div className="ax-card-body" style={{ marginBottom: 10 }}>For scripts and tools that cannot sign in. The address above is safer for anything that can.</div>
             {canKeys
               ? <button className="ax-btn" onClick={createKey} disabled={busy === 'key'}>{busy === 'key' ? 'Making…' : 'New key'}</button>

@@ -86,7 +86,8 @@ a {
    stars behind it. Slightly denser fill + blur so the card reads as glass even
    when the 3D scene has not painted yet. */
 .glass-surface--float {
-  background: rgba(18, 22, 28, 0.55);
+  /* Dense enough to read when blur fails on iOS — never matte grey. */
+  background: rgba(14, 18, 24, 0.55);
   backdrop-filter: blur(28px) saturate(1.2);
   -webkit-backdrop-filter: blur(28px) saturate(1.2);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -306,6 +307,13 @@ body {
 
 /* Respect the system setting. Several of these animations loop forever, which
    is exactly what this preference exists to stop. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass-surface--float {
+    background: rgba(10, 12, 16, 0.88);
+    border-color: rgba(255, 255, 255, 0.14);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .reveal,
   .orb,

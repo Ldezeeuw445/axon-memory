@@ -2,23 +2,22 @@ import React from 'react';
 import { motion, useDragControls } from 'framer-motion';
 
 /**
- * Glass facet panel.
+ * Glass overlay panel (Terrain detail sheets, legacy shard).
  *
- * Desktop keeps the asymmetric "shard" clip-path. Mobile must NOT use
- * clip-path: on iOS Safari, clip-path + backdrop-filter silently kills the
- * blur, so the panel falls back to a matte grey fill — and the skewed polygon
- * also clips content on the left (RECALL / Connect rows). Mobile uses a
- * rounded floating glass card instead, with a drag handle so the panel can
- * still be nudged without fighting the scroll inside.
+ * The main product shell no longer wraps facets in a central panel — content
+ * floats as individual glass cards on the persistent galaxy (see AppShell +
+ * FloatCard / .ax-facet-host--float). This component remains for overlays that
+ * still need a single contained surface (e.g. MemoryGraph).
+ *
+ * Desktop may keep the asymmetric "shard" clip-path. Mobile must NOT use
+ * clip-path: on iOS Safari, clip-path + backdrop-filter silently kills the blur.
  */
 export default function FragmentPanel({
   children,
   delay = 0,
   style,
   instant = false,
-  /** Asymmetric shard. Default true; AppShell turns this off on mobile. */
   shard = true,
-  /** Allow dragging via the top handle. */
   draggable = false,
   dragConstraints,
 }) {
@@ -48,7 +47,6 @@ export default function FragmentPanel({
         color: 'var(--color-text-primary)',
         clipPath: shard ? shardClip : 'none',
         borderRadius: shard ? undefined : 24,
-        // Stronger float shadow when not clipped (clip-path would cut it off).
         ...(shard
           ? {}
           : {
@@ -89,7 +87,6 @@ export default function FragmentPanel({
         </div>
       )}
 
-      {/* Subtle top edge highlight (Titanium seam) */}
       <div
         style={{
           position: 'absolute',
