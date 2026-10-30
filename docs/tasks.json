@@ -255,7 +255,7 @@
       "deployment_result": "Migration 20261017103036 applied (pg_trgm in extensions schema + recall_or_tsquery + recall_hybrid, additive). mcp-server v70, context-pack v60 deployed",
       "verification_result": "Packs report search_mode=hybrid; each memory carries kind/source/confidence/relevance(matched_by); facts are labelled inferences citing source memory ids; legend in how_to_use.reading; legacy path kept as fallback",
       "blocker": null,
-      "next_action": "Follow-up 2026-10-30 (axe-agent, unverified): your_notes now carries source via traceNote, with tests in recall.test.ts. Run deno test, then deploy mcp-server and context-pack. Recall eval should run periodically (A12)",
+      "next_action": "Follow-up 2026-10-30 (axe-agent, unverified): your_notes now carries source via traceNote, with tests in recall.test.ts and an end-to-end buildContextPack test in context-pack.test.ts (ids, sources and owner scoping of every memory and note). Run deno test, then deploy mcp-server and context-pack. Recall eval should run periodically (A12)",
       "rollback_reference": "git revert"
     },
     {
