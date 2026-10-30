@@ -54,7 +54,31 @@ Deno.test("billing: ordinary paths still work", () => {
   assertEquals(p.plan_tier, "ultra");
   assertEquals(decide(p, ev("customer.subscription.updated", sub("sub", "price_other"), 30), never).action, "skip");
   assertEquals(decide(null, ev("customer.subscription.updated", sub("sub", P.pro), 30), never).action, "skip");
-  assertEquals(decide(p, ev("charge.refunded", {}, 30), never).action, "skip");
+  assertEquals(decide(p, ev("charge.refunded", { refunded: true, amount: 599, amount_refunded: 599 }, 30), never).action, "skip");
+});
+
+Deno.test("billing: full Lifetime charge.refunded downgrades to Starter", () => {
+  const p = prof({ plan_tier: "lifetime_founder", stripe_price_id: PLANS.lifetime_founder.priceId } as any);
+  const charge = { id: "ch_lt", customer: "cus", refunded: true, amount: 19900, amount_refunded: 19900, invoice: null };
+  const d = decide(p, ev("charge.refunded", charge, 40), never);
+  assertEquals(d.action, "write");
+  const next = apply(p, d);
+  assertEquals(next.plan_tier, "starter");
+  assertEquals((next as any).stripe_price_id, null);
+});
+
+Deno.test("billing: partial Lifetime refund keeps Lifetime", () => {
+  const p = prof({ plan_tier: "lifetime_founder" });
+  const d = decide(p, ev("charge.refunded", { id: "ch_part", customer: "cus", refunded: false, amount: 19900, amount_refunded: 5000, invoice: null }, 40), never);
+  assertEquals(d.action, "skip");
+  assertEquals(apply(p, d).plan_tier, "lifetime_founder");
+});
+
+Deno.test("billing: invoice/subscription charge refund does not strip Lifetime", () => {
+  const p = prof({ plan_tier: "lifetime_founder" });
+  const d = decide(p, ev("charge.refunded", { id: "ch_inv", customer: "cus", refunded: true, amount: 599, amount_refunded: 599, invoice: "in_123" }, 40), never);
+  assertEquals(d.action, "skip");
+  assertEquals(apply(p, d).plan_tier, "lifetime_founder");
 });
 
 Deno.test("checkout: a Lifetime member cannot buy a subscription or Lifetime again; everyone else can buy anything", () => {

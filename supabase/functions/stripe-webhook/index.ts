@@ -5,7 +5,7 @@
 //
 // Configure this function's URL as a webhook endpoint in the Stripe Dashboard
 // listening for: checkout.session.completed, customer.subscription.updated,
-// customer.subscription.deleted, invoice.payment_failed.
+// customer.subscription.deleted, charge.refunded, invoice.payment_failed.
 //
 // A11-3 (approved 2026-10-17): every decision goes through the tested reducer
 // in _shared/billing.ts, so the webhook is
@@ -14,6 +14,7 @@
 //     claim is released, so Stripe's retry gets a clean second attempt;
 //   - order-aware: an event older than `profiles.billing_event_at` is ignored;
 //   - Lifetime-safe: no subscription event takes Lifetime away;
+//     a full one-time charge.refunded (14-day money-back) does downgrade;
 //   - subscription-exact: an event acts only on the profile's current
 //     subscription, never on "whatever this customer has".
 
@@ -31,7 +32,7 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-const HANDLED = new Set(["checkout.session.completed", "customer.subscription.updated", "customer.subscription.deleted"]);
+const HANDLED = new Set(["checkout.session.completed", "customer.subscription.updated", "customer.subscription.deleted", "charge.refunded"]);
 const PROFILE_COLS = "id, plan_tier, stripe_customer_id, stripe_subscription_id, billing_event_at";
 const iso = (unix: number) => new Date(unix * 1000).toISOString();
 const ok = (extra: Record<string, unknown> = {}) =>
