@@ -146,7 +146,7 @@ export default function Onboarding() {
         )}
 
         {/* Step 2: AI adapters — informational, not a fake key-test. Connecting
-            an assistant actually happens from inside Claude/ChatGPT using this
+            an AI tool actually happens from inside Claude/ChatGPT using this
             MCP URL, so we show that instead of simulating a paste-your-key flow. */}
         {step === 2 && (
           <div>

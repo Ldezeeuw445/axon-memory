@@ -46,13 +46,13 @@ export default function Privacy() {
         </Section>
 
         <Section title="4. Data Storage & Security">
-          <p>Your data is stored in Supabase's EU-region (Paris) PostgreSQL database. Every table that holds your memory is guarded by Row Level Security (RLS): the database only returns rows that belong to your signed-in account. Cross-account isolation is covered by automated tests on every release. API keys and OAuth tokens are stored hashed or encrypted and are used only inside our server environment to serve your requests.</p>
+          <p>Your data is stored in Supabase's EU-region (Paris) PostgreSQL storage. Every table that holds your memory is guarded by Row Level Security (RLS): storage only returns rows that belong to your signed-in account. Cross-account isolation is covered by automated tests on every release. API keys and OAuth tokens are stored hashed or encrypted and are used only inside our server environment to serve your requests.</p>
         </Section>
 
         <Section title="5. Third-Party Services">
           <p>We use the following third-party services. Each has its own privacy policy:</p>
           <ul style={{ paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
-            <li><strong>Supabase</strong> — database and authentication (<a href="https://supabase.com/privacy" target="_blank" rel="noreferrer" style={{ color: 'var(--color-neon-cyan)' }}>supabase.com/privacy</a>)</li>
+            <li><strong>Supabase</strong> — data storage and authentication (<a href="https://supabase.com/privacy" target="_blank" rel="noreferrer" style={{ color: 'var(--color-neon-cyan)' }}>supabase.com/privacy</a>)</li>
             <li><strong>Stripe</strong> — payment processing (<a href="https://stripe.com/privacy" target="_blank" rel="noreferrer" style={{ color: 'var(--color-neon-cyan)' }}>stripe.com/privacy</a>)</li>
             <li><strong>AI providers</strong> (OpenAI, Anthropic, Google) — only your memory queries are sent; no personal account data is shared.</li>
           </ul>
@@ -63,7 +63,7 @@ export default function Privacy() {
         </Section>
 
         <Section title="7. Cookies">
-          <p>AXON uses only essential session cookies required for authentication. No tracking or advertising cookies are used.</p>
+          <p>AXON uses only essential sign-in cookies required for authentication. No tracking or advertising cookies are used.</p>
         </Section>
 
         <Section title="8. Children's Privacy">
