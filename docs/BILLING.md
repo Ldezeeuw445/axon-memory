@@ -51,8 +51,11 @@ Deployed 2026-10-17 18:27 CEST:
 1. Skip event ids already processed.
 2. Skip events older than the last one applied to this customer.
 3. Never take Lifetime away through a subscription event.
-4. Act only on the profile's current subscription.
-5. Move `plan_started_at` only when the tier changes.
+4. A **full** one-time `charge.refunded` (no `invoice`) on a Lifetime member downgrades to Starter — this is the 14-day money-back path after a manual Stripe Dashboard refund. Partial refunds and invoice/subscription charge refunds leave Lifetime alone.
+5. Act only on the profile's current subscription.
+6. Move `plan_started_at` only when the tier changes.
+
+**Stripe Dashboard webhook events to enable** on the existing endpoint: keep `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`, and add **`charge.refunded`**. Support still refunds by hand; the webhook only syncs `profiles.plan_tier` after Stripe has refunded.
 
 What `stripe-webhook` does:
 1. It verifies the signature.
