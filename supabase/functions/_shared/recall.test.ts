@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert@1";
-import { channelOf, confidenceOf, inferenceOf, relevanceOf, sourceOf, traceMemory, type HybridRow } from "./recall.ts";
+import { channelOf, confidenceOf, inferenceOf, relevanceOf, sourceOf, traceMemory, traceNote, type HybridRow } from "./recall.ts";
 
 const row = (o: Partial<HybridRow> = {}): HybridRow => ({
   id: "m1", content_type: "note", title: "T", content: "C", occurred_at: "2026-10-01T00:00:00Z", source_type: "manual", ...o,
@@ -41,6 +41,26 @@ Deno.test("a recalled memory says it is a memory and carries id, source, confide
   assertEquals(t.thread, "trading-os");
   assertEquals(t.facets, ["trading"]);
   assertEquals(t.confidence, "high");
+});
+
+Deno.test("A3: a note in your_notes carries its memory_items id and its source", () => {
+  const maps = { clients: new Map([["k", "Claude"]]) };
+  const n = traceNote(row({ id: "n1", origin_key: "notes", api_key_id: "k", content: "x".repeat(500), metadata: { repo: "axon" } }), maps);
+  assertEquals(n.id, "n1");
+  assertEquals(n.kind, "memory");
+  assertEquals(n.source, { channel: "agent", type: "manual", client: "Claude", app: "notes", at: "2026-10-01T00:00:00Z" });
+  assertEquals(n.text.length, 400);
+  assertEquals(n.about, "axon");
+  assertEquals(traceNote(row({ id: "n2", metadata: null })).source.channel, "direct");
+});
+
+Deno.test("A3: every memory-shaped item in the pack has an id and a source", () => {
+  const rows = [row({ id: "a" }), row({ id: "b", source_connection_id: "c", source_type: "gmail" }), row({ id: "c", api_key_id: "k" })];
+  for (const item of [...rows.map((r) => traceMemory(r)), ...rows.map((r) => traceNote(r))]) {
+    assertEquals(typeof item.id, "string");
+    assertEquals(typeof item.source.channel, "string");
+    assertEquals(item.source.at, "2026-10-01T00:00:00Z");
+  }
 });
 
 Deno.test("inferences are labelled, point at their sources, and need 2+ sources for high", () => {

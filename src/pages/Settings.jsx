@@ -113,7 +113,7 @@ export default function Settings() {
 
       <div className="glass-card" style={{ marginBottom: 24 }}>
         <h3 style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <LogOut size={18} /> Session
+          <LogOut size={18} /> Sign out
         </h3>
         <button onClick={() => signOut()} className="btn-secondary">
           Sign out

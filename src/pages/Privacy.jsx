@@ -23,7 +23,7 @@ export default function Privacy() {
 
       <div className="glass-card" style={{ maxWidth: '760px', lineHeight: 1.7 }}>
         <Section title="1. Who We Are">
-          <p>AXON ("we", "us", "our") is a universal AI memory layer that securely stores and structures your personal context, making every AI tool you use smarter over time. This policy explains how we collect, use, and protect your data.</p>
+          <p>AXON ("we", "us", "our") is a universal AI memory layer that securely stores and structures your personal memory, making every AI tool you use smarter over time. This policy explains how we collect, use, and protect your data.</p>
         </Section>
 
         <Section title="2. Data We Collect">
@@ -39,7 +39,7 @@ export default function Privacy() {
         <Section title="3. How We Use Your Data">
           <ul style={{ paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <li>To provide the AXON memory layer service.</li>
-            <li>To inject relevant memory context into your connected AI adapters.</li>
+            <li>To inject relevant memories into your connected AI adapters.</li>
             <li>To send you essential service communications (account confirmation, billing receipts).</li>
             <li>To improve AXON's quality via anonymised, aggregate usage patterns.</li>
           </ul>
@@ -54,7 +54,7 @@ export default function Privacy() {
           <ul style={{ paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
             <li><strong>Supabase</strong> — database and authentication (<a href="https://supabase.com/privacy" target="_blank" rel="noreferrer" style={{ color: 'var(--color-neon-cyan)' }}>supabase.com/privacy</a>)</li>
             <li><strong>Stripe</strong> — payment processing (<a href="https://stripe.com/privacy" target="_blank" rel="noreferrer" style={{ color: 'var(--color-neon-cyan)' }}>stripe.com/privacy</a>)</li>
-            <li><strong>AI providers</strong> (OpenAI, Anthropic, Google) — only your memory context queries are sent; no personal account data is shared.</li>
+            <li><strong>AI providers</strong> (OpenAI, Anthropic, Google) — only your memory queries are sent; no personal account data is shared.</li>
           </ul>
         </Section>
 

@@ -48,6 +48,7 @@ Every memory in a pack is `{ id, kind: "memory", title, content, source, confide
 
 - `source`: `{ channel: direct|agent|connector|unknown, type, provider?, account?, client?, app?, url?, at }`
 - `confidence`: trust in the statement itself, not how well it matched. It's `high`, `medium` or `low`, based on the stated confidence, otherwise the channel, minus age (Depth), plus reliance (Weight).
+- Notes the person wrote come out separately under `your_notes`, and each one is a memory too: `{ id, kind: "memory", title, text, about, written_at, source }` (`traceNote`). So every item in the pack carries its `memory_items` id and its source.
 - Conclusions (`memory_facts`) are under `inferred`. Each one is `{ statement, kind: "inference", from: [memory ids], derived_by?, confidence }`, and it's never `high` with fewer than two sources. The old bare-string `known` key is gone.
 - `how_to_use.reading` spells out what memory, inference, source and confidence mean.
 - Inputs: `facets` on `recall_context`/`recall` (MCP), and `?facets=a,b` or `body.facets` on `/context-pack`. Facets only change the ranking; they never filter results out.
