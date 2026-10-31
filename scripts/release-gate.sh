@@ -20,6 +20,7 @@ step "deno typecheck + unit (_shared)"   deno test --allow-env supabase/function
 step "typecheck every edge function"     bash -c 'cd supabase/functions && for f in */index.ts; do case "$f" in stripe-*) continue;; esac; deno check "$f" || exit 1; done'
 step "web unit (vitest)"                 npx vitest run
 step "lexicon (canon words)"             node scripts/check-lexicon.mjs
+step "lexicon guard's own extractor"     node --test scripts/check-lexicon.test.mjs
 step "plan names (Power, prices fixed)"  node scripts/check-plan-names.mjs
 step "lint (errors fail, warnings allowed)" npx oxlint src
 step "MCP gateway worker"                node --test cloudflare/mcp-gateway/worker.test.mjs

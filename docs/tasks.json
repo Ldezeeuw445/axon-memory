@@ -1173,6 +1173,44 @@
       "blocker": "Terms and Privacy still describe things the product no longer has (memory nodes, adapter connections, graph export); that is legal copy for Luka, not an agent edit",
       "next_action": "Run npm test, npm run test:lexicon, npm run test:naming, npm run build; then deploy mcp-server + context-pack (memory-core change) and rerun the isolation suites",
       "rollback_reference": "git revert"
+    },
+    {
+      "id": "A10-3",
+      "product": "axon-memory",
+      "objective": "The Lexicon guard reads whole lines: it used to stop at the first quoted string, so forbidden copy later on the same line passed the release gate unseen. Extractor rewritten and pinned by its own unit test",
+      "phase": "A10",
+      "priority": "P2",
+      "status": "waiting_approval",
+      "owner_agent": "claude-code",
+      "dependencies": [
+        "A3-3"
+      ],
+      "acceptance_criteria": [
+        "Every string literal on a line is scanned, not only the first: the old global quote-pair regex matched the text *between* two literals and consumed the second one's opening quote",
+        "A comma-separated identifier list (a .select() column list such as 'id, statement, category') is code, not copy",
+        "An import line is code wherever it sits, including inside a code sample a developer page prints",
+        "An apostrophe in JSX text ('your memory's dashboard') no longer stops the line being read",
+        "${...} inside a template literal is dropped brace-depth aware, so a banned word inside an interpolation is not copy",
+        "Both code rules stay narrow: a single word, Capitalised copy with a comma, and copy that merely begins with 'import' are all still read",
+        "scripts/check-lexicon.test.mjs covers each of the above; release-gate.sh runs it as a step"
+      ],
+      "files_or_services_touched": [
+        "scripts/check-lexicon.mjs",
+        "scripts/check-lexicon.test.mjs",
+        "scripts/release-gate.sh",
+        "package.json",
+        "docs/ARCHITECTURE.md"
+      ],
+      "started_at": "2026-10-31T00:00:00+01:00",
+      "last_progress_at": "2026-10-31T00:00:00+01:00",
+      "attempts": 1,
+      "tests_run": [],
+      "build_result": null,
+      "deployment_result": "none: tooling and docs only, no edge function, migration or frontend code touched",
+      "verification_result": "Not run: node, npm and deno all need an approval this session did not have, so neither the guard nor its new test was executed. Verified by hand instead: grepped the 19 scanned paths for all 42 forbidden words (22 hit lines, all of them imports, comments or bare identifiers) and walked each one through the new extractor — src/ stays clean, 0 hits, with no src/ change needed. The two lines the correction newly exposes are both code and are handled by rule, not by a marker: the memory_facts column list in YouFacet.jsx:61 ('category') and the SDK sample's import line in Developers.jsx:50.",
+      "blocker": "Nobody has yet run npm run test:lexicon-unit, npm run test:lexicon or bash scripts/release-gate.sh against this change",
+      "next_action": "Run npm run test:lexicon-unit and npm run test:lexicon; expect 9 passing tests and 'Lexicon clean'. Then bash scripts/release-gate.sh — it is 13 steps now, not 12.",
+      "rollback_reference": "git revert; the previous extractor is in scripts/check-lexicon.mjs at be3ae7f"
     }
   ]
 }
