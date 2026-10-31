@@ -214,7 +214,7 @@ export const AI_PROVIDERS = [
     guide: [
       'Open Cursor → Settings → Extensions',
       'Find "AXON Memory" and click Configure',
-      'Generate an AXON API key from your dashboard',
+      'Generate an AXON API key in Connect',
       'Paste it below and click Test & Connect',
     ],
   },

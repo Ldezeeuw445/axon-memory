@@ -10,7 +10,7 @@ import { adapterKeyFromLabel } from "./adapters.ts";
 import { capture, type CaptureChannel, type CaptureOutcome } from "./capture.ts";
 import { planDisplayName } from "./plans.ts";
 import { openWorkForPack, standingRulesForPack } from "./workspace.ts";
-import { inferenceOf, RECALL_LEGEND, traceMemory, type TraceMaps } from "./recall.ts";
+import { inferenceOf, RECALL_LEGEND, traceMemory, traceNote, type HybridRow, type TraceMaps } from "./recall.ts";
 
 const CHARS_PER_TOKEN = 4; // rough heuristic, good enough for budgeting
 
@@ -188,7 +188,7 @@ async function buildContextPackImpl(
     ).limit(1),
     admin
       .from("memory_items")
-      .select("id, title, content, updated_at, occurred_at, metadata")
+      .select("id, title, content, updated_at, occurred_at, metadata, source_type, origin_key, source_connection_id, api_key_id")
       .eq("user_id", userId)
       .eq("origin_key", "notes")
       .is("retired_at", null)
@@ -377,8 +377,9 @@ async function buildContextPackImpl(
     connections: new Map((sources ?? []).map((s: { id: string; provider: string; external_account_label: string | null }) =>
       [s.id, { provider: s.provider, account: s.external_account_label ?? null }])),
   };
-  if (items.length > 0) {
-    const keyIds = [...new Set(items.map((i: { api_key_id?: string | null }) => i.api_key_id).filter(Boolean))] as string[];
+  if (items.length > 0 || (noteRows ?? []).length > 0) {
+    // Notes are traced too, so the assistant that wrote one is named.
+    const keyIds = [...new Set([...items, ...(noteRows ?? [])].map((i: { api_key_id?: string | null }) => i.api_key_id).filter(Boolean))] as string[];
     const projIds = [...new Set(items.map((i: { project_id?: string | null }) => i.project_id).filter(Boolean))] as string[];
     const [{ data: keyRows }, { data: projRows }] = await Promise.all([
       keyIds.length
@@ -493,13 +494,7 @@ async function buildContextPackImpl(
        short: the assistant should be able to say "you started this" and quote
        it, not summarise something it half saw. */
     ...((noteRows ?? []).length ? {
-      your_notes: (noteRows ?? []).map((n) => ({
-        id: n.id,
-        title: n.title ?? null,
-        text: (n.content ?? "").slice(0, 400),
-        about: n.metadata?.repo ?? n.metadata?.app ?? null,
-        written_at: n.occurred_at,
-      })),
+      your_notes: (noteRows ?? []).map((n) => traceNote(n as HybridRow, traceMaps)),
     } : {}),
     /* Verbatim, and first. These are the things that are true before anything
        else in this pack is read — the ones that make a write fail silently or

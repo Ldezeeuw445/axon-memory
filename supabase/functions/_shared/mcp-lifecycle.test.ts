@@ -53,6 +53,22 @@ Deno.test("retire passes the resolved owner, never one from args", async () => {
   assertStringIncludes(out.text, "2 conclusion");
 });
 
+Deno.test("every lifecycle verb is owner-scoped: a user_id in args is ignored", async () => {
+  const other = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+  const cases: [string, Record<string, unknown>][] = [
+    ["retire", { id: OLD, user_id: other }],
+    ["restore", { id: OLD, user_id: other }],
+    ["supersede", { old_id: OLD, new_id: NEW, user_id: other }],
+    ["delete", { id: OLD, confirm: true, user_id: other }],
+  ];
+  for (const [tool, args] of cases) {
+    const a = fake({ id: OLD, old: OLD, new: NEW, changed: true });
+    await handleLifecycleTool(a, me, tool, args, noCapture);
+    assertEquals(a.calls.length, 1, tool);
+    assertEquals(a.calls[0][1].p_user_id, me.userId, tool);
+  }
+});
+
 Deno.test("supersede with content captures the new memory first", async () => {
   const a = fake({ old: OLD, new: NEW, changed: true });
   let captured: [string, string | null] | null = null;

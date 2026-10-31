@@ -8,10 +8,10 @@ import { DATA_SOURCES } from '../lib/logos';
 
 const USE_CASES = [
   { id: 'founder', emoji: '🚀', label: 'Founder / Product', desc: 'Build and ship faster with AI that knows your roadmap' },
-  { id: 'developer', emoji: '💻', label: 'Developer', desc: 'Context-aware coding across all your projects' },
+  { id: 'developer', emoji: '💻', label: 'Developer', desc: 'Memory-aware coding across all your projects' },
   { id: 'researcher', emoji: '🔬', label: 'Researcher / Analyst', desc: 'Connect notes, papers and findings into one graph' },
   { id: 'creator', emoji: '✍️', label: 'Creator / Writer', desc: 'Never lose an idea — AXON remembers everything' },
-  { id: 'business', emoji: '🏢', label: 'Business / Enterprise', desc: 'Team knowledge base that every AI tool can access' },
+  { id: 'business', emoji: '🏢', label: 'Business / Enterprise', desc: 'Shared team memory that every AI tool can access' },
 ];
 
 // Only the 4 providers with a real OAuth backend — no more paste-a-token
@@ -146,7 +146,7 @@ export default function Onboarding() {
         )}
 
         {/* Step 2: AI adapters — informational, not a fake key-test. Connecting
-            an assistant actually happens from inside Claude/ChatGPT using this
+            an AI tool actually happens from inside Claude/ChatGPT using this
             MCP URL, so we show that instead of simulating a paste-your-key flow. */}
         {step === 2 && (
           <div>
@@ -205,7 +205,7 @@ export default function Onboarding() {
               AXON is now active. You can connect more tools anytime from Connect.
             </p>
             <button onClick={() => navigate('/recall')} className="btn-primary" style={{ width: '100%', fontSize: 16, padding: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-              <Zap size={18} /> Open Dashboard
+              <Zap size={18} /> Open Memory
             </button>
             <button onClick={back} style={{ marginTop: 12, background: 'none', border: 'none', color: 'var(--color-text-secondary)', fontSize: 13, cursor: 'pointer' }}>
               ← Back

@@ -27,7 +27,7 @@ export default function Terms() {
         </Section>
 
         <Section title="2. Description of Service">
-          <p>AXON is a universal AI memory layer that stores structured personal context and injects it into connected AI tools. The Service includes a web application, API, and (optionally) mobile applications for iOS and Android.</p>
+          <p>AXON is a universal AI memory layer that stores structured personal memory and injects it into connected AI tools. The Service includes a web application, API, and (optionally) mobile applications for iOS and Android.</p>
         </Section>
 
         <Section title="3. Account Registration">
@@ -65,7 +65,7 @@ export default function Terms() {
         </Section>
 
         <Section title="10. Changes to Terms">
-          <p>We may update these Terms. Continued use after notification of changes constitutes acceptance. Material changes will be emailed to your registered address.</p>
+          <p>We may update these Terms. Continued use after notice of changes constitutes acceptance. Material changes will be emailed to your registered address.</p>
         </Section>
 
         <Section title="11. Governing Law">
